@@ -1,0 +1,40 @@
+{
+  "name": "lecture-quiz-generator-server",
+  "version": "1.0.0",
+  "description": "Backend server for lecture note quiz generation",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "education",
+    "quiz",
+    "ai",
+    "lecture-notes"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@capacitor/cli": "^8.0.2",
+    "@capacitor/core": "^8.0.2",
+    "@capacitor/ios": "^8.0.2",
+    "@distube/ytdl-core": "^4.16.12",
+    "@google/genai": "^1.34.0",
+    "@google/generative-ai": "^0.24.1",
+    "@notionhq/client": "^5.6.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^4.18.2",
+    "mammoth": "^1.6.0",
+    "multer": "^1.4.5-lts.1",
+    "node-fetch": "^3.3.2",
+    "pdf-parse": "^1.1.1",
+    "xml2js": "^0.6.2",
+    "youtube-captions-scraper": "^2.0.3",
+    "youtube-transcript": "^1.2.1",
+    "youtubei.js": "^16.0.1",
+    "ytdl-core": "^4.11.5"
+  }
+}

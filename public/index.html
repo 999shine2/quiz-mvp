@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>InsightTube</title>
+    
+    <!-- PWA Settings -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#6B8C42">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="/placeholder.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&family=Patrick+Hand&family=Quicksand:wght@500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+</head>
+
+<body>
+
+    <!-- Login Screen -->
+    <div id="login-screen" class="login-screen" hidden
+        style="position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg-body); z-index:10000; display:flex; align-items:center; justify-content:center;">
+        <div class="login-card"
+            style="padding:2rem; background:var(--card-bg); border-radius:24px; text-align:center; max-width:90%; width:350px; border:1px solid var(--border-light); box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+            <div class="logo" style="margin-bottom:1rem;">
+                <h1 style="color:var(--text-main); font-size:2rem; font-weight:700;">Insight<span
+                        class="gradient-text">Tube</span></h1>
+            </div>
+            <h2 style="color:var(--text-main); margin-bottom:1rem; font-family:var(--font-heading);">Welcome Back</h2>
+            <div class="login-form">
+                <input type="text" id="login-username" placeholder="Nickname" autocomplete="off" class="text-input"
+                    style="margin-bottom:15px;">
+                <button id="login-btn" class="primary-btn" style="width:100%">Continue</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Top Bar -->
+    <div class="mobile-top-bar" id="mobile-top-bar">
+
+
+        <!-- Language Picker -->
+        <div class="language-picker" style="position: absolute; top: 1rem; right: 1rem;">
+            <button id="lang-toggle-btn"
+                style="background:none; border:none; font-size:1.5rem; cursor:pointer;">🌐</button>
+            <div id="lang-menu" class="lang-menu" hidden
+                style="display:none; position:absolute; right:0; top:100%; background:var(--card-bg); border:1px solid var(--border-light); border-radius:12px; padding:0.5rem; flex-direction:column; gap:5px; box-shadow:var(--shadow-soft); z-index:20;">
+                <button data-lang="en"
+                    style="background:none; border:none; color:var(--text-main); padding:8px 16px; text-align:left; cursor:pointer; border-radius:8px;">🇺🇸
+                    English</button>
+                <button data-lang="ja"
+                    style="background:none; border:none; color:var(--text-main); padding:8px 16px; text-align:left; cursor:pointer; border-radius:8px;">🇯🇵
+                    日本語</button>
+                <button data-lang="ko"
+                    style="background:none; border:none; color:var(--text-main); padding:8px 16px; text-align:left; cursor:pointer; border-radius:8px;">🇰🇷
+                    한국어</button>
+                <button data-lang="zh"
+                    style="background:none; border:none; color:var(--text-main); padding:8px 16px; text-align:left; cursor:pointer; border-radius:8px;">🇨🇳
+                    中文</button>
+                <button data-lang="fr"
+                    style="background:none; border:none; color:var(--text-main); padding:8px 16px; text-align:left; cursor:pointer; border-radius:8px;">🇫🇷
+                    Français</button>
+                <button data-lang="de"
+                    style="background:none; border:none; color:var(--text-main); padding:8px 16px; text-align:left; cursor:pointer; border-radius:8px;">🇩🇪
+                    Deutsch</button>
+                <button data-lang="es"
+                    style="background:none; border:none; color:var(--text-main); padding:8px 16px; text-align:left; cursor:pointer; border-radius:8px;">🇪🇸
+                    Español</button>
+                <button data-lang="pt"
+                    style="background:none; border:none; color:var(--text-main); padding:8px 16px; text-align:left; cursor:pointer; border-radius:8px;">🇧🇷
+                    Português</button>
+                <button data-lang="vi"
+                    style="background:none; border:none; color:var(--text-main); padding:8px 16px; text-align:left; cursor:pointer; border-radius:8px;">🇻🇳
+                    Tiếng Việt</button>
+                <button data-lang="hi"
+                    style="background:none; border:none; color:var(--text-main); padding:8px 16px; text-align:left; cursor:pointer; border-radius:8px;">🇮🇳
+                    हिन्दी</button>
+                <button data-lang="ar"
+                    style="background:none; border:none; color:var(--text-main); padding:8px 16px; text-align:left; cursor:pointer; border-radius:8px;">🇸🇦
+                    العربية</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-container">
+
+        <main>
+            <!-- Upload Section -->
+            <section id="upload-section" class="view active-view">
+                <div class="hero-text">
+                    <h2>Capture <span class="gradient-text">Insights</span></h2>
+                    <p>Turn videos and notes into mastery.</p>
+
+                    <!-- Daily Quiz Feature -->
+                    <div style="margin-top: 15px; margin-bottom: 10px;">
+                        <button id="start-youtube-quiz-btn" class="secondary-btn"
+                            style="background: rgba(255,255,255,0.8); backdrop-filter: blur(4px);">
+                            ▶️ Start YouTube Quiz
+                        </button>
+                        <button id="start-news-quiz-btn" class="secondary-btn"
+                            style="background: rgba(255,255,255,0.8); backdrop-filter: blur(4px); margin-left:10px;">
+                            📰 Start News Quiz
+                        </button>
+                    </div>
+                </div>
+
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="creative">🎨 Creative</button>
+                    <button class="tab-btn" data-tab="youtube">▶ YouTube</button>
+                    <button class="tab-btn" data-tab="file">📄 Document</button>
+                </div>
+
+                <!-- File Upload Tab -->
+                <div class="upload-container tab-content" id="tab-file" style="display: none;">
+                    <!-- Drop Zone -->
+                    <div id="drop-zone" class="drop-zone">
+                        <span style="font-size:3rem; display:block; margin-bottom:1rem;">📄</span>
+                        <p>Upload Document</p>
+                        <p style="font-size: 0.8rem; color: #94a3b8; margin-top:5px;">PDF, DOC, DOCX</p>
+                    </div>
+                    <input type="file" id="file-input" accept=".pdf,.doc,.docx,.txt" hidden>
+                    <!-- File Info -->
+                    <div id="file-info" class="file-info" hidden>
+                        <span style="font-size:1.5rem;">📄</span>
+                        <div style="text-align:left;">
+                            <div id="file-name" style="font-weight:700; color:var(--text-main);">filename.pdf</div>
+                            <div style="font-size:0.8rem; color:var(--text-muted);">Ready to process</div>
+                        </div>
+                        <button id="remove-file" class="remove-btn">✕</button>
+                    </div>
+                    <button id="generate-btn" class="primary-btn" disabled style="width:100%; margin-top:20px;">
+                        <span class="btn-text">Generate Quiz</span>
+                        <div class="loader" hidden></div>
+                    </button>
+                </div>
+
+                <!-- YouTube Tab -->
+                <div class="upload-container tab-content" id="tab-youtube" style="display: none;">
+                    <div style="text-align: center; padding: 1rem;">
+                        <span style="font-size:3rem; display:block; margin-bottom:1rem;">▶️</span>
+                        <p style="margin-bottom: 20px;">Enter YouTube URL</p>
+                        <input type="text" id="youtube-input" placeholder="https://youtube.com/watch?v=..."
+                            class="text-input" style="width:100%; margin-bottom: 20px;">
+                        <button id="generate-yt-btn" class="primary-btn" disabled style="width:100%;">
+                            <span class="btn-text">Generic Quiz</span>
+                            <div class="loader" hidden></div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Creative Tab -->
+                <div class="upload-container tab-content" id="tab-creative">
+                    <div style="text-align: center; padding: 1rem;">
+                        <h3 style="margin-bottom:10px;">Creative Work</h3>
+
+                        <div style="margin-bottom: 15px;">
+                            <label
+                                style="display:block; text-align:left; font-size:0.8rem; color:var(--text-muted); margin-bottom:5px;">Title</label>
+                            <input type="text" id="creative-title-input" placeholder="e.g. Inception, 1984, Friends..."
+                                class="text-input" style="width:100%;">
+                        </div>
+
+                        <div style="margin-bottom: 15px;">
+                            <label
+                                style="display:block; text-align:left; font-size:0.8rem; color:var(--text-muted); margin-bottom:5px;">Author
+                                / Director (Optional)</label>
+                            <input type="text" id="creative-author-input"
+                                placeholder="e.g. Christopher Nolan, George Orwell..." class="text-input"
+                                style="width:100%;">
+                        </div>
+
+                        <div style="margin-bottom: 10px;">
+                            <label
+                                style="display:block; text-align:left; font-size:0.8rem; color:var(--text-muted); margin-bottom:5px;">Type</label>
+                            <select id="creative-type-select" class="text-input" style="width:100%;">
+                                <option value="Movie">🎬 Movie</option>
+                                <option value="Book">📖 Book</option>
+                                <option value="TV Show">📺 TV Show</option>
+                                <option value="Music Album">🎵 Music Album</option>
+                                <option value="Art/Play">🎭 Art / Play</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button id="generate-creative-btn" class="primary-btn" style="width:100%; margin-top:10px;">
+                        <span class="btn-text">Generate Quiz</span>
+                        <div class="loader" hidden></div>
+                    </button>
+                </div>
+
+                <!-- API Key section removed -->
+            </section>
+
+            <!-- Quiz Section -->
+            <section id="quiz-section" class="view">
+                <div class="quiz-header">
+                    <button id="back-to-library" class="secondary-btn"
+                        style="padding: 5px 15px; font-size: 0.8rem;">Before</button>
+                    <div class="quiz-progress">
+                        <span id="current-question-num">1</span> / <span id="total-questions-num">5</span>
+                    </div>
+                </div>
+
+                <div class="card quiz-card">
+                    <div class="question-container">
+                        <h3 id="question-text" class="quiz-question-text">Loading...</h3>
+                    </div>
+                    <div class="options-container" id="options-container"></div>
+                    <div class="explanation-box" id="explanation-box" hidden>
+                        <h4>Explanation</h4>
+                        <p id="explanation-text"></p>
+                    </div>
+                </div>
+
+                <div class="quiz-controls" style="margin-top:20px;">
+                    <button id="prev-question" class="secondary-btn" disabled>Prev</button>
+                    <button id="next-question" class="primary-btn" style="flex:1; margin-left:10px;">Next</button>
+                    <button id="submit-quiz" class="primary-btn" hidden
+                        style="flex:1; margin-left:10px;">Finish</button>
+                </div>
+            </section>
+
+            <!-- Reels Section (Endless Mode) -->
+            <section id="reels-section" class="view">
+                <button id="exit-reels-btn" class="close-reels">✕</button>
+                <div id="reels-container" class="reels-container">
+                    <!-- Reel Cards Injected Here -->
+                </div>
+            </section>
+
+            <!-- Library Section -->
+            <section id="library-section" class="view">
+                <div class="library-header">
+                    <h2 data-i18n="library_title_html">Your <span class="gradient-text">Study Library</span></h2>
+                    <div class="library-actions">
+                        <button id="create-question-btn" class="small-btn">
+                            <span>➕</span> <span data-i18n="create_question">Question</span>
+                        </button>
+                        <button id="create-material-btn" class="small-btn">
+                            <span>📚</span> <span data-i18n="create_material">Material</span>
+                        </button>
+                        <button id="endless-mode-btn" hidden></button>
+                    </div>
+                </div>
+
+                <div class="library-filters">
+                    <div class="filter-group">
+                        <label data-i18n="sort_by">Sort:</label>
+                        <select id="sort-select">
+                            <option value="date_desc" data-i18n="date_newest">Date (Newest)</option>
+                            <option value="date_asc" data-i18n="date_oldest">Date (Oldest)</option>
+                            <option value="solved_desc" data-i18n="sort_solved_desc">Most Solved</option>
+                            <option value="solved_asc" data-i18n="sort_solved_asc">Least Solved</option>
+                            <option value="time_desc" data-i18n="sort_time_desc">Most Time Saved</option>
+                            <option value="time_asc" data-i18n="sort_time_asc">Least Time Saved</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Category:</label>
+                        <select id="category-select">
+                            <option value="all">All</option>
+                            <option value="Business">Business</option>
+                            <option value="Finance / Investing">Finance</option>
+                            <option value="Science">Science</option>
+                            <option value="Technology">Technology</option>
+                            <option value="Health / Medicine">Health</option>
+                            <option value="Engineering">Engineering</option>
+                            <option value="Design">Design</option>
+                            <option value="Philosophy / Thinking">Philosophy</option>
+                            <option value="Career / Education">Education</option>
+                            <option value="Politics / Society">Society</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label data-i18n="filter_type">Type:</label>
+                        <select id="filter-select">
+                            <option value="all" data-i18n="all_materials">All</option>
+                            <option value="youtube">Video</option>
+                            <option value="pdf">PDF</option>
+                            <option value="doc">Doc</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    <!-- Liked Button Placeholder - JS will attach listener -->
+                    <button id="liked-filter-btn" class="small-btn"
+                        style="border-color: var(--accent); color: var(--accent);">
+                        ❤️ Liked
+                    </button>
+                </div>
+
+                <div class="library-grid" id="library-grid">
+                    <div class="empty-state">
+                        <p>No items yet.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Profile Section -->
+            <!-- Profile Section -->
+            <section id="profile-section" class="view">
+                <div class="profile-header">
+                    <h2 data-i18n="profile_title_html">Your <span class="gradient-text">Profile</span></h2>
+                    <p data-i18n="profile_desc" style="color:var(--text-muted); text-align:center;">Track your progress.
+                    </p>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-questions-solved">0</div>
+                        <div class="stat-label">Solved</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-time-saved">0m</div>
+                        <div class="stat-label">Saved</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-streak">0</div>
+                        <div class="stat-desc" id="stat-streak-desc" style="font-size: 0.7rem; color: #666;">0 days
+                        </div>
+                        <div class="stat-label">Streak</div>
+                    </div>
+                </div>
+
+                <!-- Knowledge Sources Card -->
+                <div class="chart-card"
+                    style="background: var(--card-bg); border-radius: 20px; padding: 20px; border: 1px solid var(--border-light); box-shadow: var(--shadow-soft); margin-top: 1rem; text-align: center;">
+                    <h3
+                        style="margin-bottom:0.5rem; color:var(--text-muted); font-size:1rem; font-family:var(--font-heading);">
+                        Knowledge Sources</h3>
+
+                    <div id="notion-connect-container">
+                        <button id="connect-notion-btn" class="secondary-btn"
+                            style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            <span style="font-size: 1.2rem;">📓</span> Connect Notion
+                        </button>
+                    </div>
+
+                    <div id="notion-connected-container" hidden>
+                        <div style="margin-bottom: 10px; color: var(--primary-dark); font-weight: 600;">
+                            ✅ Connected to <span id="notion-workspace-name">Workspace</span>
+                        </div>
+                        <button id="sync-notion-btn" class="primary-btn"
+                            style="width: 100%; font-size: 0.9rem; padding: 8px;">
+                            🔄 Sync Now
+                        </button>
+                        <p id="notion-last-synced"
+                            style="font-size: 0.7rem; color: var(--text-muted); margin-top: 5px;">Last synced: Never</p>
+                    </div>
+                </div>
+
+                <!-- Personal Interests Card -->
+                <div class="chart-card"
+                    style="background: var(--card-bg); border-radius: 20px; padding: 20px; border: 1px solid var(--border-light); box-shadow: var(--shadow-soft); margin-top: 1rem; text-align: center;">
+                    <h3
+                        style="margin-bottom:0.5rem; color:var(--text-muted); font-size:1rem; font-family:var(--font-heading);">
+                        Personal Interests</h3>
+
+                    <div id="selected-interests-preview"
+                        style="display:flex; flex-wrap:wrap; justify-content:center; gap:5px; margin-bottom:10px;">
+                        <!-- Selected interests will appear here -->
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">No interests selected</span>
+                    </div>
+
+                    <button id="personal-btn" class="secondary-btn"
+                        style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <span style="font-size: 1.2rem;">👤</span> Setup Personal
+                    </button>
+                </div>
+
+                <!-- Charts container ends here -->
+
+                <div class="charts-container"
+                    style="display: grid; grid-template-columns: 1fr; gap: 1rem; margin-top: 2rem;">
+                    <div class="chart-card"
+                        style="background: var(--card-bg); border-radius: 20px; padding: 20px; border: 1px solid var(--border-light); box-shadow: var(--shadow-soft);">
+                        <h3 data-i18n="chart_title"
+                            style="margin-bottom:1rem; color:var(--text-muted); font-size:1rem; font-family:var(--font-heading);">
+                            Last 7 Days</h3>
+                        <div id="activity-chart"
+                            style="height: 200px; display: flex; align-items: flex-end; justify-content: space-between; padding-top: 20px;">
+                            <!-- Bars injected by JS -->
+                        </div>
+                    </div>
+
+                    <div class="chart-card"
+                        style="background: var(--card-bg); border-radius: 20px; padding: 20px; border: 1px solid var(--border-light); box-shadow: var(--shadow-soft);">
+                        <h3 data-i18n="subject_mastery"
+                            style="margin-bottom:1rem; color:var(--text-muted); font-size:1rem; font-family:var(--font-heading);">
+                            Subject Mastery</h3>
+                        <div id="subject-list" style="margin-top: 15px;">
+                            <!-- Injected JS -->
+                        </div>
+                    </div>
+                </div>
+                <div class="logout-container" style="margin-top: 2rem; margin-bottom: 2rem;">
+                    <button id="logout-btn" class="logout-btn">Log Out</button>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <!-- 1. Endless Review (Left) -->
+        <button class="nav-item" id="nav-endless">
+            <svg viewBox="0 0 24 24">
+                <path
+                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" />
+            </svg>
+            <span>Review</span>
+        </button>
+
+        <!-- 2. Upload -->
+        <button class="nav-item active" id="nav-upload">
+            <svg viewBox="0 0 24 24">
+                <path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z" />
+            </svg>
+            <span>Upload</span>
+        </button>
+
+        <!-- 3. Library -->
+        <button class="nav-item" id="nav-library">
+            <svg viewBox="0 0 24 24">
+                <path
+                    d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z" />
+            </svg>
+            <span>Library</span>
+        </button>
+
+        <!-- 4. Profile -->
+        <button class="nav-item" id="nav-profile">
+            <svg viewBox="0 0 24 24">
+                <path
+                    d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+            </svg>
+            <span>Profile</span>
+        </button>
+    </nav>
+
+    <div class="background-blobs"></div>
+
+    <script src="client_app.js?v=force_reload_001"></script>
+
+    <!-- Just checking if we need the modal logic from before, probably yes, keeping it minimal -->
+    <div id="summary-modal" class="modal-overlay" hidden
+        style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:2000; background:rgba(255,255,255,0.4); backdrop-filter: blur(8px);">
+        <div class="modal-content dark-modal"
+            style="width: 450px; max-width:90%; border-radius: 24px; overflow: hidden; display: flex; flex-direction: column;">
+
+            <div style="padding: 20px 24px 10px 24px; position: relative;">
+                <button id="close-summary-modal-btn"
+                    style="position: absolute; top: 15px; left: 15px; background: none; border: none; font-size: 1.5rem; color: var(--text-muted); cursor: pointer; padding: 5px;">
+                    ✕
+                </button>
+
+                <div style="text-align: center; margin-top: 10px;">
+                    <div style="font-size: 1.8rem; margin-bottom: 5px;">
+                        <span id="overview-emoji">🚀</span>
+                    </div>
+                    <h3 id="overview-title"
+                        style="font-size: 1.3rem; margin: 0; font-weight: 700; font-family: var(--font-heading);">Why YC
+                        Still Matters</h3>
+                </div>
+
+                <!-- Tags / Categories -->
+                <div id="overview-tags"
+                    style="display: flex; justify-content: center; gap: 8px; margin-top: 15px; flex-wrap: wrap;">
+                    <!-- Tags injected here -->
+                </div>
+            </div>
+
+            <div style="padding: 10px 24px; overflow-y: auto; max-height: 70vh;">
+                <!-- Stats Grid -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                    <div class="overview-stat-card">
+                        <div class="label">QUESTIONS</div>
+                        <div class="value" id="overview-question-count">15</div>
+                    </div>
+                    <div class="overview-stat-card">
+                        <div class="label">TIME SAVED</div>
+                        <div class="value" id="overview-time-saved" style="color: var(--primary);">30m</div>
+                    </div>
+                </div>
+
+                <!-- Source Link -->
+                <div style="margin-bottom: 20px;">
+                    <div
+                        style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; margin-bottom: 5px; letter-spacing: 0.5px;">
+                        SOURCE</div>
+                    <a id="overview-source-link" href="#" target="_blank" class="overview-link-card">
+                        <span style="font-size: 1.2rem; margin-right: 10px;">🔗</span>
+                        <span id="overview-source-text"
+                            style="flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--primary-dark);">https://youtu.be/...</span>
+                        <span style="font-size: 0.9rem; color: var(--primary);">↗</span>
+                    </a>
+                </div>
+
+                <!-- Summary Preview -->
+                <div style="margin-bottom: 20px;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                        <div
+                            style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; letter-spacing: 0.5px;">
+                            SUMMARY PREVIEW</div>
+                        <button id="edit-summary-btn" class="secondary-btn"
+                            style="font-size: 0.7rem; padding: 4px 10px; border-radius: 12px; cursor: pointer;">✎
+                            Edit</button>
+                    </div>
+                    <div id="overview-summary-preview" class="summary-scroll-area">
+                        <!-- Summary content -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Action -->
+            <div
+                style="padding: 20px 24px; border-top: 1px solid rgba(107, 140, 66, 0.1); background: rgba(255,255,255,0.4);">
+                <button id="overview-start-review-btn" class="primary-btn"
+                    style="flex: 1; border-radius: 12px; font-size: 1rem; padding: 12px; box-shadow: 0 4px 0 var(--primary-dark);">
+                    Start Review
+                </button>
+                <button id="overview-review-liked-btn" class="secondary-btn" hidden
+                    style="flex: 1; border-radius: 12px; font-size: 1rem; padding: 12px; border-width: 2px;">
+                    ❤️ Review Liked
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Create Material Modal -->
+    <div id="material-modal" class="modal-overlay" hidden
+        style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:2000; background:rgba(0,0,0,0.5);">
+        <div class="modal-content"
+            style="background:var(--card-bg); padding:2rem; border-radius:24px; max-width:90%; width: 500px; border:1px solid var(--border-light); box-shadow: var(--shadow-soft);">
+            <div class="modal-header" style="display:flex; justify-content:space-between; margin-bottom:1rem;">
+                <h3 style="font-family:var(--font-heading); color:var(--text-main); font-size:1.2rem;">Create Material
+                </h3>
+                <button id="close-material-modal-btn"
+                    style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--text-muted);">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group" style="margin-bottom:1rem;">
+                    <label style="display:block; margin-bottom:0.5rem; color:var(--text-muted);">Material Name</label>
+                    <input type="text" id="material-name-input" class="text-input" placeholder="e.g., Biology 101"
+                        style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border-light); background:rgba(255,255,255,0.5);">
+                </div>
+                <div class="form-group" style="margin-bottom:1.5rem;">
+                    <label style="display:block; margin-bottom:0.5rem; color:var(--text-muted);">Subject Emoji</label>
+                    <input type="text" id="material-emoji-input" class="text-input" maxlength="2" placeholder="🧬"
+                        style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border-light); background:rgba(255,255,255,0.5);">
+                </div>
+                <button id="save-material-btn" class="primary-btn" style="width:100%;">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Question Modal -->
+    <div id="question-modal" class="modal-overlay" hidden
+        style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:2000; background:rgba(0,0,0,0.5);">
+        <div class="modal-content"
+            style="background:var(--card-bg); padding:2rem; border-radius:24px; max-width:90%; width: 600px; border:1px solid var(--border-light); box-shadow: var(--shadow-soft);">
+            <div class="modal-header" style="display:flex; justify-content:space-between; margin-bottom:1rem;">
+                <h3 style="font-family:var(--font-heading); color:var(--text-main); font-size:1.2rem;">Add Custom
+                    Question</h3>
+                <button id="close-modal-btn"
+                    style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--text-muted);">×</button>
+            </div>
+            <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                <div class="form-group" style="margin-bottom:1rem;">
+                    <label style="display:block; margin-bottom:0.5rem; color:var(--text-muted);">Assign to
+                        Material</label>
+                    <select id="modal-file-select" class="text-input"
+                        style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border-light); background:rgba(255,255,255,0.5);">
+                        <option value="" disabled selected>Select a file...</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom:1rem;">
+                    <label style="display:block; margin-bottom:0.5rem; color:var(--text-muted);">Question</label>
+                    <textarea id="modal-question" rows="3" class="text-input" placeholder="Enter your question..."
+                        style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border-light); background:rgba(255,255,255,0.5);"></textarea>
+                </div>
+                <div class="form-group" style="margin-bottom:1rem;">
+                    <label style="display:block; margin-bottom:0.5rem; color:var(--text-muted);">Options (Select
+                        correct)</label>
+                    <div style="display:flex; flex-direction:column; gap:5px;">
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            <input type="radio" name="correct-opt" value="0" checked>
+                            <input type="text" class="modal-opt text-input" placeholder="Option A"
+                                style="flex:1; padding:8px; border-radius:8px;">
+                        </div>
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            <input type="radio" name="correct-opt" value="1">
+                            <input type="text" class="modal-opt text-input" placeholder="Option B"
+                                style="flex:1; padding:8px; border-radius:8px;">
+                        </div>
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            <input type="radio" name="correct-opt" value="2">
+                            <input type="text" class="modal-opt text-input" placeholder="Option C"
+                                style="flex:1; padding:8px; border-radius:8px;">
+                        </div>
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            <input type="radio" name="correct-opt" value="3">
+                            <input type="text" class="modal-opt text-input" placeholder="Option D"
+                                style="flex:1; padding:8px; border-radius:8px;">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom:1.5rem;">
+                    <label style="display:block; margin-bottom:0.5rem; color:var(--text-muted);">Explanation</label>
+                    <textarea id="modal-explanation" rows="2" class="text-input" placeholder="Why is this correct?"
+                        style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border-light); background:rgba(255,255,255,0.5);"></textarea>
+                </div>
+                <button id="save-question-btn" class="primary-btn" style="width:100%;">Save Question</button>
+            </div>
+        </div>
+    </div>
+    <!-- Personal Interests Modal -->
+    <div id="personal-modal" class="modal-overlay" hidden
+        style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:2000; background:rgba(0,0,0,0.5);">
+        <div class="modal-content"
+            style="background:var(--card-bg); padding:2rem; border-radius:24px; max-width:90%; width: 400px; border:1px solid var(--border-light); box-shadow: var(--shadow-soft);">
+            <div class="modal-header" style="display:flex; justify-content:space-between; margin-bottom:1rem;">
+                <h3 style="font-family:var(--font-heading); color:var(--text-main); font-size:1.2rem;">Start Personal
+                </h3>
+                <button id="close-personal-modal-btn"
+                    style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--text-muted);">×</button>
+            </div>
+            <div class="modal-body">
+                <p style="color:var(--text-muted); margin-bottom:1rem; font-size:0.9rem;">Choose your area of interest:
+                </p>
+                <div id="interest-options" style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:1.5rem;">
+                    <!-- JS will inject buttons here -->
+                </div>
+                <button id="save-personal-btn" class="primary-btn" style="width:100%;">Save</button>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

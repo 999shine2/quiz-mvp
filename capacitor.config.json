@@ -1,0 +1,10 @@
+{
+    "appId": "com.insighttube.app",
+    "appName": "InsightTube",
+    "webDir": "public",
+    "server": {
+        "androidScheme": "https",
+        "hostname": "localhost",
+        "iosScheme": "capacitor"
+    }
+}

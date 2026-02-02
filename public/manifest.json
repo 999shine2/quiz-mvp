@@ -1,0 +1,16 @@
+{
+    "name": "Insight Quiz",
+    "short_name": "Insight",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#F2F7E6",
+    "theme_color": "#6B8C42",
+    "orientation": "portrait-primary",
+    "icons": [
+        {
+            "src": "/placeholder.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}

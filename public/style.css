@@ -1,0 +1,1166 @@
+:root {
+    /* --- Studio Ghibli Palette --- */
+    /* Sky & Clouds */
+    --bg-gradient-start: #E6F4F1;
+    /* Pale Blue Sky */
+    --bg-gradient-end: #F2F7E6;
+    /* Soft Meadow Green */
+
+    /* Nature Tones */
+    --primary: #6B8C42;
+    /* Vibrant Meadow Green */
+    --primary-light: #8FB365;
+    /* Fresh Leaf */
+    --primary-dark: #4A6741;
+    /* Deep Forest */
+
+    /* Accents (Chihiro / Ponyo vibes) */
+    --accent: #F2A6A6;
+    /* Soft Coral/Pink */
+    --accent-glow: #FFD1D1;
+    /* Pale Pink Glow */
+    --highlight: #F9DA78;
+    /* Sun Yellow */
+
+    /* Surface */
+    --card-bg: rgba(255, 255, 255, 0.85);
+    /* Cloud White with slight transparency */
+    --glass-bg: rgba(255, 255, 255, 0.7);
+
+    /* Text */
+    --text-main: #3D3B30;
+    /* Soft Earth/Dark Sepia */
+    --text-muted: #7A7566;
+    /* Stone Grey */
+
+    /* Borders & Shadows */
+    --border-light: rgba(107, 140, 66, 0.3);
+    /* Soft Green Border */
+    --shadow-soft: 0 8px 32px rgba(107, 140, 66, 0.1);
+    /* Greenish soft shadow */
+    --shadow-hover: 0 12px 40px rgba(107, 140, 66, 0.2);
+
+    /* Fonts */
+    --font-heading: 'Quicksand', sans-serif;
+    /* Friendly & Rounded */
+    --font-body: 'Nunito', sans-serif;
+    /* Soft & Legible */
+    --font-hand: 'Patrick Hand', cursive;
+    /* Handwritten Notes */
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    font-family: var(--font-body);
+    background: linear-gradient(180deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+    background-attachment: fixed;
+    /* Parallax-like feel */
+    color: var(--text-main);
+    min-height: 100vh;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    /* Stacks children vertically */
+    align-items: center;
+    /* Centers children horizontally */
+    justify-content: center;
+    /* Centers children vertically */
+    padding-bottom: 100px;
+}
+
+/* Texture Overlay (Canvas/Watercolour feel) */
+.background-blobs {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+    pointer-events: none;
+}
+
+/* Typography */
+h1,
+h2,
+h3,
+h4 {
+    font-family: var(--font-heading);
+    color: var(--primary-dark);
+    font-weight: 700;
+}
+
+/* Whimsical Title */
+.mobile-top-bar h1 {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: var(--primary-dark);
+    text-shadow: 2px 2px 0px rgba(255, 255, 255, 0.8);
+}
+
+.gradient-text {
+    color: var(--accent);
+    background: none;
+    -webkit-text-fill-color: initial;
+    /* Remove gradient clip, solid color looks better for Ghibli */
+    font-family: var(--font-hand);
+    font-size: 1.1em;
+}
+
+/* Mobile Container */
+.app-container {
+    width: 100%;
+    max-width: 500px;
+    padding: 1.5rem;
+    padding-bottom: 120px;
+    /* Extra space for bottom nav */
+    position: relative;
+    z-index: 1;
+}
+
+/* Header */
+.mobile-top-bar {
+    text-align: center;
+    padding: 2rem 0 3rem 0;
+}
+
+/* Floating Animation */
+@keyframes float {
+    0% {
+        transform: translateY(0px);
+    }
+
+    50% {
+        transform: translateY(-5px);
+    }
+
+    100% {
+        transform: translateY(0px);
+    }
+}
+
+/* Cards - Cloud-like */
+.card,
+.upload-container,
+.library-card,
+.stat-card,
+.login-card {
+    background: var(--card-bg);
+    border: 2px solid #FFF;
+    /* White border like a cloud edge */
+    box-shadow: var(--shadow-soft);
+    border-radius: 24px;
+    padding: 1.5rem;
+    backdrop-filter: blur(8px);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    /* Bouncy transition */
+}
+
+/* Hover Effect - Lift */
+.card:hover,
+.library-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-hover);
+    border-color: var(--primary-light);
+}
+
+.upload-container {
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+    border: 2px dashed var(--primary-light);
+    background: rgba(255, 255, 255, 0.6);
+}
+
+.upload-container:hover {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: var(--primary);
+}
+
+/* Tabs */
+.tabs {
+    background: rgba(255, 255, 255, 0.5);
+    padding: 6px;
+    border-radius: 50px;
+    display: flex;
+    margin-bottom: 2rem;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.tab-btn {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 10px 0;
+    border-radius: 40px;
+    font-family: var(--font-heading);
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.tab-btn.active {
+    background: var(--primary);
+    color: #FFF;
+    box-shadow: 0 4px 10px rgba(107, 140, 66, 0.3);
+}
+
+/* Forms - Rounded & Soft */
+.text-input,
+input[type="text"],
+input[type="password"] {
+    width: 100%;
+    padding: 1rem;
+    border: 2px solid transparent;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.8);
+    font-family: var(--font-body);
+    font-size: 1rem;
+    color: var(--text-main);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.03);
+    transition: all 0.3s;
+}
+
+.text-input:focus,
+input:focus {
+    outline: none;
+    background: #FFF;
+    border-color: var(--primary-light);
+    box-shadow: 0 0 0 4px rgba(107, 140, 66, 0.1);
+}
+
+/* Buttons */
+.primary-btn {
+    background: var(--primary);
+    color: #FFF;
+    border: none;
+    border-radius: 50px;
+    padding: 1rem 2rem;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 1.1rem;
+    cursor: pointer;
+    box-shadow: 0 6px 0px var(--primary-dark);
+    /* Retro 3D Press feel */
+    transition: all 0.1s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.primary-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 0px var(--primary-dark);
+}
+
+.primary-btn:active:not(:disabled) {
+    transform: translateY(4px);
+    box-shadow: 0 2px 0px var(--primary-dark);
+}
+
+.primary-btn:disabled {
+    background: #CBD5E1;
+    color: #FFF;
+    box-shadow: none;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.secondary-btn {
+    background: #FFF;
+    border: 2px solid var(--primary);
+    color: var(--primary);
+    border-radius: 50px;
+    padding: 0.6rem 1.2rem;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 0px rgba(107, 140, 66, 0.2);
+    transition: all 0.1s;
+}
+
+.secondary-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 0px rgba(107, 140, 66, 0.2);
+}
+
+.secondary-btn:active {
+    transform: translateY(2px);
+    box-shadow: 0 2px 0px rgba(107, 140, 66, 0.2);
+}
+
+/* Bottom Nav - Floating Island */
+.bottom-nav {
+    position: fixed;
+    bottom: 25px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 380px;
+    height: 75px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 40px;
+    display: flex;
+    justify-content: space-evenly;
+    align-items: center;
+    box-shadow: 0 10px 40px rgba(74, 103, 65, 0.15);
+    border: 2px solid #FFF;
+    z-index: 1000;
+    /* Cute bounce in */
+    animation: fadeUp 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    font-size: 0.75rem;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    gap: 4px;
+    width: 60px;
+    height: 100%;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.nav-item svg {
+    width: 26px;
+    height: 26px;
+    fill: currentColor;
+    transition: transform 0.3s ease;
+}
+
+.nav-item.active {
+    color: var(--primary);
+}
+
+.nav-item.active svg {
+    transform: translateY(-5px) scale(1.1);
+    filter: drop-shadow(0 4px 6px rgba(107, 140, 66, 0.3));
+}
+
+.nav-item.active span {
+    color: var(--primary-dark);
+}
+
+/* Stats */
+.stat-card {
+    background: #FFF;
+    border: none;
+    text-align: center;
+}
+
+.stat-value {
+    font-family: var(--font-heading);
+    color: var(--accent);
+    /* Coral Numbers */
+    font-size: 2.2rem;
+    font-weight: 700;
+}
+
+.stat-label {
+    color: var(--text-muted);
+    font-family: var(--font-hand);
+    /* Handwritten labels */
+    font-size: 1rem;
+    letter-spacing: 1px;
+}
+
+/* View Animations */
+.view {
+    display: none;
+    animation: fadeUp 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    padding-bottom: 120px;
+    /* Space for bottom nav + extra breathing room */
+}
+
+.view.active-view {
+    display: block;
+}
+
+@keyframes fadeUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Loader - Cute Spinner */
+.loader {
+    width: 24px;
+    height: 24px;
+    border: 3px solid rgba(255, 255, 255, 0.4);
+    border-top-color: #FFF;
+    border-radius: 50%;
+    animation: spin 1s ease-in-out infinite;
+}
+
+/* Library Cards */
+.library-card {
+    position: relative;
+    border-left: 5px solid var(--primary);
+    /* Book spine effect */
+    overflow: hidden;
+}
+
+/* Stickers (Tags) */
+.library-card .px-2 {
+    font-family: var(--font-hand);
+    border-radius: 8px;
+    /* Rougher edges */
+    font-size: 0.85rem;
+    box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Quiz & Review Typography */
+.quiz-question-text {
+    font-size: 1.05rem;
+    line-height: 1.5;
+    color: var(--text-main) !important;
+    margin-bottom: 1rem;
+    font-weight: 600;
+}
+
+/* Options Container - handled in JS but useful to ensure spacing */
+.options-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Options */
+.option {
+    background: #FFF;
+    border: 2px solid transparent;
+    color: var(--text-main);
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    /* Softer, deeper shadow */
+    padding: 12px 16px;
+    /* More breathing room */
+    font-size: 0.95rem;
+    /* Larger text */
+    line-height: 1.4;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    position: relative;
+    overflow: hidden;
+}
+
+.option:hover {
+    background: #FAFDF6;
+    border-color: var(--primary-light);
+    transform: translateY(-2px);
+    /* Slight lift instead of slide */
+    box-shadow: 0 6px 15px rgba(107, 140, 66, 0.15);
+}
+
+.option.selected {
+    background: #E0E7FF;
+    border-color: var(--primary);
+    font-weight: 600;
+}
+
+.option.correct {
+    background: #10B981 !important;
+    /* Green */
+    border-color: #059669 !important;
+    color: white !important;
+    font-weight: bold;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.option.incorrect {
+    background: #EF4444 !important;
+    /* Red */
+    border-color: #DC2626 !important;
+    color: white !important;
+    font-weight: bold;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+/* Quiz Controls */
+.quiz-controls {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 1rem;
+    padding-top: 0.5rem;
+    position: absolute;
+    /* Fix to bottom */
+    bottom: 90px;
+    /* Above Bottom Nav */
+    left: 0;
+    width: 100%;
+    padding: 0 1.5rem;
+    z-index: 100;
+    pointer-events: none;
+    /* Let scroll pass through empty space */
+}
+
+.quiz-controls button {
+    pointer-events: auto;
+    /* Re-enable click for buttons */
+}
+
+/* Reels Mode (Endless) - Night time */
+/* Reels Mode (Endless) - Light Ghibli Theme */
+body.reels-mode {
+    background: linear-gradient(180deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+    color: var(--text-main);
+}
+
+body.reels-mode .card {
+    background: var(--card-bg);
+    border-color: #FFF;
+}
+
+body.reels-mode .bottom-nav {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: #FFF;
+}
+
+body.reels-mode .nav-item {
+    color: #889;
+}
+
+body.reels-mode .nav-item.active {
+    color: #FFD700;
+}
+
+/* Gold stars */
+
+/* Handwritten Elements for Charm */
+#stat-streak-desc {
+    font-family: var(--font-hand);
+    font-size: 0.9rem !important;
+    color: var(--primary-dark) !important;
+    transform: rotate(-2deg);
+    /* Slightly askew */
+    display: inline-block;
+    margin-top: 5px;
+}
+
+/* --- New Layout Improvements --- */
+
+/* Quiz Section - Strict Column Layout */
+#quiz-section {
+    padding-top: 1.5rem;
+    height: 100vh;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    padding-bottom: 1.5rem;
+    /* Initial padding, flex will handle rest */
+}
+
+#quiz-section.active-view {
+    display: flex;
+}
+
+.quiz-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    flex-shrink: 0;
+}
+
+.quiz-card {
+    background: var(--card-bg);
+    border-radius: 20px;
+    padding: 1.25rem;
+    border: 2px solid #FFF;
+    box-shadow: var(--shadow-soft);
+
+    /* Flex Child properties */
+    flex: 1;
+    /* Takes all available space */
+    min-height: 0;
+    /* Crucial for scrolling inside flex child */
+
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    /* Internal scroll */
+    margin-bottom: 0.5rem;
+    /* Gap between card and buttons */
+
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.quiz-card::-webkit-scrollbar {
+    display: none;
+}
+
+.question-container {
+    margin-bottom: 1rem;
+    flex-shrink: 0;
+}
+
+.options-container {
+    flex-shrink: 0;
+}
+
+.explanation-box {
+    flex-shrink: 0;
+}
+
+/* Quiz Controls - Stacked Naturally */
+.quiz-controls {
+    display: flex;
+    justify-content: space-between;
+    padding-top: 0;
+    margin-top: 0;
+    flex-shrink: 0;
+    /* Never shrink buttons */
+    gap: 1rem;
+    /* Added Gap */
+
+    /* Safe Zone above bottom nav (approx 80px nav + padding) */
+    margin-bottom: 90px;
+
+    width: 100%;
+    z-index: 50;
+    position: relative;
+    /* Normal flow */
+    bottom: auto;
+    left: auto;
+    pointer-events: auto;
+}
+
+.quiz-controls button {
+    padding: 0.5rem 1.2rem;
+    /* Smaller padding */
+    font-size: 0.85rem;
+    /* Smaller font */
+    min-height: 36px;
+    /* Reduced height */
+    border-radius: 40px;
+}
+
+/* Library Header */
+.library-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.library-header h2 {
+    font-size: 1.5rem;
+    margin: 0;
+}
+
+.library-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.small-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #FFF;
+    border: 1px solid var(--border-light);
+    box-shadow: 0 2px 5px rgba(107, 140, 66, 0.1);
+}
+
+/* Library Filters Bar */
+.library-filters {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    background: rgba(255, 255, 255, 0.6);
+    padding: 10px 15px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    flex-wrap: wrap;
+}
+
+.filter-scroll-container {
+    display: flex;
+    gap: 15px;
+    overflow-x: auto;
+    padding-bottom: 5px;
+    /* For scrollbar space if needed */
+    scrollbar-width: none;
+    /* Hide scrollbar Firefox */
+}
+
+.filter-scroll-container::-webkit-scrollbar {
+    display: none;
+    /* Hide scrollbar Chrome */
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.filter-group label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    font-family: var(--font-heading);
+    margin-left: 4px;
+}
+
+.filter-group select {
+    appearance: none;
+    -webkit-appearance: none;
+    background: #FFF;
+    border: 1px solid var(--border-light);
+    padding: 6px 12px;
+    border-radius: 12px;
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    color: var(--primary-dark);
+    cursor: pointer;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B8C42' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 12px;
+    min-width: 100px;
+    padding-right: 25px;
+}
+
+/* Stats Grid (Horizontal) */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 2rem;
+}
+
+.stats-grid .stat-card {
+    padding: 1rem 0.5rem;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.9);
+}
+
+.stat-value {
+    font-size: 1.8rem;
+    /* Slightly smaller to fit 3 in row */
+}
+
+/* Logout Button */
+.logout-btn {
+    width: 100%;
+    padding: 12px;
+    border-radius: 16px;
+    background: rgba(255, 230, 230, 0.5);
+    border: 1px solid rgba(255, 100, 100, 0.3);
+    color: #C0392B;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.logout-btn:hover {
+    background: rgba(255, 230, 230, 0.8);
+    transform: translateY(-2px);
+}
+
+/* Profile Header Actions */
+.profile-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+/* Charts Container responsive */
+.charts-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    /* Stack on mobile by default */
+    gap: 1.5rem;
+}
+
+@media (min-width: 600px) {
+    .charts-container {
+        grid-template-columns: 1fr;
+        /* Stack vertically for better readability */
+    }
+}
+
+/* Library Grid */
+.library-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+/* Glass Card refined */
+.glass-card {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 20px;
+    border: 1px solid #fff;
+    box-shadow: 0 4px 15px rgba(107, 140, 66, 0.08);
+    padding: 1rem;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+    overflow: hidden;
+}
+
+.glass-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(107, 140, 66, 0.15);
+}
+
+/* Delete Button on Card */
+.delete-btn-abs {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    font-size: 1.1rem;
+    opacity: 0.3;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    z-index: 10;
+}
+
+.delete-btn-abs:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+/* Action Buttons in Card */
+.card-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.action-btn {
+    flex: 1;
+    border: none;
+    border-radius: 10px;
+    padding: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+}
+
+/* --- Reels Mode (Endless) Overrides --- */
+
+/* Full Screen Layout */
+.reels-container {
+    height: 100vh;
+    width: 100vw;
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory;
+    /* Hide scrollbar */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 50;
+    /* Above bottom nav */
+    /* Above bottom nav */
+    background: linear-gradient(180deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+    padding-bottom: 0;
+}
+
+.reels-container::-webkit-scrollbar {
+    display: none;
+}
+
+.reel-card {
+    height: 100vh;
+    width: 100vw;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    /* Align top so we can pad top */
+    align-items: center;
+    padding-top: 60px;
+    /* Top breathing room */
+    padding-bottom: 120px;
+    /* Space for Bottom Nav */
+    box-sizing: border-box;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Card Content Constraint - Scroll internally if too long */
+.reel-content {
+    width: 100%;
+    max-width: 500px;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    /* Allow scrolling WITHIN the card if content is huge */
+    max-height: 100%;
+    /* Fill available space defined by card padding */
+    padding: 0 20px;
+    /* Horizontal padding */
+    /* Hide scrollbar for internal content too */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.reel-content::-webkit-scrollbar {
+    display: none;
+}
+
+/* Images in Reels */
+.reel-image {
+    width: 100%;
+    flex-shrink: 0;
+    /* Don't squash image */
+    height: 180px;
+    object-fit: cover;
+    border-radius: 20px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow-soft);
+    background: rgba(255, 255, 255, 0.5);
+    border: 2px solid #FFF;
+}
+
+.image-placeholder {
+    width: 100%;
+    height: 180px;
+    background: rgba(255, 255, 255, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 20px;
+    margin-bottom: 20px;
+    color: var(--primary-light);
+    font-size: 3rem;
+    border: 2px solid #FFF;
+}
+
+/* Text Readability in Light Mode */
+body.reels-mode .quiz-question-text {
+    color: var(--text-main);
+    text-shadow: none;
+    font-size: 1rem;
+    /* Smaller font */
+    margin-bottom: 1rem;
+    /* Less Gap */
+    font-weight: 700;
+}
+
+/* Options in Reels */
+body.reels-mode .option {
+    background: rgba(255, 255, 255, 0.85);
+    /* High opacity for readability */
+    color: var(--text-main);
+    /* Dark text */
+    border: 2px solid #FFF;
+    box-shadow: var(--shadow-soft);
+    padding: 10px 15px;
+    /* Compact padding */
+    font-size: 0.95rem;
+    /* Smaller option text */
+}
+
+body.reels-mode .options-container {
+    gap: 8px;
+    /* Tighter gap */
+}
+
+body.reels-mode .option:hover {
+    background: #FFFFFF;
+    transform: scale(1.02);
+}
+
+body.reels-mode .option.selected {
+    background: #D1FAE5;
+    /* Light Green */
+    color: #065F46;
+}
+
+/* Scroll Hint */
+.scroll-hint {
+    position: absolute;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.9rem;
+    animation: bounce 2s infinite;
+    pointer-events: none;
+}
+
+@keyframes bounce {
+
+    0%,
+    20%,
+    50%,
+    80%,
+    100% {
+        transform: translateX(-50%) translateY(0);
+    }
+
+    40% {
+        transform: translateX(-50%) translateY(-10px);
+    }
+
+    60% {
+        transform: translateX(-50%) translateY(-5px);
+    }
+}
+
+/* --- New Overview Modal Styles --- */
+.dark-modal h3 {
+    text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.overview-stat-card {
+    background: rgba(255, 255, 255, 0.05);
+    /* Very subtle fill */
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 15px;
+    text-align: center;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.overview-stat-card .label {
+    font-size: 0.7rem;
+    color: #94A3B8;
+    font-weight: 700;
+    margin-bottom: 5px;
+    letter-spacing: 0.5px;
+}
+
+.overview-stat-card .value {
+    font-size: 1.8rem;
+    font-weight: 800;
+    font-family: var(--font-heading);
+    color: var(--primary-dark) !important;
+    line-height: 1;
+}
+
+.overview-link-card {
+    display: flex;
+    align-items: center;
+    background: rgba(59, 130, 246, 0.1);
+    /* Blue tint */
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 12px;
+    padding: 12px 15px;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.overview-link-card:hover {
+    background: rgba(59, 130, 246, 0.2);
+    transform: translateY(-2px);
+}
+
+.summary-scroll-area {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    padding: 15px;
+    max-height: 200px;
+    overflow-y: auto;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--text-main);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+}
+
+/* Scrollbar for light modal */
+.summary-scroll-area::-webkit-scrollbar {
+    width: 6px;
+}
+
+.summary-scroll-area::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.summary-scroll-area::-webkit-scrollbar-thumb {
+    background: var(--primary-light);
+    border-radius: 10px;
+}
+
+/* --- Modal Overlay Logic --- */
+.modal-overlay {
+    display: flex;
+    /* Flex by default when visible */
+    align-items: center;
+    justify-content: center;
+}
+
+/* Ensure hidden attribute always wins */
+[hidden] {
+    display: none !important;
+}
+
+/* Spawn Toast Notification */
+.spawn-toast {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.85);
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 30px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    pointer-events: none;
+    z-index: 1000;
+    animation: fadeInOut 2s ease forwards;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+@keyframes fadeInOut {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, 20px);
+    }
+
+    10% {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+
+    80% {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -20px);
+    }
+}

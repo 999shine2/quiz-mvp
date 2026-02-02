@@ -1,0 +1,8 @@
+node_modules
+.env
+.DS_Store
+server.log
+server_output.log
+ngrok
+ngrok-v3-stable-darwin-amd64.zip
+data/
