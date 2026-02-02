@@ -44,7 +44,7 @@ async function generateQuestions(text, apiKey, count = 5, title = "", relatedCon
     try {
         const genAI = new GoogleGenerativeAI(key);
         const model = genAI.getGenerativeModel({
-            model: "gemini-2.0-flash",
+            model: "gemini-1.5-flash",
             generationConfig: {
                 maxOutputTokens: 8192
             }
@@ -514,7 +514,7 @@ async function generateQuestionsForCreativeWork(title, author, type, apiKey, cou
     try {
         const genAI = new GoogleGenerativeAI(key);
         const model = genAI.getGenerativeModel({
-            model: "gemini-2.0-flash",
+            model: "gemini-1.5-flash",
             generationConfig: { maxOutputTokens: 8192 }
         });
 
