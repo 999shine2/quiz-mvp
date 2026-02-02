@@ -271,7 +271,7 @@ async function generateQuestions(text, apiKey, count = 5, title = "", relatedCon
         let response;
         let textResponse;
         let attempt = 0;
-        const maxRetries = 3;
+        const maxRetries = 5;
 
         while (attempt < maxRetries) {
             try {
