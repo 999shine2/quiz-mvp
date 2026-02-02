@@ -599,7 +599,7 @@ async function generateQuestionsForCreativeWork(title, author, type, apiKey, cou
         let response;
         let text;
         let attempt = 0;
-        const maxRetries = 5;
+        const maxRetries = 10; // Aggressive retry
         const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
         while (attempt < maxRetries) {
@@ -610,8 +610,9 @@ async function generateQuestionsForCreativeWork(title, author, type, apiKey, cou
                 break; // Success!
             } catch (err) {
                 if (err.status === 429 || err.message?.includes('429') || err.message?.includes('Resource exhausted')) {
-                    const delay = (attempt + 1) * 4000 + Math.random() * 1000;
-                    console.warn(`[Creative Service] Rate Limit (429) hit. Retrying in ${Math.round(delay)}ms...`);
+                    // Wait longer: 8s, 16s, 24s...
+                    const delay = (attempt + 1) * 8000 + Math.random() * 2000;
+                    console.warn(`[Creative Service] Rate Limit (429) hit. Attempt ${attempt + 1}/${maxRetries}. Retrying in ${Math.round(delay)}ms...`);
                     await sleep(delay);
                     attempt++;
                 } else {
