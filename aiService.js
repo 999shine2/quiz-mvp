@@ -1010,14 +1010,11 @@ export async function generateImageWithPollinations(prompt, apiKey) {
             // CRITICAL: Check file size to detect "Anonymous Limit" image (~100KB)
             // Real Flux images are usually > 500KB - 1.5MB
             if (buffer.length < 200000) {
-                const text = buffer.toString('utf-8');
-                // If it's JSON error
-                if (text.trim().startsWith('{') || text.includes('error')) {
-                    return reject(new Error(`Pollinations API Error: ${text}`));
-                }
-                // If it's the "Limit" image (small binary file)
-                console.warn(`[Pollinations] REJECTED: Result too small (${buffer.length} bytes) - Likely Anonymous Limit Image`);
-                return reject(new Error(`Pollinations Generation Failed: File too small (Rate Limit Hit?)`));
+                console.warn(`[Pollinations] Rate Limit Hit (Small File: ${buffer.length} bytes). Switching to Fallback URL.`);
+                // FALLBACK: Return Direct URL for client-side loading
+                // This prevents 500 Internal Server Error and allows browser to try loading it
+                const fallbackUrl = `https://image.pollinations.ai/prompt/${encoded}?nologo=true`;
+                return resolve(fallbackUrl);
             }
 
             console.log(`[Pollinations] Success: ${buffer.length} bytes`);
