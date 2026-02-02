@@ -3,7 +3,8 @@ import { GoogleGenAI } from "@google/genai";
 import { spawn } from 'child_process';
 
 // Restored Key
-const defaultApiKey = process.env.GEMINI_API_KEY;
+// Restored Key
+const defaultApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 
 const VALID_CATEGORIES = [
     "Business",
