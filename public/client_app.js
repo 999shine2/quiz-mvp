@@ -931,6 +931,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Start Quiz directly
                 window.startQuiz(data.questions);
 
+                // Auto-Clear Form
+                creativeTitleInput.value = '';
+                creativeAuthorInput.value = '';
+
             } catch (error) {
                 console.error(error);
                 alert("Failed to generate: " + error.message);
@@ -1014,9 +1018,18 @@ document.addEventListener('DOMContentLoaded', () => {
         e.stopPropagation();
         if (!currentFile) return;
 
-        await handleGeneration('/api/upload', (formData) => {
+        const success = await handleGeneration('/api/upload', (formData) => {
             formData.append('file', currentFile);
         }, generateBtn);
+
+        if (success) {
+            // Auto-Clear File
+            currentFile = null;
+            fileInput.value = '';
+            fileName.textContent = '';
+            fileInfo.hidden = true;
+            generateBtn.disabled = true;
+        }
     });
 
     // --- YouTube Logic ---
@@ -1036,7 +1049,13 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        await handleGeneration('/api/youtube', null, generateYtBtn, { url });
+        const success = await handleGeneration('/api/youtube', null, generateYtBtn, { url });
+
+        if (success) {
+            // Auto-Clear URL
+            youtubeInput.value = '';
+            generateYtBtn.disabled = true;
+        }
     });
 
     // --- Shared Generation Logic ---
@@ -1092,9 +1111,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             startQuiz(data.questions);
+            return true; // Success
 
         } catch (error) {
             alert('Error: ' + error.message);
+            return false; // Failure
         } finally {
             btnText.style.display = 'block';
             loader.hidden = true;
@@ -2440,7 +2461,8 @@ document.addEventListener('DOMContentLoaded', () => {
             );
 
             // [Endless] If running low, generate MORE from server
-            if (candidates.length < 3 && !window._isRefilling) {
+            // Fix: Increase threshold to 8 to allow better interleaving
+            if (candidates.length < 8 && !window._isRefilling) {
                 window._isRefilling = true;
                 console.log("[Endless] Running low... requesting generation...");
                 try {
