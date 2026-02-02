@@ -25,13 +25,17 @@ const PORT = process.env.PORT || 3001;
 // Log Key Status
 console.log("------------------------------------------------");
 console.log(`Loaded GEMINI_KEY Length: ${process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.length : "MISSING"}`);
+
+// DEBUG: Print Environment Context
+console.log(`Railway Env: ${process.env.RAILWAY_ENVIRONMENT_NAME || "UNKNOWN"}`);
+console.log(`All Env Keys: ${Object.keys(process.env).sort().join(", ")}`);
+
 if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.startsWith("AIza")) {
     console.log("GEMINI_KEY Check: PROBABLY VALID FORMAT");
 } else {
     console.log("GEMINI_KEY Check: INVALID OR MISSING");
 }
 console.log(`Loaded POLLINATIONS_KEY: ${process.env.POLLINATIONS_API_KEY ? "OK (Hidden)" : "MISSING"}`);
-console.log(`Loaded POLLINATIONS_KEY: ${process.env.POLLINATIONS_API_KEY ? "OK (" + process.env.POLLINATIONS_API_KEY.substring(0, 5) + "...)" : "MISSING"}`);
 console.log("------------------------------------------------");
 
 // Re-applying robust API key check just in case
