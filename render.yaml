@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: quiz-mvp
+    runtime: docker
+    plan: free
+    envVars:
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: PORT
+        value: 8080
