@@ -635,6 +635,12 @@ app.post('/api/youtube', async (req, res) => {
         // CRITICAL FIX: Ignore client-side apiKey (which might be stale/expired) and use the valid server env var.
         const apiKey = process.env.GEMINI_API_KEY;
 
+        console.log("--- RUNTIME DEBUG (api/youtube) ---");
+        console.log(`Env GEMINI_API_KEY Length: ${process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.length : "MISSING"}`);
+        // console.log("All Env Keys:", Object.keys(process.env).sort().join(", ")); // Too noisy? ok for now
+        console.log(`Resolved apiKey passed to AI: ${apiKey ? apiKey.length + " chars" : "UNDEFINED"}`);
+        console.log("-------------------------------------");
+
         if (!url) {
             return res.status(400).json({ error: 'No YouTube URL provided' });
         }
