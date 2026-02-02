@@ -325,24 +325,44 @@ function extractVideoId(url) {
 // Helper: Fetch YouTube Title via NoEmbed (public API)
 // Helper: Fetch YouTube Metadata (Title + Description)
 async function fetchVideoMetadata(videoId) {
+    // 1. Try Google API if Key exists
     const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
-    try {
-        const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${YOUTUBE_API_KEY}`;
-        const res = await fetch(url);
-        const data = await res.json();
-
-        if (data.items && data.items.length > 0) {
-            const snippet = data.items[0].snippet;
-            return {
-                title: snippet.title,
-                description: snippet.description || ""
-            };
+    if (YOUTUBE_API_KEY) {
+        try {
+            const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${YOUTUBE_API_KEY}`;
+            const res = await fetch(url);
+            const data = await res.json();
+            if (data.items && data.items.length > 0) {
+                return {
+                    title: data.items[0].snippet.title,
+                    description: data.items[0].snippet.description || ""
+                };
+            }
+        } catch (e) {
+            console.warn('[Metadata] Google API failed, trying fallback...');
         }
-        return { title: null, description: "" };
-    } catch (e) {
-        console.error('Failed to fetch metadata:', e);
-        return { title: null, description: "" };
     }
+
+    // 2. Fallback: NoEmbed (Public oEmbed - No Key Needed)
+    try {
+        const res = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`);
+        const data = await res.json();
+        if (data.title) {
+            return { title: data.title, description: "" }; // NoEmbed doesn't give description
+        }
+    } catch (e) {
+        console.error('[Metadata] NoEmbed failed:', e);
+    }
+
+    // 3. Last Resort: Innertube (if initialized)
+    if (yt) {
+        try {
+            const info = await yt.getBasicInfo(videoId);
+            return { title: info.basic_info.title, description: info.basic_info.short_description || "" };
+        } catch (e) { console.error('[Metadata] Innertube failed:', e); }
+    }
+
+    return { title: null, description: "" };
 }
 
 // Helper: Fetch YouTube transcript using Python
