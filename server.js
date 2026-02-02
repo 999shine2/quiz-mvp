@@ -2027,31 +2027,56 @@ app.post('/api/reels/generate-more', async (req, res) => {
             questionsAccumulator = results.filter(q => q !== null);
 
         } else {
-            // Default Single File Logic (No interests)
-            const file = candidates[Math.floor(Math.random() * candidates.length)];
-            console.log(`[Reels Refill] Selected Random file: ${file.filename}`);
+            // Default Diversity Logic (No interests): Pick 3 distinct files
+            const shuffled = [...candidates].sort(() => 0.5 - Math.random());
+            const selectedFiles = shuffled.slice(0, 3);
+            console.log(`[Reels Refill] Selected ${selectedFiles.length} distinct files for Diversity: ${selectedFiles.map(f => f.filename).join(', ')}`);
 
-            let text = "";
-            if (file.path) {
-                try {
-                    const mime = file.filename.endsWith('.pdf') ? 'application/pdf' : 'text/plain';
-                    text = await parseDocument(file.path, mime);
-                } catch (e) { }
-            } else if (file.type === 'youtube') {
-                try {
-                    const videoId = extractVideoId(file.originalUrl);
-                    const tData = await fetchYouTubeTranscript(videoId);
-                    text = tData.text;
-                } catch (e) { }
-            }
+            const results = await Promise.all(selectedFiles.map(async (file) => {
+                let text = "";
+                if (file.path) {
+                    try {
+                        const mime = file.filename.endsWith('.pdf') ? 'application/pdf' : 'text/plain';
+                        text = await parseDocument(file.path, mime);
+                    } catch (e) { }
+                } else if (file.type === 'youtube') {
+                    // FIX: Use stored transcript first!
+                    if (file.transcript && file.transcript.length > 50) {
+                        text = file.transcript;
+                    } else {
+                        try {
+                            const videoId = extractVideoId(file.originalUrl);
+                            const tData = await fetchYouTubeTranscript(videoId);
+                            text = tData.text;
+                        } catch (e) { }
+                    }
+                }
 
-            if (text && text.length >= 50) {
-                const aiResult = await generateQuestions(text, keyToUse, 5, file.filename);
-                if (!file.questions) file.questions = [];
-                file.questions.push(...aiResult.questions);
-                filesUpdated.add(file.id);
-                questionsAccumulator = aiResult.questions;
-            }
+                if (text && text.length >= 50) {
+                    // Generate 2 questions per file (Total 6 max)
+                    try {
+                        const aiResult = await generateQuestions(text, keyToUse, 2, file.filename);
+                        if (aiResult.questions && aiResult.questions.length > 0) {
+                            if (!file.questions) file.questions = [];
+                            // Add metadata
+                            const newQs = aiResult.questions.map(q => ({
+                                ...q,
+                                originFilename: file.filename,
+                                originId: file.id
+                            }));
+                            file.questions.push(...newQs);
+                            filesUpdated.add(file.id);
+                            return newQs; // Return array
+                        }
+                    } catch (err) {
+                        console.error(`Gen error for ${file.filename}:`, err);
+                    }
+                }
+                return [];
+            }));
+
+            // Flatten results
+            questionsAccumulator = results.flat();
         }
 
         if (filesUpdated.size > 0) {
