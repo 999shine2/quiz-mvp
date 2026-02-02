@@ -20,4 +20,5 @@ ENV PORT=3000
 EXPOSE 3000
 
 # Start the application
-CMD ["npm", "start"]
+# Start the application with environment debug dump
+CMD ["sh", "-c", "echo '--- CONTAINER ENV DUMP ---' && printenv | sort && echo '--- END DUMP ---' && npm start"]
