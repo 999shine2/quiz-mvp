@@ -21,6 +21,7 @@ const VALID_CATEGORIES = [
 
 async function generateQuestions(text, apiKey, count = 5, title = "", relatedContext = "", userProfile = null, distribution = "standard", avoidQuestions = []) {
     const key = apiKey || defaultApiKey;
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
     // SHARED SANITIZATION FUNCTION (prevents Gemini API pattern errors)
     const sanitizeInput = (str) => {
@@ -265,9 +266,31 @@ async function generateQuestions(text, apiKey, count = 5, title = "", relatedCon
       ${(text || "").substring(0, 15000)}
       `;
 
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const textResponse = response.text();
+        // IMPLEMENT RETRY LOGIC (for 429 errors)
+        let result;
+        let response;
+        let textResponse;
+        let attempt = 0;
+        const maxRetries = 3;
+
+        while (attempt < maxRetries) {
+            try {
+                result = await model.generateContent(prompt);
+                response = await result.response;
+                textResponse = response.text();
+                break; // Success!
+            } catch (err) {
+                if (err.message.includes('429') || err.status === 429) {
+                    console.warn(`[AI Service] Rate Limit (429) hit. Retrying in ${(attempt + 1) * 2000}ms...`);
+                    await sleep((attempt + 1) * 2000); // Backoff: 2s, 4s, 6s
+                    attempt++;
+                } else {
+                    throw err; // Other errors, crash immediately
+                }
+            }
+        }
+
+        if (!textResponse) throw new Error("Failed to generate content after retries (Rate Limit).");
 
         console.log('Raw AI Response:', textResponse.substring(0, 500));
 
