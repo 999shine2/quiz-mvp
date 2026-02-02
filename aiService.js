@@ -597,34 +597,12 @@ async function generateQuestionsForCreativeWork(title, author, type, apiKey, cou
       Do NOT include markdown backticks. Just raw JSON.
     `;
 
-        // IMPLEMENT RETRY LOGIC (for 429 errors)
-        let result;
-        let response;
-        let text;
-        let attempt = 0;
-        const maxRetries = 10; // Aggressive retry
-        const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+        // DIRECT CALL (Paid Tier - High Quota)
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        let text = response.text();
 
-        while (attempt < maxRetries) {
-            try {
-                result = await model.generateContent(prompt);
-                response = await result.response;
-                text = response.text();
-                break; // Success!
-            } catch (err) {
-                if (err.status === 429 || err.message?.includes('429') || err.message?.includes('Resource exhausted')) {
-                    // Wait longer: 8s, 16s, 24s...
-                    const delay = (attempt + 1) * 8000 + Math.random() * 2000;
-                    console.warn(`[Creative Service] Rate Limit (429) hit. Attempt ${attempt + 1}/${maxRetries}. Retrying in ${Math.round(delay)}ms...`);
-                    await sleep(delay);
-                    attempt++;
-                } else {
-                    throw err; // Stop for non-rate-limit errors
-                }
-            }
-        }
-
-        if (!text) throw new Error("Failed to generate creative questions after retries (Rate Limit).");
+        if (!text) throw new Error("Failed to generate creative questions.");
 
         // Clean JSON
         text = text.replace(/```json/g, '').replace(/```/g, '').trim();
