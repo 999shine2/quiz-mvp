@@ -3,11 +3,8 @@ import { GoogleGenAI } from "@google/genai";
 import { spawn } from 'child_process';
 
 // Restored Key
-// Railway Bug Workaround: Multi-level fallback
-// Railway is currently refusing to inject ENV vars into this container
-const defaultApiKey = process.env.GEMINI_API_KEY
-    || process.env.GOOGLE_API_KEY
-    || 'AIzaSyBu5frzrjqGnVgMessK_lxkDihionL8gSg'; // Hardcoded fallback for Railway bug
+// API Key from environment only
+const defaultApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 
 const VALID_CATEGORIES = [
     "Business",
