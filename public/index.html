@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>InsightTube</title>
-    
+
     <!-- PWA Settings -->
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#6B8C42">
@@ -29,17 +29,28 @@
     <div id="login-screen" class="login-screen" hidden
         style="position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg-body); z-index:10000; display:flex; align-items:center; justify-content:center;">
         <div class="login-card"
-            style="padding:2rem; background:var(--card-bg); border-radius:24px; text-align:center; max-width:90%; width:350px; border:1px solid var(--border-light); box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
-            <div class="logo" style="margin-bottom:1rem;">
-                <h1 style="color:var(--text-main); font-size:2rem; font-weight:700;">Insight<span
-                        class="gradient-text">Tube</span></h1>
+            style="background:var(--card-bg); padding:2rem; border-radius:1rem; box-shadow:var(--shadow-soft); text-align:center; max-width:90%; width:350px;">
+            <h1 class="logo-text" style="font-size:2rem; margin-bottom:0.5rem;">Insight<span
+                    style="color:var(--primary)">Tube</span></h1>
+            <p id="auth-title" style="color:var(--text-muted); margin-bottom:1.5rem;">Welcome Back</p>
+
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <input type="text" id="login-userid" placeholder="User ID" class="pixel-input"
+                    style="margin-bottom:5px;">
+                <input type="password" id="login-password" placeholder="Password" class="pixel-input"
+                    style="margin-bottom:5px;">
+                <input type="text" id="login-nickname" placeholder="Nickname (Public Name)" class="pixel-input" hidden
+                    style="margin-bottom:5px;">
+
+                <button id="login-btn" class="primary-btn" style="width:100%">Log In</button>
+                <button id="register-btn" class="primary-btn"
+                    style="width:100%; background-color: var(--secondary); display: none;">Register</button>
             </div>
-            <h2 style="color:var(--text-main); margin-bottom:1rem; font-family:var(--font-heading);">Welcome Back</h2>
-            <div class="login-form">
-                <input type="text" id="login-username" placeholder="Nickname" autocomplete="off" class="text-input"
-                    style="margin-bottom:15px;">
-                <button id="login-btn" class="primary-btn" style="width:100%">Continue</button>
-            </div>
+
+            <p style="margin-top: 15px; font-size: 0.9rem;">
+                <a href="#" id="auth-toggle-link" style="color: var(--primary); text-decoration: underline;">New here?
+                    Create Account</a>
+            </p>
         </div>
     </div>
 
