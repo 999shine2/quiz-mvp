@@ -724,10 +724,11 @@ app.post('/api/youtube', async (req, res) => {
             : `(Transcript Missing). The video title is "${fetchedTitle}". Please generate questions based on this title and general knowledge about the topic.`;
 
         // Request 5 questions + Summary
-        const [aiResult, autoSummary] = await Promise.all([
-            generateQuestions(textToAnalyze, apiKey, 5, fetchedTitle, relatedContext),
-            generateSummary(textToAnalyze, apiKey, fetchedTitle)
-        ]);
+        // Request 5 questions + Summary
+        // FIXED: Serialized calls to prevent 429 Too Many Requests on Free Tier
+        const aiResult = await generateQuestions(textToAnalyze, apiKey, 5, fetchedTitle, relatedContext);
+        console.log(`[Flow] Questions generated. Starting summary...`);
+        const autoSummary = await generateSummary(textToAnalyze, apiKey, fetchedTitle);
         console.log(`Generated in ${Date.now() - startAI}ms`);
 
         // Determine Final Title
