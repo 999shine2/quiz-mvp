@@ -302,6 +302,91 @@ async function saveDB(req, data) {
     await fs.writeFile(userPath, JSON.stringify(data, null, 2));
 }
 
+// --- AUTHENTICATION ENDPOINTS (Secure ID + Password) ---
+
+// Register: Create new account
+app.post('/api/auth/register', async (req, res) => {
+    try {
+        const { userId, password, nickname } = req.body;
+
+        if (!userId || !password || !nickname) {
+            return res.status(400).json({ error: "Missing required fields (ID, Password, Nickname)." });
+        }
+
+        // Sanitize ID (alphanumeric only)
+        if (!/^[a-zA-Z0-9_]+$/.test(userId)) {
+            return res.status(400).json({ error: "User ID must be alphanumeric (letters, numbers, underscore)." });
+        }
+
+        const userPath = path.join(USERS_DIR, `${userId}.json`);
+
+        // Check availability
+        try {
+            await fs.access(userPath);
+            return res.status(409).json({ error: "User ID already exists." });
+        } catch (e) {
+            // File doesn't exist, proceed
+        }
+
+        // Create User Data
+        const newUser = {
+            userId,
+            password, // Storing plain for MVP (Should be hashed in prod)
+            nickname,
+            createdAt: new Date().toISOString(),
+            files: [],
+            likedQuestions: [],
+            reelsBuffer: [],
+            stats: { totalQuestionsAnswered: 0, currentStreak: 0, lastStudyDate: null }
+        };
+
+        await fs.writeFile(userPath, JSON.stringify(newUser, null, 2));
+        console.log(`[Auth] Registered new user: ${userId} (${nickname})`);
+
+        res.json({ success: true, message: "Account created!", userId, nickname });
+
+    } catch (err) {
+        console.error("Register Error:", err);
+        res.status(500).json({ error: "Server error during registration." });
+    }
+});
+
+// Login: Verify credentials
+app.post('/api/auth/login', async (req, res) => {
+    try {
+        const { userId, password } = req.body;
+
+        if (!userId || !password) {
+            return res.status(400).json({ error: "Missing ID or Password." });
+        }
+
+        const userPath = path.join(USERS_DIR, `${userId}.json`);
+
+        try {
+            // Load User Data
+            const data = await fs.readFile(userPath, 'utf8');
+            const user = JSON.parse(data);
+
+            // Verify Password
+            if (user.password === password) {
+                console.log(`[Auth] Login Success: ${userId}`);
+                res.json({ success: true, userId, nickname: user.nickname });
+            } else {
+                console.warn(`[Auth] Login Failed (Wrong Password): ${userId}`);
+                res.status(401).json({ error: "Incorrect password." });
+            }
+
+        } catch (e) {
+            console.warn(`[Auth] Login Failed (User Not Found): ${userId}`);
+            res.status(404).json({ error: "User ID not found." });
+        }
+
+    } catch (err) {
+        console.error("Login Error:", err);
+        res.status(500).json({ error: "Server error during login." });
+    }
+});
+
 
 // Helper: Extract video ID from URL
 function extractVideoId(url) {
