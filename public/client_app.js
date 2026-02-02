@@ -3006,14 +3006,13 @@ document.addEventListener('DOMContentLoaded', () => {
                                         originFilename: item.originFilename,
                                         materialName: item.materialName
                                     }));
-                                    const currentQIdx = allCurrentQuestions.indexOf(q);
-                                    const insertIdx = (currentQIdx !== -1) ? currentQIdx + 1 : allCurrentQuestions.length;
+                                    // FIX: Append to END of queue to preserve diversity (Flashcard)
+                                    const insertIdx = allCurrentQuestions.length;
 
-                                    allCurrentQuestions.splice(insertIdx, 0, ...singleQ);
+                                    allCurrentQuestions.push(...singleQ);
                                     const newCard = createReelCard(singleQ[0], insertIdx);
                                     if (newCard) {
-                                        if (card.nextSibling) reelsContainer.insertBefore(newCard, card.nextSibling);
-                                        else reelsContainer.appendChild(newCard);
+                                        reelsContainer.appendChild(newCard); // Append to end
 
                                         const toast = document.createElement('div');
                                         toast.className = 'spawn-toast';
