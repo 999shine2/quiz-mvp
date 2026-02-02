@@ -435,6 +435,7 @@ function repairTruncatedJSON(jsonStr) {
 
 
 async function generateSummary(text, apiKey, title = "") {
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
     const key = apiKey || defaultApiKey;
     if (!key || key === 'YOUR_API_KEY_HERE') return "Summary not available (Missing API Key).";
 
@@ -457,9 +458,34 @@ async function generateSummary(text, apiKey, title = "") {
       ${text.substring(0, 15000)}
     `;
 
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        return response.text();
+        // IMPLEMENT RETRY LOGIC (for 429 errors)
+        let result;
+        let response;
+        let textResponse;
+        let attempt = 0;
+        const maxRetries = 5;
+
+        while (attempt < maxRetries) {
+            try {
+                result = await model.generateContent(prompt);
+                response = await result.response;
+                textResponse = response.text();
+                break; // Success!
+            } catch (err) {
+                if (err.message.includes('429') || err.status === 429) {
+                    const delay = (attempt + 1) * 4000 + Math.random() * 1000;
+                    console.warn(`[Summary Service] Rate Limit (429) hit. Retrying in ${Math.round(delay)}ms...`);
+                    await sleep(delay);
+                    attempt++;
+                } else {
+                    throw err;
+                }
+            }
+        }
+
+        if (!textResponse) throw new Error("Failed to generate summary after retries (Rate Limit).");
+
+        return textResponse;
     } catch (error) {
         console.error('Summary Gen Error:', error);
         return "Failed to generate summary.";

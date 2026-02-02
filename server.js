@@ -352,7 +352,12 @@ async function fetchVideoMetadata(videoId) {
 let yt = null;
 (async () => {
     try {
-        yt = await Innertube.create({ cache: new UniversalCache(false), generate_session_locally: true });
+        yt = await Innertube.create({
+            cache: new UniversalCache(false),
+            generate_session_locally: true,
+            lang: 'en',
+            location: 'US'
+        });
         console.log('[YouTube] Innertube Client Initialized');
     } catch (e) {
         console.error('[YouTube] Innertube Init Failed:', e);
@@ -381,7 +386,12 @@ async function fetchYouTubeTranscript(videoId) {
 
         // 2. Fallback to Innertube (youtubei.js) - Simulates real client
         if (!yt) {
-            yt = await Innertube.create({ cache: new UniversalCache(false), generate_session_locally: true });
+            yt = await Innertube.create({
+                cache: new UniversalCache(false),
+                generate_session_locally: true,
+                lang: 'en',
+                location: 'US'
+            });
         }
 
         try {
