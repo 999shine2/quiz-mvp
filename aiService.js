@@ -281,8 +281,9 @@ async function generateQuestions(text, apiKey, count = 5, title = "", relatedCon
                 break; // Success!
             } catch (err) {
                 if (err.message.includes('429') || err.status === 429) {
-                    console.warn(`[AI Service] Rate Limit (429) hit. Retrying in ${(attempt + 1) * 2000}ms...`);
-                    await sleep((attempt + 1) * 2000); // Backoff: 2s, 4s, 6s
+                    const delay = (attempt + 1) * 4000 + Math.random() * 1000; // 4s, 8s, 12s... + jitter
+                    console.warn(`[AI Service] Rate Limit (429) hit. Retrying in ${Math.round(delay)}ms...`);
+                    await sleep(delay);
                     attempt++;
                 } else {
                     throw err; // Other errors, crash immediately
