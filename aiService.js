@@ -605,12 +605,35 @@ async function generateQuestionsForCreativeWork(title, author, type, apiKey, cou
         if (!text) throw new Error("Failed to generate creative questions.");
 
         // Clean JSON
-        text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        const first = text.indexOf('{');
-        const last = text.lastIndexOf('}');
-        if (first !== -1 && last !== -1) text = text.substring(first, last + 1);
+        let jsonString = text;
+        const firstBracket = text.indexOf('{');
+        const lastBracket = text.lastIndexOf('}');
 
-        const parsed = JSON.parse(text);
+        if (firstBracket !== -1 && lastBracket !== -1) {
+            jsonString = text.substring(firstBracket, lastBracket + 1);
+        } else {
+            jsonString = text
+                .replace(/```json/g, '')
+                .replace(/```/g, '')
+                .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+                .trim();
+        }
+
+        let parsed;
+        try {
+            parsed = JSON.parse(jsonString);
+        } catch (e) {
+            console.error("JSON Parse Error in Creative Work:", e);
+            // Try repair
+            try {
+                const repaired = repairTruncatedJSON(jsonString);
+                parsed = JSON.parse(repaired);
+                console.log("Creative Work JSON repaired successfully.");
+            } catch (repairError) {
+                console.error("Failed to repair creative work JSON:", repairError);
+                throw new Error("AI returned invalid JSON format.");
+            }
+        }
 
         // HANDLE ARRAY RESPONSE DIRECTLY
         if (Array.isArray(parsed)) {
