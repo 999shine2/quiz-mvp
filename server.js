@@ -978,7 +978,14 @@ app.post('/api/youtube/generate', async (req, res) => {
     }
 
     // CRITICAL FIX: Ignore client-side apiKey (which might be stale/expired) and use the valid server env var.
+    // CRITICAL FIX: Ignore client-side apiKey
     const apiKey = process.env.GEMINI_API_KEY;
+
+    console.log("--- RUNTIME DEBUG ---");
+    console.log(`Env GEMINI_API_KEY Length: ${process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.length : "MISSING"}`);
+    console.log("All Env Keys:", Object.keys(process.env).sort().join(", "));
+    console.log(`Resolved apiKey for AI: ${apiKey ? apiKey.length + " chars" : "UNDEFINED"}`);
+    console.log("---------------------");
 
     try {
         const targetCount = Math.max(5, interests.length);
