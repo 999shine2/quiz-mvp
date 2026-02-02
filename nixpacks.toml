@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ["python3", "nodejs"]
+
+[phases.install]
+cmds = [
+  "npm install",
+  "pip install youtube-transcript-api"
+]
+
+[start]
+cmd = "npm start"
