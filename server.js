@@ -60,41 +60,48 @@ app.use(express.json()); // Enable JSON body parsing
 app.use(express.static(path.join(__dirname, 'public')));
 
 
-// --- PERSISTENCE CONFIGURATION ---
-// If DATA_DIR is set (Render Disk), use it. Otherwise use local paths.
-const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
-const UPLOADS_DIR = process.env.DATA_DIR ? path.join(process.env.DATA_DIR, 'uploads/') : path.join(__dirname, 'uploads/');
+// Mongoose & Models
+import mongoose from 'mongoose';
+import { User } from './models/User.js';
+import { Material } from './models/Material.js';
+import { ActivityLog } from './models/ActivityLog.js';
+import { ReelsBuffer } from './models/ReelsBuffer.js';
 
-console.log(`[Storage] DATA_DIR: ${DATA_DIR}`);
-console.log(`[Storage] UPLOADS_DIR: ${UPLOADS_DIR}`);
-
-// Ensure directories exist
-async function initDirs() {
-    try {
-        await fs.mkdir(DATA_DIR, { recursive: true });
-        await fs.mkdir(UPLOADS_DIR, { recursive: true });
-        await fs.mkdir(path.join(DATA_DIR, 'users/'), { recursive: true });
-        console.log(`[Storage] Directories initialized.`);
-    } catch (e) {
-        console.error(`[Storage] Init Error:`, e);
-    }
+// MongoDB Connection
+const MONGODB_URI = process.env.MONGODB_URI;
+if (!MONGODB_URI) {
+    console.warn("⚠️ MONGODB_URI is not set! Data will not validly persist.");
+} else {
+    mongoose.connect(MONGODB_URI)
+        .then(() => console.log("✅ MongoDB Connected"))
+        .catch(err => console.error("❌ MongoDB Connection Error:", err));
 }
-initDirs();
 
-// File upload configuration
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, UPLOADS_DIR);
-    },
-    filename: function (req, file, cb) {
-        cb(null, Date.now() + '-' + file.originalname);
-    }
+// File upload configuration (Keep local/ephemeral for temp files, or use GridFS? User asked for text persistence primarily)
+// We will store actual Files in 'uploads/' (ephemeral) but extract text to MongoDB.
+// If user requires PDF file persistence on Free Tier, we'd need GridFS. 
+// For now, let's Stick to standard uploads/ and warn that *Raw PDFs* might vanish, 
+// but the *Parsed Text & Questions* will stay in Mongo.
+const upload = multer({
+    storage: multer.memoryStorage(), // Process in memory to extract text, or disk? 
+    // Disk is safer for RAM limits.
+    storage: multer.diskStorage({
+        destination: (req, file, cb) => cb(null, path.join(__dirname, 'uploads/')),
+        filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
+    })
 });
+const initUploads = async () => { try { await fs.mkdir(path.join(__dirname, 'uploads/'), { recursive: true }); } catch { } };
+initUploads();
 
-const upload = multer({ storage: storage });
-
-// Database path
-const USERS_DIR = path.join(DATA_DIR, 'users/');
+// Load YouTube Playlists Data (Keep local JSON or Migrate? User cares about THEIR data, this is global config)
+let YOUTUBE_PLAYLISTS = {};
+(async () => {
+    try {
+        const data = await fs.readFile(path.join(__dirname, 'data/youtube_playlists.json'), 'utf8');
+        YOUTUBE_PLAYLISTS = JSON.parse(data);
+        console.log("✅ Loaded YouTube Playlists Data");
+    } catch (e) { }
+})();
 
 // Load YouTube Playlists Data
 let YOUTUBE_PLAYLISTS = {};
