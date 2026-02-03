@@ -1635,31 +1635,37 @@ app.get('/auth/notion/callback', async (req, res) => {
         userId = userId.replace(/[^a-zA-Z0-9_\uAC00-\uD7A3]/g, '');
         if (!userId) userId = 'guest';
 
-        const userPath = path.join(USERS_DIR, `${userId}.json`);
-        let userData = { files: [], activityLog: [] };
+        // Update User in MongoDB
         try {
-            const existing = await fs.readFile(userPath, 'utf8');
-            userData = JSON.parse(existing);
-        } catch (e) {
-            console.log(`Creating new user file for Notion sync: ${userId}`);
+            await User.findOneAndUpdate(
+                { userId },
+                {
+                    $set: {
+                        "notion.accessToken": access_token,
+                        "notion.workspaceName": workspace_name
+                        // "notion.lastSyncedAt" - Keep existing if any, or set initial if needed?
+                        // Let's just update token/workspace
+                    }
+                },
+                { upsert: true, new: true } // Create if guest/not-found? Ideally user should be logged in.
+            );
+            console.log(`[Notion] Linked Notion workspace for user: ${userId}`);
+        } catch (dbErr) {
+            console.error('[Notion] DB Update Failed:', dbErr);
+            throw new Error('Failed to link Notion account in database.');
         }
+        connectedAt: new Date().toISOString()
+    };
 
-        userData.notion = {
-            accessToken: access_token,
-            workspaceName: workspace_name,
-            lastSyncedAt: null, // Not synced yet
-            connectedAt: new Date().toISOString()
-        };
+    await fs.writeFile(userPath, JSON.stringify(userData, null, 2));
 
-        await fs.writeFile(userPath, JSON.stringify(userData, null, 2));
+    // Redirect back to profile
+    res.redirect('/?view=profile&notion_connected=true');
 
-        // Redirect back to profile
-        res.redirect('/?view=profile&notion_connected=true');
-
-    } catch (err) {
-        console.error('Notion Callback Error:', err);
-        res.status(500).send(`Authentication Failed: ${err.message}`);
-    }
+} catch (err) {
+    console.error('Notion Callback Error:', err);
+    res.status(500).send(`Authentication Failed: ${err.message}`);
+}
 });
 
 // 3. Sync & Generate
