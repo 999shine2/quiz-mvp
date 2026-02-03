@@ -69,12 +69,23 @@ import { ReelsBuffer } from './models/ReelsBuffer.js';
 
 // MongoDB Connection
 const MONGODB_URI = process.env.MONGODB_URI;
+
 if (!MONGODB_URI) {
-    console.warn("⚠️ MONGODB_URI is not set! Data will not validly persist.");
+    console.error("❌ CRITICAL: MONGODB_URI is missing from Environment Variables!");
 } else {
-    mongoose.connect(MONGODB_URI)
-        .then(() => console.log("✅ MongoDB Connected"))
-        .catch(err => console.error("❌ MongoDB Connection Error:", err));
+    // Mask password for safe logging
+    const maskedURI = MONGODB_URI.replace(/:([^:@]+)@/, ':****@');
+    console.log(`[Mongo] Attempting connection to: ${maskedURI}`);
+
+    mongoose.connect(MONGODB_URI, {
+        serverSelectionTimeoutMS: 5000, // Fail after 5s if IP blocked
+        socketTimeoutMS: 45000,
+    })
+        .then(() => console.log("✅ MongoDB Connected Successfully"))
+        .catch(err => {
+            console.error("❌ MongoDB Connection FAILED:");
+            console.error(err);
+        });
 }
 
 // File upload configuration (Keep local/ephemeral for temp files, or use GridFS? User asked for text persistence primarily)
