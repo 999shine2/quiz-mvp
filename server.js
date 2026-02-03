@@ -1416,8 +1416,10 @@ app.post('/api/youtube/generate', async (req, res) => {
 // Get library
 app.get('/api/library', async (req, res) => {
     try {
+        const userId = getUserID(req);
         const db = await getDB(req);
-        const logs = db.activityLog || [];
+        // CRITICAL FIX: Fetch full logs
+        const logs = await ActivityLog.find({ userId });
 
         // Attach stats to each file
         const filesWithStats = db.files.map(file => {
@@ -1447,44 +1449,37 @@ app.get('/api/library', async (req, res) => {
 // Delete file
 app.delete('/api/library/:id', async (req, res) => {
     try {
-        try {
-            const userId = getUserID(req);
-            const fileId = req.params.id;
+        const userId = getUserID(req);
+        const fileId = req.params.id;
 
-            // 1. Delete physical file if exists
-            const file = await Material.findOne({ id: fileId, userId });
-            if (!file) {
-                console.warn(`[Delete] File ${fileId} not found in DB`);
-            } else if (file.path) {
-                try {
-                    await fs.unlink(file.path);
-                } catch (e) {
-                    console.warn('Could not delete physical file:', e.message);
-                }
-            }
+        // 1. Delete physical file if exists
+        const file = await Material.findOne({ id: fileId, userId });
 
-            // 2. Delete from MongoDB
-            await Material.deleteOne({ id: fileId, userId });
-
-            // 3. Remove from ReelsBuffer
+        if (file && file.path) {
             try {
-                const buf = await ReelsBuffer.findOne({ userId });
-                if (buf && buf.questions) {
-                    const originalLen = buf.questions.length;
-                    buf.questions = buf.questions.filter(q => q.originId !== fileId);
-                    if (buf.questions.length !== originalLen) {
-                        await buf.save();
-                        console.log(`[Delete] Removed ${originalLen - buf.questions.length} questions from buffer.`);
-                    }
-                }
-            } catch (e) { console.error("Buffer cleanup error", e); }
-
-            res.json({ message: 'File deleted successfully' });
-        } catch (error) {
-            console.error("Delete Error:", error);
-            res.status(500).json({ error: 'Failed to delete file' });
+                await fs.unlink(file.path);
+            } catch (e) {
+                console.warn('Could not delete physical file:', e.message);
+            }
         }
-    });
+
+        // 2. Delete from MongoDB
+        await Material.deleteOne({ id: fileId, userId });
+
+        // 3. Remove from ReelsBuffer
+        try {
+            await ReelsBuffer.findOneAndUpdate(
+                { userId },
+                { $pull: { questions: { originId: fileId } } }
+            );
+        } catch (e) { console.error("Buffer cleanup error", e); }
+
+        res.json({ message: 'File deleted successfully' });
+    } catch (error) {
+        console.error("Delete Error:", error);
+        res.status(500).json({ error: 'Failed to delete file' });
+    }
+});
 
 
 // Add manual question
