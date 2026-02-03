@@ -1654,18 +1654,15 @@ app.get('/auth/notion/callback', async (req, res) => {
             console.error('[Notion] DB Update Failed:', dbErr);
             throw new Error('Failed to link Notion account in database.');
         }
-        connectedAt: new Date().toISOString()
-    };
 
-    await fs.writeFile(userPath, JSON.stringify(userData, null, 2));
 
-    // Redirect back to profile
-    res.redirect('/?view=profile&notion_connected=true');
+        // Redirect back to profile
+        res.redirect('/?view=profile&notion_connected=true');
 
-} catch (err) {
-    console.error('Notion Callback Error:', err);
-    res.status(500).send(`Authentication Failed: ${err.message}`);
-}
+    } catch (err) {
+        console.error('Notion Callback Error:', err);
+        res.status(500).send(`Authentication Failed: ${err.message}`);
+    }
 });
 
 // 3. Sync & Generate
