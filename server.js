@@ -869,7 +869,8 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         };
 
         db.files.unshift(newFileEntry);
-        await logActivity(db, 'upload', { filename: newFileEntry.filename });
+        const userId = getUserID(req);
+        await logActivity(userId, 'upload', { filename: newFileEntry.filename });
         await saveDB(req, db);
 
         res.json({ ...newFileEntry, isMock: aiResult.isMock });
