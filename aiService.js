@@ -194,15 +194,11 @@ async function generateQuestions(text, apiKey, count = 5, title = "", relatedCon
       - Questions should help users retain knowledge they can USE in the real world
       - ✅ GOOD: "How might Starbucks' and Dunkin's contrasting strategies impact..."
       
-      **FORBIDDEN (Trivial Memorization):**
-      ❌ "How long did [company] run for?" (meaningless number)
-      ❌ "What year did [event] happen?" (date without context)
-      ❌ "How many people attended?" (trivial statistic)
-      ❌ "What was the exact price?" (meaningless number)
-      ❌ "What are the goals of this topic?" (too generic)
-      ❌ "Who is the target audience?" (not insightful)
-      ❌ "How might their strategy impact growth?" (Who is "their"? Missing context!)
-      
+      **FORBIDDEN TERMS (STRICT):**
+      ❌ **NEVER** use generic subjects like: "the book", "the novel", "the movie", "the film", "the video", "the text", "this work", "the author".
+      ❌ **NEVER** start with "In the book..." or "How does the movie...".
+      ✅ **ALWAYS** use the specific Title or Subject Name: "How does [The Great Gatsby]...", "In [Inception]...".
+
       **REQUIRED (Conceptual Understanding & Insights):**
       ✅ "WHY did [specific strategy] lead to [outcome] for [company/person]?" (causal + context)
       ✅ "What principle explains why [specific technique] is effective?" (transferable concept)
@@ -534,15 +530,15 @@ async function generateQuestionsForCreativeWork(title, author, type, apiKey, cou
         - **DELETE FLUFF:** Remove phrases like "In the context of the movie...", "Considering the plot...", "In the book [Title]...", etc.
 
       **STRICT NEGATIVE CONSTRAINTS (DO NOT IGNORE):**
-      1. **NO TITLE DUMPING:** Do NOT paste the entire title into the question.
-      2. **CORE SUBJECT ONLY:** Use a short, recognizable tag or the main character/theme.
+      1. **NO GENERIC SUBJECTS:** Do NOT use "the book", "the movie", "the novel", "the film".
+      2. **ALWAYS NAMEDROP:** You MUST use the actual Title (e.g. "In [The Matrix]...") in the question text.
+      3. **CORE SUBJECT ONLY:** Use a short, recognizable tag.
          - ❌ BAD: "In the movie [Terminator 2: Judgment Day]..."
          - ✅ GOOD: "In [Terminator 2]..."
-         - ❌ BAD: "What does [Harry Potter and the Sorcerer's Stone] teach us?"
-         - ✅ GOOD: "What does [The Sorcerer's Stone] teach us?"
-      3. **SELF-CONTAINED CONTEXT:** Ensure the user knows the TOPIC even if they see the question a week later.
-         - ❌ BAD: "Why did he do that?" (Who??)
-         - ✅ GOOD: "Why did [Gatsby] do that?"
+         - ❌ BAD: "What does the book say about X?"
+         - ✅ GOOD: "What does [1984] say about X?"
+
+      **CRITICAL: LANGUAGE CONSTRAINT**
 
       **CRITICAL: LANGUAGE CONSTRAINT**
       - The questions/options MUST match the user's input language (e.g. Korean if title is Korean).
@@ -850,12 +846,12 @@ async function generateSimilarQuestions(seedQuestion, context, type, apiKey, exi
 
     **CRITICAL: SELF-CONTAINED CONTEXT (ZERO AMBIGUITY)**
     - The user is reviewing multiple books/movies at once.
-    - ❌ **NEVER** use vague phrases like: "In the book...", "According to the video...", "In this incident..."
+    - ❌ **NEVER** use vague phrases like: "In the book...", "According to the video...", "In this incident...", "How does the book portray..."
     - ✅ **ALWAYS USE THE SHORT TITLE / CORE SUBJECT:** "In *${sourceTitle}*, how does..."
-    - ✅ **CORE SUBJECT ONLY:** Do NOT dump the full title if it's long. Use the main character or event name.
-       - ❌ BAD: "In [Mona Lisa: The Theft...]"
-       - ✅ GOOD: "In [Mona Lisa]..."
-    - **IF THE QUESTION DOESNT MENTION THE SUBJECT, IT IS WRONG.**
+    - **MANDATORY:** You MUST include the Title ("${sourceTitle}") or the Author's Name in the Question Text itself.
+    - ❌ BAD: "How does the book portray risk?"
+    - ✅ GOOD: "How does [${sourceTitle}] portray risk?" (or a shortened version of the title)
+    - **IF THE QUESTION DOESNT MENTION THE TITLE OR SUBJECT, IT IS WRONG.**
 
     **MANDATORY REQUIREMENTS:**
     1. **SPECIFICITY + UNIVERSALITY:** 
