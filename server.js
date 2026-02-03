@@ -409,14 +409,21 @@ async function refillUserReelsBuffer(req, db) {
     while (db.reelsBuffer.length < BUFFER_TARGET && availableQuestions.length > 0) {
         const nextQ = availableQuestions.pop();
 
+        // Safe access (Handle Mongoose Subdoc or POJO)
+        const qText = nextQ.question || (nextQ.toObject && nextQ.toObject().question) || "";
+        const qImg = nextQ.forcedImageUrl || (nextQ.toObject && nextQ.toObject().forcedImageUrl) || null;
+        const qFileId = nextQ.originId || (nextQ.toObject && nextQ.toObject().originId);
+
+        if (!qText) continue;
+
         db.reelsBuffer.push({
-            question: nextQ,
-            imageUrl: nextQ.forcedImageUrl || null,
-            fileId: nextQ.originId,
+            question: nextQ, // Mongoose handles casting if schema matches
+            imageUrl: qImg,
+            fileId: qFileId,
             type: 'local',
             generatedAt: new Date().toISOString()
         });
-        console.log(`[Reels] Added LOCAL question: "${nextQ.question.substring(0, 30)}..."`);
+        console.log(`[Reels] Added LOCAL question: "${qText.substring(0, 30)}..."`);
     }
 
     await saveDB(req, db);
@@ -1421,8 +1428,13 @@ app.get('/api/library', async (req, res) => {
 
             const solvedCount = fileLogs.reduce((acc, curr) => acc + (curr.count || 0), 0);
 
+            const solvedCount = fileLogs.reduce((acc, curr) => acc + (curr.count || 0), 0);
+
+            // CRITICAL FIX: Convert Mongoose Document to Plain Object before spreading
+            const fileObj = file.toObject ? file.toObject() : file;
+
             return {
-                ...file,
+                ...fileObj,
                 questionsSolved: solvedCount,
                 timeSaved: solvedCount * 3 // 3 mins per question
             };
