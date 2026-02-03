@@ -896,7 +896,8 @@ app.post('/api/files/update', async (req, res) => {
         const oldName = file.filename;
         file.filename = filename.trim();
 
-        await logActivity(db, 'rename_file', { fileId, oldName, newName: file.filename });
+        const userId = getUserID(req);
+        await logActivity(userId, 'rename_file', { fileId, oldName, newName: file.filename });
         await saveDB(req, db);
 
         console.log(`Renamed file ${fileId}: "${oldName}" -> "${file.filename}"`);
@@ -1074,7 +1075,8 @@ app.post('/api/creative', async (req, res) => {
         };
 
         db.files.unshift(newFileEntry);
-        await logActivity(db, 'upload', { filename: newFileEntry.filename, type: 'creative' });
+        const userId = getUserID(req);
+        await logActivity(userId, 'upload', { filename: newFileEntry.filename, type: 'creative' });
         await saveDB(req, db);
 
         res.json({ ...newFileEntry, isMock: aiResult.isMock });
@@ -1424,11 +1426,11 @@ app.get('/api/library', async (req, res) => {
         // Attach stats to each file
         const filesWithStats = db.files.map(file => {
             const fileLogs = logs.filter(l =>
-                l.type === 'solve_question' &&
-                l.materialName === file.filename
+                l.action === 'solve_question' &&
+                l.details?.materialName === file.filename
             );
 
-            const solvedCount = fileLogs.reduce((acc, curr) => acc + (curr.count || 0), 0);
+            const solvedCount = fileLogs.reduce((acc, curr) => acc + (curr.details?.count || 0), 0);
 
             // CRITICAL FIX: Convert Mongoose Document to Plain Object before spreading
             const fileObj = file.toObject ? file.toObject() : file;
@@ -2251,25 +2253,29 @@ app.post('/api/materials/:id/categories', async (req, res) => {
 // --- Profile & Tracking ---
 
 // Helper: Log activity
-async function logActivity(db, type, data) {
-    if (!db.activityLog) db.activityLog = [];
-
-    db.activityLog.push({
-        type, // 'upload', 'solve_question'
-        timestamp: new Date().toISOString(),
-        ...data
-    });
-    // Keep log size manageable? Maybe later.
+// Helper: Log activity (Direct MongoDB Write)
+async function logActivity(userId, action, details) {
+    try {
+        await ActivityLog.create({
+            userId,
+            action, // 'upload', 'solve_question'
+            details,
+            timestamp: new Date()
+        });
+        console.log(`[Activity] Logged: ${action}`);
+    } catch (e) {
+        console.error(`[Activity] Failed to log ${action}:`, e);
+    }
 }
 
 // Track Question Solved
 app.post('/api/track/solve', async (req, res) => {
     try {
         const { count, correct, wrong, materialName, subject } = req.body;
-        const db = await getDB(req);
+        const userId = getUserID(req);
 
-        await logActivity(db, 'solve_question', { count, correct, wrong, materialName, subject });
-        await saveDB(req, db);
+        // Direct DB Write (Bypass SaveDB Shim)
+        await logActivity(userId, 'solve_question', { count, correct, wrong, materialName, subject });
 
         res.json({ success: true });
     } catch (err) {
