@@ -2285,10 +2285,11 @@ app.post('/api/track/solve', async (req, res) => {
 });
 
 // Get Profile Stats
+// Get Profile Stats
 app.get('/api/profile', async (req, res) => {
     try {
         const userId = getUserID(req);
-        const db = await getDB(req); // Still used for files shim if consistent, or just fetch
+        const db = await getDB(req);
 
         // CRITICAL FIX: Fetch FULL activity history from Mongo
         const logs = await ActivityLog.find({ userId });
@@ -2296,17 +2297,18 @@ app.get('/api/profile', async (req, res) => {
 
         // 1. Total Stats
         const totalQuestionsSolved = logs
-            .filter(l => l.type === 'solve_question')
-            .reduce((acc, curr) => acc + (curr.count || 0), 0);
+            .filter(l => l.action === 'solve_question')
+            .reduce((acc, curr) => acc + (curr.details?.count || 0), 0);
 
         // 3 mins per question
         const totalTimeSavedMins = logs
-            .filter(l => l.type === 'solve_question')
+            .filter(l => l.action === 'solve_question')
             .reduce((acc, curr) => {
-                if (curr.correct !== undefined) {
-                    return acc + (curr.correct * 2) + ((curr.wrong || 0) * 1);
+                const det = curr.details || {};
+                if (det.correct !== undefined) {
+                    return acc + (det.correct * 2) + ((det.wrong || 0) * 1);
                 }
-                return acc + ((curr.count || 0) * 3);
+                return acc + ((det.count || 0) * 3);
             }, 0);
 
         // 2. Daily Stats (Last 7 Days)
@@ -2320,43 +2322,50 @@ app.get('/api/profile', async (req, res) => {
             dailyStats[key] = { solved: 0, uploads: 0, timeSaved: 0 };
         }
 
+        // Fill Data
         logs.forEach(log => {
-            if (!log.timestamp) return;
             const dateKey = new Date(log.timestamp).toISOString().split('T')[0];
+            const det = log.details || {};
+
             if (dailyStats[dateKey]) {
-                if (log.type === 'solve_question') {
-                    dailyStats[dateKey].solved += (log.count || 0);
+                if (log.action === 'solve_question') {
+                    dailyStats[dateKey].solved += (det.count || 0);
+                    // Time saved logic
                     let time = 0;
-                    if (log.correct !== undefined) {
-                        time = (log.correct * 2) + ((log.wrong || 0) * 1);
-                    } else {
-                        time = (log.count || 0) * 3;
-                    }
+                    if (det.correct !== undefined) time = (det.correct * 2) + ((det.wrong || 0) * 1);
+                    else time = (det.count || 0) * 3;
                     dailyStats[dateKey].timeSaved += time;
-                } else if (log.type === 'upload') {
+                }
+                if (log.action === 'upload') {
                     dailyStats[dateKey].uploads += 1;
                 }
             }
         });
 
-        // Add file uploads from files array if not double counting (files array is source of truth for uploads)
-        // Actually, let's look at files array for uploads to be accurate for past uploads too
-        files.forEach(f => {
-            const val = f.uploadDate || f.uploadedAt;
-            if (!val) return;
+        // 3. Subject Mastery
+        const subjectStats = {};
+        logs.filter(l => l.action === 'solve_question' && l.details?.subject).forEach(log => {
+            const subj = log.details.subject;
+            const det = log.details;
 
-            const dateKey = new Date(val).toISOString().split('T')[0];
-            if (dailyStats[dateKey]) {
-                dailyStats[dateKey].uploads += 1;
+            if (!subjectStats[subj]) {
+                subjectStats[subj] = { total: 0, correct: 0 };
             }
+            subjectStats[subj].total += (det.count || 0);
+            subjectStats[subj].correct += (det.correct || 0);
         });
 
+        const subjectMastery = Object.keys(subjectStats).map(subject => {
+            const stats = subjectStats[subject];
+            const accuracy = stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0;
+            return { subject, total: stats.total, accuracy };
+        }).sort((a, b) => b.total - a.total).slice(0, 5);
 
-
-        // 3. Top Subjects (Material Counts)
+        // 4. Top Subjects (Material Counts)
         const materialCounts = {};
-        logs.filter(l => l.type === 'solve_question').forEach(l => {
-            let name = l.materialName || (l.subject ? l.subject + ' Review' : 'General Review');
+        logs.filter(l => l.action === 'solve_question').forEach(l => {
+            const det = l.details || {};
+            let name = det.materialName || (det.subject ? det.subject + ' Review' : 'General Review');
 
             // NORMALIZATION: Merge similar titles (case-insensitive, trim) and handle "..." truncations
             name = name.trim();
@@ -2373,10 +2382,8 @@ app.get('/api/profile', async (req, res) => {
             );
             if (existingKey) name = existingKey;
 
-            if (existingKey) name = existingKey;
-
             // FIX: lookup canonical emoji from file if possible
-            let emoji = l.subject || '📚';
+            let emoji = det.subject || '📚';
             const file = files.find(f => f.filename === name || (f.filename && f.filename.startsWith(name.substring(0, 15))));
             if (file && file.subjectEmoji) {
                 emoji = file.subjectEmoji;
@@ -2385,13 +2392,13 @@ app.get('/api/profile', async (req, res) => {
             if (!materialCounts[name]) {
                 materialCounts[name] = { count: 0, emoji, timeSaved: 0 };
             }
-            materialCounts[name].count += (l.count || 0);
+            materialCounts[name].count += (det.count || 0);
 
             let time = 0;
-            if (l.correct !== undefined) {
-                time = (l.correct * 2) + ((l.wrong || 0) * 1);
+            if (det.correct !== undefined) {
+                time = (det.correct * 2) + ((det.wrong || 0) * 1);
             } else {
-                time = (l.count || 0) * 3;
+                time = (det.count || 0) * 3;
             }
             materialCounts[name].timeSaved += time;
         });
@@ -2400,10 +2407,10 @@ app.get('/api/profile', async (req, res) => {
             .map(([name, data]) => ({ name, emoji: data.emoji, count: data.count, timeSaved: data.timeSaved }))
             .sort((a, b) => b.count - a.count);
 
-        // 4. Calculate Current Streak (consecutive days of activity)
-        const sortedDates = Object.keys(dailyStats).sort().reverse(); // Most recent first
-        let currentStreak = 0;
 
+        // 5. Current Streak
+        let currentStreak = 0;
+        const sortedDates = Object.keys(dailyStats).sort().reverse();
         for (let i = 0; i < sortedDates.length; i++) {
             // Calculate expected date (today - i days)
             const expectedDate = new Date();
@@ -2423,6 +2430,7 @@ app.get('/api/profile', async (req, res) => {
             totalQuestionsSolved,
             totalTimeSavedMins,
             dailyStats,
+            subjectMastery,
             topSubjects,
             currentStreak
         });
