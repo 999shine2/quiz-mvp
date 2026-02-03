@@ -2302,7 +2302,8 @@ app.get('/api/profile', async (req, res) => {
         }
 
         logs.forEach(log => {
-            const dateKey = log.timestamp.split('T')[0];
+            if (!log.timestamp) return;
+            const dateKey = new Date(log.timestamp).toISOString().split('T')[0];
             if (dailyStats[dateKey]) {
                 if (log.type === 'solve_question') {
                     dailyStats[dateKey].solved += (log.count || 0);
@@ -2322,10 +2323,10 @@ app.get('/api/profile', async (req, res) => {
         // Add file uploads from files array if not double counting (files array is source of truth for uploads)
         // Actually, let's look at files array for uploads to be accurate for past uploads too
         files.forEach(f => {
-            const dateStr = f.uploadDate || f.uploadedAt;
-            if (!dateStr) return;
+            const val = f.uploadDate || f.uploadedAt;
+            if (!val) return;
 
-            const dateKey = dateStr.split('T')[0];
+            const dateKey = new Date(val).toISOString().split('T')[0];
             if (dailyStats[dateKey]) {
                 dailyStats[dateKey].uploads += 1;
             }
