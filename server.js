@@ -2325,17 +2325,20 @@ app.get('/api/profile', async (req, res) => {
         logs.forEach(log => {
             if (!log.timestamp) return;
             const dateKey = new Date(log.timestamp).toISOString().split('T')[0];
+            const det = log.details || {}; // Access details safely
+
             if (dailyStats[dateKey]) {
-                if (log.type === 'solve_question') {
-                    dailyStats[dateKey].solved += (log.count || 0);
+                if (log.action === 'solve_question') { // Read action
+                    dailyStats[dateKey].solved += (det.count || 0); // Read count from details
+
                     let time = 0;
-                    if (log.correct !== undefined) {
-                        time = (log.correct * 2) + ((log.wrong || 0) * 1);
+                    if (det.correct !== undefined) {
+                        time = (det.correct * 2) + ((det.wrong || 0) * 1);
                     } else {
-                        time = (log.count || 0) * 3;
+                        time = (det.count || 0) * 3;
                     }
                     dailyStats[dateKey].timeSaved += time;
-                } else if (log.type === 'upload') {
+                } else if (log.action === 'upload') { // Read action
                     dailyStats[dateKey].uploads += 1;
                 }
             }
