@@ -2281,152 +2281,151 @@ app.post('/api/track/solve', async (req, res) => {
 // Get Profile Stats
 app.get('/api/profile', async (req, res) => {
     try {
-        try {
-            const userId = getUserID(req);
-            const db = await getDB(req); // Still used for files shim if consistent, or just fetch
+        const userId = getUserID(req);
+        const db = await getDB(req); // Still used for files shim if consistent, or just fetch
 
-            // CRITICAL FIX: Fetch FULL activity history from Mongo
-            const logs = await ActivityLog.find({ userId });
-            const files = db.files || [];
+        // CRITICAL FIX: Fetch FULL activity history from Mongo
+        const logs = await ActivityLog.find({ userId });
+        const files = db.files || [];
 
-            // 1. Total Stats
-            const totalQuestionsSolved = logs
-                .filter(l => l.type === 'solve_question')
-                .reduce((acc, curr) => acc + (curr.count || 0), 0);
+        // 1. Total Stats
+        const totalQuestionsSolved = logs
+            .filter(l => l.type === 'solve_question')
+            .reduce((acc, curr) => acc + (curr.count || 0), 0);
 
-            // 3 mins per question
-            const totalTimeSavedMins = logs
-                .filter(l => l.type === 'solve_question')
-                .reduce((acc, curr) => {
-                    if (curr.correct !== undefined) {
-                        return acc + (curr.correct * 2) + ((curr.wrong || 0) * 1);
-                    }
-                    return acc + ((curr.count || 0) * 3);
-                }, 0);
-
-            // 2. Daily Stats (Last 7 Days)
-            const dailyStats = {};
-            const now = new Date();
-
-            for (let i = 6; i >= 0; i--) {
-                const d = new Date(now);
-                d.setDate(d.getDate() - i);
-                const key = d.toISOString().split('T')[0];
-                dailyStats[key] = { solved: 0, uploads: 0, timeSaved: 0 };
-            }
-
-            logs.forEach(log => {
-                if (!log.timestamp) return;
-                const dateKey = new Date(log.timestamp).toISOString().split('T')[0];
-                if (dailyStats[dateKey]) {
-                    if (log.type === 'solve_question') {
-                        dailyStats[dateKey].solved += (log.count || 0);
-                        let time = 0;
-                        if (log.correct !== undefined) {
-                            time = (log.correct * 2) + ((log.wrong || 0) * 1);
-                        } else {
-                            time = (log.count || 0) * 3;
-                        }
-                        dailyStats[dateKey].timeSaved += time;
-                    } else if (log.type === 'upload') {
-                        dailyStats[dateKey].uploads += 1;
-                    }
+        // 3 mins per question
+        const totalTimeSavedMins = logs
+            .filter(l => l.type === 'solve_question')
+            .reduce((acc, curr) => {
+                if (curr.correct !== undefined) {
+                    return acc + (curr.correct * 2) + ((curr.wrong || 0) * 1);
                 }
-            });
+                return acc + ((curr.count || 0) * 3);
+            }, 0);
 
-            // Add file uploads from files array if not double counting (files array is source of truth for uploads)
-            // Actually, let's look at files array for uploads to be accurate for past uploads too
-            files.forEach(f => {
-                const val = f.uploadDate || f.uploadedAt;
-                if (!val) return;
+        // 2. Daily Stats (Last 7 Days)
+        const dailyStats = {};
+        const now = new Date();
 
-                const dateKey = new Date(val).toISOString().split('T')[0];
-                if (dailyStats[dateKey]) {
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date(now);
+            d.setDate(d.getDate() - i);
+            const key = d.toISOString().split('T')[0];
+            dailyStats[key] = { solved: 0, uploads: 0, timeSaved: 0 };
+        }
+
+        logs.forEach(log => {
+            if (!log.timestamp) return;
+            const dateKey = new Date(log.timestamp).toISOString().split('T')[0];
+            if (dailyStats[dateKey]) {
+                if (log.type === 'solve_question') {
+                    dailyStats[dateKey].solved += (log.count || 0);
+                    let time = 0;
+                    if (log.correct !== undefined) {
+                        time = (log.correct * 2) + ((log.wrong || 0) * 1);
+                    } else {
+                        time = (log.count || 0) * 3;
+                    }
+                    dailyStats[dateKey].timeSaved += time;
+                } else if (log.type === 'upload') {
                     dailyStats[dateKey].uploads += 1;
                 }
-            });
+            }
+        });
+
+        // Add file uploads from files array if not double counting (files array is source of truth for uploads)
+        // Actually, let's look at files array for uploads to be accurate for past uploads too
+        files.forEach(f => {
+            const val = f.uploadDate || f.uploadedAt;
+            if (!val) return;
+
+            const dateKey = new Date(val).toISOString().split('T')[0];
+            if (dailyStats[dateKey]) {
+                dailyStats[dateKey].uploads += 1;
+            }
+        });
 
 
 
-            // 3. Top Subjects (Material Counts)
-            const materialCounts = {};
-            logs.filter(l => l.type === 'solve_question').forEach(l => {
-                let name = l.materialName || (l.subject ? l.subject + ' Review' : 'General Review');
+        // 3. Top Subjects (Material Counts)
+        const materialCounts = {};
+        logs.filter(l => l.type === 'solve_question').forEach(l => {
+            let name = l.materialName || (l.subject ? l.subject + ' Review' : 'General Review');
 
-                // NORMALIZATION: Merge similar titles (case-insensitive, trim) and handle "..." truncations
-                name = name.trim();
+            // NORMALIZATION: Merge similar titles (case-insensitive, trim) and handle "..." truncations
+            name = name.trim();
 
-                // Skip "Endless Review" and "General Review" from this specific list (User Request)
-                if (name === 'Endless Review' || name === 'General Review') return;
+            // Skip "Endless Review" and "General Review" from this specific list (User Request)
+            if (name === 'Endless Review' || name === 'General Review') return;
 
-                // Merge "Jaguar... " and "Jaguar" if reasonably close (Simple heuristic: first 15 chars match)
-                // Actually, best to iterate existing keys and check for overlap
-                const existingKey = Object.keys(materialCounts).find(k =>
-                    k.toLowerCase() === name.toLowerCase() ||
-                    (k.length > 10 && name.startsWith(k.substring(0, 15))) ||
-                    (name.length > 10 && k.startsWith(name.substring(0, 15)))
-                );
-                if (existingKey) name = existingKey;
+            // Merge "Jaguar... " and "Jaguar" if reasonably close (Simple heuristic: first 15 chars match)
+            // Actually, best to iterate existing keys and check for overlap
+            const existingKey = Object.keys(materialCounts).find(k =>
+                k.toLowerCase() === name.toLowerCase() ||
+                (k.length > 10 && name.startsWith(k.substring(0, 15))) ||
+                (name.length > 10 && k.startsWith(name.substring(0, 15)))
+            );
+            if (existingKey) name = existingKey;
 
-                if (existingKey) name = existingKey;
+            if (existingKey) name = existingKey;
 
-                // FIX: lookup canonical emoji from file if possible
-                let emoji = l.subject || '📚';
-                const file = files.find(f => f.filename === name || (f.filename && f.filename.startsWith(name.substring(0, 15))));
-                if (file && file.subjectEmoji) {
-                    emoji = file.subjectEmoji;
-                }
-
-                if (!materialCounts[name]) {
-                    materialCounts[name] = { count: 0, emoji, timeSaved: 0 };
-                }
-                materialCounts[name].count += (l.count || 0);
-
-                let time = 0;
-                if (l.correct !== undefined) {
-                    time = (l.correct * 2) + ((l.wrong || 0) * 1);
-                } else {
-                    time = (l.count || 0) * 3;
-                }
-                materialCounts[name].timeSaved += time;
-            });
-
-            const topSubjects = Object.entries(materialCounts)
-                .map(([name, data]) => ({ name, emoji: data.emoji, count: data.count, timeSaved: data.timeSaved }))
-                .sort((a, b) => b.count - a.count);
-
-            // 4. Calculate Current Streak (consecutive days of activity)
-            const sortedDates = Object.keys(dailyStats).sort().reverse(); // Most recent first
-            let currentStreak = 0;
-
-            for (let i = 0; i < sortedDates.length; i++) {
-                // Calculate expected date (today - i days)
-                const expectedDate = new Date();
-                expectedDate.setDate(expectedDate.getDate() - i);
-                const expectedDateStr = expectedDate.toISOString().split('T')[0];
-
-                // Check if this date matches and has activity
-                if (sortedDates[i] === expectedDateStr && dailyStats[sortedDates[i]].solved > 0) {
-                    currentStreak++;
-                } else {
-                    // Streak broken
-                    break;
-                }
+            // FIX: lookup canonical emoji from file if possible
+            let emoji = l.subject || '📚';
+            const file = files.find(f => f.filename === name || (f.filename && f.filename.startsWith(name.substring(0, 15))));
+            if (file && file.subjectEmoji) {
+                emoji = file.subjectEmoji;
             }
 
-            res.json({
-                totalQuestionsSolved,
-                totalTimeSavedMins,
-                dailyStats,
-                topSubjects,
-                currentStreak
-            });
+            if (!materialCounts[name]) {
+                materialCounts[name] = { count: 0, emoji, timeSaved: 0 };
+            }
+            materialCounts[name].count += (l.count || 0);
 
-        } catch (err) {
-            console.error('Profile error:', err);
-            res.status(500).json({ error: 'Failed to fetch profile' });
+            let time = 0;
+            if (l.correct !== undefined) {
+                time = (l.correct * 2) + ((l.wrong || 0) * 1);
+            } else {
+                time = (l.count || 0) * 3;
+            }
+            materialCounts[name].timeSaved += time;
+        });
+
+        const topSubjects = Object.entries(materialCounts)
+            .map(([name, data]) => ({ name, emoji: data.emoji, count: data.count, timeSaved: data.timeSaved }))
+            .sort((a, b) => b.count - a.count);
+
+        // 4. Calculate Current Streak (consecutive days of activity)
+        const sortedDates = Object.keys(dailyStats).sort().reverse(); // Most recent first
+        let currentStreak = 0;
+
+        for (let i = 0; i < sortedDates.length; i++) {
+            // Calculate expected date (today - i days)
+            const expectedDate = new Date();
+            expectedDate.setDate(expectedDate.getDate() - i);
+            const expectedDateStr = expectedDate.toISOString().split('T')[0];
+
+            // Check if this date matches and has activity
+            if (sortedDates[i] === expectedDateStr && dailyStats[sortedDates[i]].solved > 0) {
+                currentStreak++;
+            } else {
+                // Streak broken
+                break;
+            }
         }
-    });
+
+        res.json({
+            totalQuestionsSolved,
+            totalTimeSavedMins,
+            dailyStats,
+            topSubjects,
+            currentStreak
+        });
+
+    } catch (err) {
+        console.error('Profile error:', err);
+        res.status(500).json({ error: 'Failed to fetch profile' });
+    }
+});
 
 
 
