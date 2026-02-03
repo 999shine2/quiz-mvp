@@ -170,12 +170,8 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('user_nickname', currentUserNick);
             localStorage.setItem('user_name', currentUser);
 
-            // Reload buffer for the new user immediately
-            window.endlessBuffer = [];
-            await loadBufferFromLocal();
-
-            checkAuth();
             alert(data.message || "Logged in successfully!");
+            location.reload();
             return true;
         } catch (e) {
             console.error(e);
