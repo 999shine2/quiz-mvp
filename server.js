@@ -60,10 +60,31 @@ app.use(express.json()); // Enable JSON body parsing
 app.use(express.static(path.join(__dirname, 'public')));
 
 
+// --- PERSISTENCE CONFIGURATION ---
+// If DATA_DIR is set (Render Disk), use it. Otherwise use local paths.
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
+const UPLOADS_DIR = process.env.DATA_DIR ? path.join(process.env.DATA_DIR, 'uploads/') : path.join(__dirname, 'uploads/');
+
+console.log(`[Storage] DATA_DIR: ${DATA_DIR}`);
+console.log(`[Storage] UPLOADS_DIR: ${UPLOADS_DIR}`);
+
+// Ensure directories exist
+async function initDirs() {
+    try {
+        await fs.mkdir(DATA_DIR, { recursive: true });
+        await fs.mkdir(UPLOADS_DIR, { recursive: true });
+        await fs.mkdir(path.join(DATA_DIR, 'users/'), { recursive: true });
+        console.log(`[Storage] Directories initialized.`);
+    } catch (e) {
+        console.error(`[Storage] Init Error:`, e);
+    }
+}
+initDirs();
+
 // File upload configuration
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        cb(null, path.join(__dirname, 'uploads/'));
+        cb(null, UPLOADS_DIR);
     },
     filename: function (req, file, cb) {
         cb(null, Date.now() + '-' + file.originalname);
@@ -73,18 +94,33 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // Database path
-const USERS_DIR = path.join(__dirname, 'data/users/');
-async function initDB() { try { await fs.mkdir(USERS_DIR, { recursive: true }); } catch (e) { console.error(e); } }
-initDB();
+const USERS_DIR = path.join(DATA_DIR, 'users/');
 
 // Load YouTube Playlists Data
 let YOUTUBE_PLAYLISTS = {};
 (async () => {
     try {
-        const pPath = path.join(__dirname, 'data/youtube_playlists.json');
-        const data = await fs.readFile(pPath, 'utf8');
-        YOUTUBE_PLAYLISTS = JSON.parse(data);
-        console.log("✅ Loaded YouTube Playlists Data");
+        const pPath = path.join(DATA_DIR, 'youtube_playlists.json');
+        // Fallback to local default if persistent one doesn't exist yet
+        const localPath = path.join(__dirname, 'data/youtube_playlists.json');
+
+        let targetPath = pPath;
+        try {
+            await fs.access(pPath);
+        } catch {
+            // If persistent file missing, try to copy from local default, or start empty?
+            // Simplest: Try reading local if persistent fails
+            try {
+                await fs.access(localPath);
+                targetPath = localPath;
+            } catch { }
+        }
+
+        if (targetPath) {
+            const data = await fs.readFile(targetPath, 'utf8');
+            YOUTUBE_PLAYLISTS = JSON.parse(data);
+            console.log(`✅ Loaded YouTube Playlists from ${targetPath}`);
+        }
     } catch (e) {
         console.warn("⚠️ Failed to load youtube_playlists.json:", e.message);
     }
