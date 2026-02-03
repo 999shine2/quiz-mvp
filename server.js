@@ -1428,8 +1428,6 @@ app.get('/api/library', async (req, res) => {
 
             const solvedCount = fileLogs.reduce((acc, curr) => acc + (curr.count || 0), 0);
 
-            const solvedCount = fileLogs.reduce((acc, curr) => acc + (curr.count || 0), 0);
-
             // CRITICAL FIX: Convert Mongoose Document to Plain Object before spreading
             const fileObj = file.toObject ? file.toObject() : file;
 
