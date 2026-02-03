@@ -2298,17 +2298,18 @@ app.get('/api/profile', async (req, res) => {
 
         // 1. Total Stats
         const totalQuestionsSolved = logs
-            .filter(l => l.type === 'solve_question')
-            .reduce((acc, curr) => acc + (curr.count || 0), 0);
+            .filter(l => l.action === 'solve_question')
+            .reduce((acc, curr) => acc + (curr.details?.count || 0), 0);
 
         // 3 mins per question
         const totalTimeSavedMins = logs
-            .filter(l => l.type === 'solve_question')
+            .filter(l => l.action === 'solve_question')
             .reduce((acc, curr) => {
-                if (curr.correct !== undefined) {
-                    return acc + (curr.correct * 2) + ((curr.wrong || 0) * 1);
+                const det = curr.details || {};
+                if (det.correct !== undefined) {
+                    return acc + (det.correct * 2) + ((det.wrong || 0) * 1);
                 }
-                return acc + ((curr.count || 0) * 3);
+                return acc + ((det.count || 0) * 3);
             }, 0);
 
         // 2. Daily Stats (Last 7 Days)
@@ -2360,8 +2361,9 @@ app.get('/api/profile', async (req, res) => {
 
         // 3. Top Subjects (Material Counts)
         const materialCounts = {};
-        logs.filter(l => l.type === 'solve_question').forEach(l => {
-            let name = l.materialName || (l.subject ? l.subject + ' Review' : 'General Review');
+        logs.filter(l => l.action === 'solve_question').forEach(l => {
+            const det = l.details || {};
+            let name = det.materialName || (det.subject ? det.subject + ' Review' : 'General Review');
 
             // NORMALIZATION: Merge similar titles (case-insensitive, trim) and handle "..." truncations
             name = name.trim();
@@ -2378,10 +2380,8 @@ app.get('/api/profile', async (req, res) => {
             );
             if (existingKey) name = existingKey;
 
-            if (existingKey) name = existingKey;
-
             // FIX: lookup canonical emoji from file if possible
-            let emoji = l.subject || '📚';
+            let emoji = det.subject || '📚';
             const file = files.find(f => f.filename === name || (f.filename && f.filename.startsWith(name.substring(0, 15))));
             if (file && file.subjectEmoji) {
                 emoji = file.subjectEmoji;
@@ -2390,13 +2390,13 @@ app.get('/api/profile', async (req, res) => {
             if (!materialCounts[name]) {
                 materialCounts[name] = { count: 0, emoji, timeSaved: 0 };
             }
-            materialCounts[name].count += (l.count || 0);
+            materialCounts[name].count += (det.count || 0);
 
             let time = 0;
-            if (l.correct !== undefined) {
-                time = (l.correct * 2) + ((l.wrong || 0) * 1);
+            if (det.correct !== undefined) {
+                time = (det.correct * 2) + ((det.wrong || 0) * 1);
             } else {
-                time = (l.count || 0) * 3;
+                time = (det.count || 0) * 3;
             }
             materialCounts[name].timeSaved += time;
         });
