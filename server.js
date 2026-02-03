@@ -93,15 +93,6 @@ const upload = multer({
 const initUploads = async () => { try { await fs.mkdir(path.join(__dirname, 'uploads/'), { recursive: true }); } catch { } };
 initUploads();
 
-// Load YouTube Playlists Data (Keep local JSON or Migrate? User cares about THEIR data, this is global config)
-let YOUTUBE_PLAYLISTS = {};
-(async () => {
-    try {
-        const data = await fs.readFile(path.join(__dirname, 'data/youtube_playlists.json'), 'utf8');
-        YOUTUBE_PLAYLISTS = JSON.parse(data);
-        console.log("✅ Loaded YouTube Playlists Data");
-    } catch (e) { }
-})();
 
 // Load YouTube Playlists Data
 let YOUTUBE_PLAYLISTS = {};
@@ -154,28 +145,99 @@ async function deleteMaterial(id, userId) {
 // Helper: Get User ID from Request
 function getUserID(req) {
     let userId = req.headers['x-user-id'];
-    console.log('DEBUG: getUserID header:', userId);
     if (!userId) return 'anonymous';
 
     try {
-        // Decode URI component because client sends %EC%84%9C...
         userId = decodeURIComponent(userId);
-    } catch (e) {
-        console.error('DEBUG: decodeURIComponent failed for userId:', userId);
-    }
+    } catch (e) { }
 
     return userId.replace(/[^a-zA-Z0-9_\-%.\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF]/g, '-');
 }
 
+// --- MONGOOSE DB SHIM (Replacing JSON File DB) ---
+// getDB: Returns Mongoose Documents so modification tracking works.
 async function getDB(req) {
     const userId = getUserID(req);
-    const userPath = path.join(USERS_DIR, `${userId}.json`);
+
+    let files = [];
     try {
-        const data = await fs.readFile(userPath, 'utf8');
-        const db = JSON.parse(data);
-        if (!db.reelsBuffer) db.reelsBuffer = [];
-        return db;
-    } catch { return { files: [], activityLog: [], reelsBuffer: [] }; }
+        // Return Mongoose Documents (not lean) to enable .save() later
+        files = await Material.find({ userId });
+    } catch (e) { console.error("DB Fetch Error (Files):", e); }
+
+    let reelsBuffer = [];
+    try {
+        const buf = await ReelsBuffer.findOne({ userId });
+        if (buf && buf.questions) reelsBuffer = buf.questions;
+    } catch (e) { console.error("DB Fetch Error (Buffer):", e); }
+
+    let activityLog = [];
+    // Activity Log - we don't load all, just placeholders if needed, 
+    // or we assume endpoints just push to it. 
+    // Actually endpoints do: `db.activityLog.push`. 
+    // Return a proxy array? Or just a plain array that we process in saveDB?
+
+    return {
+        userId,
+        files: files || [],
+        reelsBuffer: reelsBuffer || [],
+        activityLog: [] // Activity logging handled separatedly in saveDB or ignored for now
+    };
+}
+
+// saveDB: Iterates objects and persists changes to Mongo
+async function saveDB(req, data) {
+    const userId = data.userId || getUserID(req);
+
+    // 1. Sync Files
+    if (data.files && Array.isArray(data.files)) {
+        for (const file of data.files) {
+            try {
+                if (file.save && typeof file.save === 'function') {
+                    // It is a Mongoose Document
+                    if (file.isModified()) {
+                        await file.save();
+                    }
+                } else {
+                    // It is a Plain Object (New file pushed to array)
+                    // Check if exists (by ID) to avoid duplicates
+                    const exists = await Material.exists({ id: file.id, userId });
+                    if (!exists) {
+                        await Material.create({ ...file, userId });
+                    }
+                }
+            } catch (err) {
+                console.error(`[SaveDB] Error saving file ${file.filename}:`, err);
+            }
+        }
+    }
+
+    // 2. Sync Buffer
+    if (data.reelsBuffer) {
+        try {
+            await ReelsBuffer.findOneAndUpdate(
+                { userId },
+                { questions: data.reelsBuffer, updatedAt: new Date() },
+                { upsert: true }
+            );
+        } catch (e) {
+            console.error("[SaveDB] Buffer sync error:", e);
+        }
+    }
+
+    // 3. Activity Log (If endpoints pushed to data.activityLog)
+    if (data.activityLog && data.activityLog.length > 0) {
+        // This shim assumes endpoints push new activities. 
+        // But since we returned [], we rely on endpoints modifying that array.
+        // We just insert them.
+        for (const log of data.activityLog) {
+            try {
+                await ActivityLog.create({ ...log, userId });
+            } catch (e) { }
+        }
+        // Clear to prevent re-saving if re-used
+        data.activityLog.length = 0;
+    }
 }
 
 // Helper: Fetch News for Interest (Returns ARRAY of top 5)
@@ -351,14 +413,7 @@ async function refillUserReelsBuffer(req, db) {
 
 
 
-async function saveDB(req, data) {
-    const userId = getUserID(req);
-    const userPath = path.join(USERS_DIR, `${userId}.json`);
-    await fs.writeFile(userPath, JSON.stringify(data, null, 2));
-}
-
 // --- AUTHENTICATION ENDPOINTS (Secure ID + Password) ---
-
 // Register: Create new account
 app.post('/api/auth/register', async (req, res) => {
     try {
@@ -373,32 +428,29 @@ app.post('/api/auth/register', async (req, res) => {
             return res.status(400).json({ error: "User ID must be alphanumeric (letters, numbers, underscore)." });
         }
 
-        const userPath = path.join(USERS_DIR, `${userId}.json`);
-
         // Check availability
         try {
-            await fs.access(userPath);
-            return res.status(409).json({ error: "User ID already exists." });
-        } catch (e) {
-            // File doesn't exist, proceed
-        }
+            const existing = await User.findOne({ userId });
+            if (existing) {
+                return res.status(409).json({ error: "User ID already exists." });
+            }
+        } catch (e) { }
 
         // Create User Data
-        const newUser = {
-            userId,
-            password, // Storing plain for MVP (Should be hashed in prod)
-            nickname,
-            createdAt: new Date().toISOString(),
-            files: [],
-            likedQuestions: [],
-            reelsBuffer: [],
-            stats: { totalQuestionsAnswered: 0, currentStreak: 0, lastStudyDate: null }
-        };
+        try {
+            await User.create({
+                userId,
+                password,
+                nickname,
+                createdAt: new Date().toISOString()
+            });
+            console.log(`[Auth] Registered new user: ${userId} (${nickname})`);
+            res.json({ success: true, message: "Account created!", userId, nickname });
 
-        await fs.writeFile(userPath, JSON.stringify(newUser, null, 2));
-        console.log(`[Auth] Registered new user: ${userId} (${nickname})`);
-
-        res.json({ success: true, message: "Account created!", userId, nickname });
+        } catch (createErr) {
+            console.error("Register Error:", createErr);
+            res.status(500).json({ error: "Failed to create user." });
+        }
 
     } catch (err) {
         console.error("Register Error:", err);
@@ -415,25 +467,27 @@ app.post('/api/auth/login', async (req, res) => {
             return res.status(400).json({ error: "Missing ID or Password." });
         }
 
-        const userPath = path.join(USERS_DIR, `${userId}.json`);
-
         try {
             // Load User Data
-            const data = await fs.readFile(userPath, 'utf8');
-            const user = JSON.parse(data);
+            const user = await User.findOne({ userId });
+
+            if (!user) {
+                console.warn(`[Auth] Login Failed (User Not Found): ${userId}`);
+                return res.status(404).json({ error: "User ID not found." });
+            }
 
             // Verify Password
             if (user.password === password) {
                 console.log(`[Auth] Login Success: ${userId}`);
-                res.json({ success: true, userId, nickname: user.nickname });
+                res.json({ success: true, userId, nickname: user.nickname || userId });
             } else {
                 console.warn(`[Auth] Login Failed (Wrong Password): ${userId}`);
                 res.status(401).json({ error: "Incorrect password." });
             }
 
         } catch (e) {
-            console.warn(`[Auth] Login Failed (User Not Found): ${userId}`);
-            res.status(404).json({ error: "User ID not found." });
+            console.error("Login DB Error", e);
+            res.status(500).json({ error: "Database error" });
         }
 
     } catch (err) {
