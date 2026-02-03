@@ -8,3 +8,9 @@ services:
         sync: false
       - key: PORT
         value: 8080
+      - key: DATA_DIR
+        value: /var/data
+    disk:
+      name: quiz_data
+      mountPath: /var/data
+      sizeGB: 1
