@@ -134,10 +134,22 @@ let YOUTUBE_PLAYLISTS = {};
 })();
 
 
+// Mongoose Data Layer Helpers
+async function getUserMaterials(userId) {
+    return await Material.find({ userId }).sort({ uploadedAt: -1 });
+}
 
-// Helper to read/write DB
+async function createMaterial(userId, data) {
+    return await Material.create({ ...data, userId });
+}
 
+async function updateMaterial(id, userId, updates) {
+    return await Material.findOneAndUpdate({ id, userId }, updates, { new: true });
+}
 
+async function deleteMaterial(id, userId) {
+    return await Material.deleteOne({ id, userId });
+}
 
 // Helper: Get User ID from Request
 function getUserID(req) {
