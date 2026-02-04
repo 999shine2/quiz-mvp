@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys
 import json
+import os
 from youtube_transcript_api import YouTubeTranscriptApi
 
 def fetch_transcript(video_id):
@@ -11,10 +12,17 @@ def fetch_transcript(video_id):
         'es', 'fr', 'de', 'pt', 'hi', 'ar', 
         'ru', 'it', 'id', 'tr', 'nl', 'pl', 'sv'
     ]
-    video_id = 'G8DEiswIASU'
+
+    # Configure Proxy if Env Var exists
+    proxies = None
+    proxy_url = os.environ.get('YOUTUBE_PROXY_URL')
+    if proxy_url:
+        proxies = {"https": proxy_url}
+        # print(f"DEBUG: Using Proxy: {proxy_url}", file=sys.stderr)
+
     try:
         api = YouTubeTranscriptApi()
-        transcript_list = api.list(video_id)
+        transcript_list = api.list_transcripts(video_id, proxies=proxies)
         
         transcript = None
         
