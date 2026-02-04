@@ -1100,6 +1100,7 @@ app.post('/api/youtube', async (req, res) => {
 
 
         db.files.unshift(newFileEntry);
+        const userId = getUserID(req);
         await logActivity(userId, 'upload', { filename: newFileEntry.filename });
         await saveDB(req, db);
 
