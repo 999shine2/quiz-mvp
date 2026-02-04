@@ -13,7 +13,10 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { Client } from '@notionhq/client';
 import { parseStringPromise } from 'xml2js';
+import { parseStringPromise } from 'xml2js';
+import bcrypt from 'bcryptjs'; // Secure Password Hashing
 import { Innertube, UniversalCache } from 'youtubei.js'; // Robust YouTube Client
+import { HttpsProxyAgent } from 'https-proxy-agent'; // Proxy Support
 
 const execAsync = promisify(exec);
 
@@ -109,7 +112,10 @@ initUploads();
 let YOUTUBE_PLAYLISTS = {};
 (async () => {
     try {
-        const pPath = path.join(DATA_DIR, 'youtube_playlists.json');
+        // Fix: Robust DATA_DIR handling
+        const dataDir = process.env.DATA_DIR || path.join(__dirname, 'data');
+        const pPath = path.join(dataDir, 'youtube_playlists.json');
+
         // Fallback to local default if persistent one doesn't exist yet
         const localPath = path.join(__dirname, 'data/youtube_playlists.json');
 
@@ -117,8 +123,6 @@ let YOUTUBE_PLAYLISTS = {};
         try {
             await fs.access(pPath);
         } catch {
-            // If persistent file missing, try to copy from local default, or start empty?
-            // Simplest: Try reading local if persistent fails
             try {
                 await fs.access(localPath);
                 targetPath = localPath;
@@ -129,6 +133,8 @@ let YOUTUBE_PLAYLISTS = {};
             const data = await fs.readFile(targetPath, 'utf8');
             YOUTUBE_PLAYLISTS = JSON.parse(data);
             console.log(`✅ Loaded YouTube Playlists from ${targetPath}`);
+        } else {
+            console.warn(`⚠️ YouTube Playlists file not found at ${pPath} or ${localPath}`);
         }
     } catch (e) {
         console.warn("⚠️ Failed to load youtube_playlists.json:", e.message);
@@ -433,6 +439,7 @@ async function refillUserReelsBuffer(req, db) {
 
 // --- AUTHENTICATION ENDPOINTS (Secure ID + Password) ---
 // Register: Create new account
+// Register: Create new account (SECURE)
 app.post('/api/auth/register', async (req, res) => {
     try {
         const { userId, password, nickname } = req.body;
@@ -454,11 +461,14 @@ app.post('/api/auth/register', async (req, res) => {
             }
         } catch (e) { }
 
-        // Create User Data
+        // Create User Data (HASHED)
+        const salt = await bcrypt.genSalt(10);
+        const passwordHash = await bcrypt.hash(password, salt);
+
         try {
             await User.create({
                 userId,
-                password,
+                password: passwordHash, // Store Hash, not plain text
                 nickname,
                 createdAt: new Date().toISOString()
             });
@@ -477,6 +487,7 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 // Login: Verify credentials
+// Login: Verify credentials (SECURE + MIGRATION)
 app.post('/api/auth/login', async (req, res) => {
     try {
         const { userId, password } = req.body;
@@ -494,8 +505,28 @@ app.post('/api/auth/login', async (req, res) => {
                 return res.status(404).json({ error: "User ID not found." });
             }
 
-            // Verify Password
-            if (user.password === password) {
+            // Verify Password (Robust Strategy)
+            let isMatch = false;
+
+            // 1. Try bcrypt compare first (Standard)
+            const isHashed = user.password.startsWith('$2'); // Basic check for bcrypt hash
+            if (isHashed) {
+                isMatch = await bcrypt.compare(password, user.password);
+            }
+
+            // 2. Fallback: Plain Text check (Legacy Migration)
+            if (!isMatch && !isHashed) {
+                if (user.password === password) {
+                    isMatch = true;
+                    // MIGRATION: Hash it now and save!
+                    console.log(`[Auth] Migrating legacy password for user: ${userId}`);
+                    const salt = await bcrypt.genSalt(10);
+                    user.password = await bcrypt.hash(password, salt);
+                    await user.save();
+                }
+            }
+
+            if (isMatch) {
                 console.log(`[Auth] Login Success: ${userId}`);
                 res.json({ success: true, userId, nickname: user.nickname || userId });
             } else {
@@ -584,11 +615,29 @@ async function fetchVideoMetadata(videoId) {
 let yt = null;
 (async () => {
     try {
+        const proxyUrl = process.env.YOUTUBE_PROXY_URL; // e.g., http://user:pass@host:port
+        const agent = proxyUrl ? new HttpsProxyAgent(proxyUrl) : undefined;
+
+        if (proxyUrl) console.log(`[YouTube] Using Proxy: ${proxyUrl.replace(/:[^:]*@/, ':****@')}`);
+
         yt = await Innertube.create({
             cache: new UniversalCache(false),
             generate_session_locally: true,
             lang: 'en',
-            location: 'US'
+            location: 'US',
+            // Inject Proxy Agent
+            fetch: (input, init) => {
+                if (agent) {
+                    init = init || {};
+                    init.dispatcher = agent; // Node 18+ undici dispatcher (if youtubei supports it)
+                    // For legacy node-fetch or if youtubei uses specific fetch, we might need agent: agent
+                    // Youtubei.js typically uses 'undici' or native fetch.
+                }
+                return fetch(input, init);
+            },
+            // Alternatively, some versions support:
+            http_agent: agent,
+            https_agent: agent
         });
         console.log('[YouTube] Innertube Client Initialized');
     } catch (e) {
@@ -618,6 +667,8 @@ async function fetchYouTubeTranscript(videoId) {
 
         // 2. Fallback to Innertube (youtubei.js) - Simulates real client
         if (!yt) {
+            const proxyUrl = process.env.YOUTUBE_PROXY_URL;
+            // Re-init logic if global failed? Or just try create temp instance
             yt = await Innertube.create({
                 cache: new UniversalCache(false),
                 generate_session_locally: true,
@@ -953,10 +1004,12 @@ app.post('/api/youtube', async (req, res) => {
             console.warn('[YouTube] Metadata fetch failed:', e);
         }
 
+        let transcriptError = null;
         try {
             transcriptData = await fetchYouTubeTranscript(videoId);
         } catch (e) {
             console.warn('[YouTube] Transcript fetch failed (IP Block probable):', e.message);
+            transcriptError = e.message;
             transcriptData = { text: "" };
         }
 
@@ -997,9 +1050,21 @@ app.post('/api/youtube', async (req, res) => {
         console.log('Generating questions with AI (Count: 10, with Context)...');
 
         // Fallback text if transcript is empty
-        const textToAnalyze = transcriptData.text && transcriptData.text.length > 50
-            ? transcriptData.text
-            : `(Transcript Missing). The video title is "${fetchedTitle}". Please generate questions based on this title and general knowledge about the topic.`;
+        let textToAnalyze = "";
+        let qualitySource = "UNKNOWN";
+
+        if (transcriptData.text && transcriptData.text.length > 50) {
+            textToAnalyze = transcriptData.text;
+            qualitySource = "TRANSCRIPT (High Quality)";
+        } else {
+            textToAnalyze = `(Transcript Missing). The video title is "${fetchedTitle}". Please generate questions based on this title and general knowledge about the topic.`;
+            qualitySource = "METADATA_FALLBACK (Low Quality - No Transcript)";
+        }
+
+        console.log(`\n============== QUALITY CHECK =============`);
+        console.log(`Source Used: ${qualitySource}`);
+        console.log(`Text Length: ${textToAnalyze.length}`);
+        console.log(`==========================================\n`);
 
         // Request 5 questions + Summary
         // Request 5 questions + Summary
@@ -1035,10 +1100,15 @@ app.post('/api/youtube', async (req, res) => {
 
 
         db.files.unshift(newFileEntry);
-        await logActivity(db, 'upload', { filename: newFileEntry.filename });
+        await logActivity(userId, 'upload', { filename: newFileEntry.filename });
         await saveDB(req, db);
 
-        res.json({ ...newFileEntry, isMock: aiResult.isMock });
+        res.json({
+            ...newFileEntry,
+            isMock: aiResult.isMock,
+            transcriptError: transcriptError, // Pass error to client
+            qualitySource: qualitySource      // Pass source info
+        });
 
     } catch (error) {
         console.error('Error processing YouTube:', error);

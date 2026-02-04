@@ -1099,6 +1099,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const data = await response.json();
+
+            // --- ERROR LOGGING FOR USER DEBUG ---
+            if (data.transcriptError) {
+                console.group('%c ⚠️ YouTube Transcript Error ', 'background: #ff0000; color: #ffffff; font-size: 14px; padding: 4px;');
+                console.error('SERVER MESSAGE:', data.transcriptError);
+                console.warn('QUALITY SOURCE:', data.qualitySource || 'Unknown');
+                console.log('Use "Paste Text" mode or configure a Proxy to fix this.');
+                console.groupEnd();
+            }
+            // ------------------------------------
+
             currentFile = data;
             window.currentFile = data; // Sync global state for renderQuestion
 
