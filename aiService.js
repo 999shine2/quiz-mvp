@@ -218,10 +218,20 @@ async function generateQuestions(text, apiKey, count = 5, title = "", relatedCon
       - **LANGUAGE:** MUST BE IN ENGLISH.
 
       ${avoidQuestions && avoidQuestions.length > 0 ? `
-      **STRICT DUPLICATION CHECK:**
-      The following questions ALREADY EXIST. You must NOT generate questions that test the exact same specific fact or scenario.
-      AVOID THESE TOPICS/ANGLES:
+      **🚨 CRITICAL: AVOID DUPLICATE LEARNING 🚨**
+      The user has ALREADY learned these concepts from previous questions. Your goal is to teach them SOMETHING NEW.
+      
+      **EXISTING QUESTIONS (DO NOT REPEAT THESE CONCEPTS):**
       ${avoidQuestions.map(q => `- ${q}`).join('\n')}
+      
+      **YOUR TASK:**
+      1. Read the transcript thoroughly and identify DIFFERENT facts, concepts, or insights
+      2. Focus on parts of the content NOT covered by the existing questions above
+      3. If the existing questions focus on concept A, create questions about concepts B, C, D
+      4. Ensure each new question teaches something the user hasn't learned yet
+      
+      **UNACCEPTABLE:** Creating questions that test the same knowledge in slightly different wording
+      **REQUIRED:** Find genuinely new learning opportunities in the material
       ` : ''}
 
       Output the result as a strictly valid JSON object with this structure:
