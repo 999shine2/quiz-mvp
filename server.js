@@ -17,6 +17,7 @@ import { parseStringPromise } from 'xml2js';
 import bcrypt from 'bcryptjs'; // Secure Password Hashing
 import { Innertube, UniversalCache } from 'youtubei.js'; // Robust YouTube Client
 import { HttpsProxyAgent } from 'https-proxy-agent'; // Proxy Support
+import { ProxyAgent } from 'undici'; // Proxy for undici/fetch
 
 const execAsync = promisify(exec);
 
@@ -677,7 +678,10 @@ async function fetchYouTubeTranscript(videoId) {
 
             if (proxyUrl) {
                 console.log(`[YouTube] Configuring Proxy for Innertube: ${proxyUrl}`);
-                initOptions.http_agent = new HttpsProxyAgent(proxyUrl);
+                const proxyAgent = new ProxyAgent(proxyUrl);
+                initOptions.fetch = (url, options) => {
+                    return fetch(url, { ...options, dispatcher: proxyAgent });
+                };
             }
 
             yt = await Innertube.create(initOptions);
