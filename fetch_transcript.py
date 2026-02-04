@@ -21,8 +21,8 @@ def fetch_transcript(video_id):
         # print(f"DEBUG: Using Proxy: {proxy_url}", file=sys.stderr)
 
     try:
-        api = YouTubeTranscriptApi()
-        transcript_list = api.list_transcripts(video_id, proxies=proxies)
+        # api = YouTubeTranscriptApi()  <-- Incorrect, class has static methods
+        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id, proxies=proxies)
         
         transcript = None
         
