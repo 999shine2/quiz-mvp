@@ -668,13 +668,19 @@ async function fetchYouTubeTranscript(videoId) {
         // 2. Fallback to Innertube (youtubei.js) - Simulates real client
         if (!yt) {
             const proxyUrl = process.env.YOUTUBE_PROXY_URL;
-            // Re-init logic if global failed? Or just try create temp instance
-            yt = await Innertube.create({
+            const initOptions = {
                 cache: new UniversalCache(false),
                 generate_session_locally: true,
                 lang: 'en',
                 location: 'US'
-            });
+            };
+
+            if (proxyUrl) {
+                console.log(`[YouTube] Configuring Proxy for Innertube: ${proxyUrl}`);
+                initOptions.http_agent = new HttpsProxyAgent(proxyUrl);
+            }
+
+            yt = await Innertube.create(initOptions);
         }
 
         try {
