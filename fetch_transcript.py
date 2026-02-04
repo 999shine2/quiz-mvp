@@ -11,7 +11,7 @@ def fetch_transcript(video_id):
         'es', 'fr', 'de', 'pt', 'hi', 'ar', 
         'ru', 'it', 'id', 'tr', 'nl', 'pl', 'sv'
     ]
-
+    video_id = 'G8DEiswIASU'
     try:
         api = YouTubeTranscriptApi()
         transcript_list = api.list(video_id)
