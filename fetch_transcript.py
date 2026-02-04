@@ -13,16 +13,15 @@ def fetch_transcript(video_id):
         'ru', 'it', 'id', 'tr', 'nl', 'pl', 'sv'
     ]
 
-    # Configure Proxy if Env Var exists
-    proxies = None
+    # Configure Proxy via Environment Variable (requests library respects this)
     proxy_url = os.environ.get('YOUTUBE_PROXY_URL')
     if proxy_url:
-        proxies = {"https": proxy_url}
-        # print(f"DEBUG: Using Proxy: {proxy_url}", file=sys.stderr)
+        os.environ['HTTPS_PROXY'] = proxy_url
+        os.environ['HTTP_PROXY'] = proxy_url
 
     try:
-        # api = YouTubeTranscriptApi()  <-- Incorrect, class has static methods
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id, proxies=proxies)
+        api = YouTubeTranscriptApi()
+        transcript_list = api.list(video_id)
         
         transcript = None
         
