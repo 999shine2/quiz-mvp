@@ -1236,7 +1236,7 @@ document.addEventListener('DOMContentLoaded', () => {
             wrapper.id = 'current-image-wrapper';
             wrapper.style.position = 'relative'; // Anchor for Like Button
             wrapper.style.width = '100%';
-            wrapper.style.display = 'none'; // USER REQUEST: Hide image completely
+            wrapper.style.display = 'block'; // RESTORED: Show images
             wrapper.style.marginBottom = '20px';
             wrapper.style.borderRadius = '12px';
             wrapper.style.overflow = 'hidden';
@@ -1261,36 +1261,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
             questionContainer.insertBefore(wrapper, questionContainer.firstChild);
 
-            // 3. Async Fetch (DISABLED BY USER REQUEST)
-            /*
-            try {
-                const genRes = await fetch(apiUrl('/api/generate-image'), {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'x-user-id': localStorage.getItem('user_name') || 'guest'
-                    },
-                    body: JSON.stringify({
-                        question: promptQuestion,
-                        apiKey: activeApiKey,
-                        context: ""
-                    })
-                });
-    
-                if (!genRes.ok) throw new Error("Image gen failed");
-    
-                const genData = await genRes.json();
-                if (genData.imageUrl) {
-                    image.src = genData.imageUrl;
-                    console.log("[Standard Quiz] Loaded Image:", genData.imageUrl);
-                } else {
-                    throw new Error("No URL in response");
-                }
-            } catch (e) {
-                console.error("Standard Image Gen Failed:", e);
+            // Load pre-generated image from backend (if available)
+            if (q.imageUrl) {
+                image.src = q.imageUrl;
+                console.log("[Standard Quiz] Loaded Image:", q.imageUrl);
+            } else {
+                // Image is generating in background - show placeholder
+                console.log("[Standard Quiz] Image not ready yet, showing placeholder");
                 image.style.opacity = '0.5';
             }
-            */
         };
 
         loadImage();

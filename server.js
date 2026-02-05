@@ -546,6 +546,53 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
+// Helper: Generate and Save Image for Question
+async function generateQuestionImage(question, userId, apiKey) {
+    try {
+        const imageDir = path.join(__dirname, 'public', 'images', 'questions');
+        await fs.mkdir(imageDir, { recursive: true });
+
+        // Create hash from question text for caching
+        const crypto = await import('crypto');
+        const hash = crypto.createHash('md5').update(question.question).digest('hex').substring(0, 12);
+        const filename = `${hash}.png`;
+        const filePath = path.join(imageDir, filename);
+
+        // Check if image already exists
+        try {
+            await fs.access(filePath);
+            const stats = await fs.stat(filePath);
+            if (stats.size > 1000) {
+                console.log(`[Image] Cache HIT: ${filename}`);
+                return `/images/questions/${filename}`;
+            }
+        } catch (e) {
+            // File doesn't exist, generate it
+        }
+
+        // Generate image using imagePrompt from question
+        const imagePrompt = question.imagePrompt || question.question;
+        console.log(`[Image] Generating for: "${imagePrompt.substring(0, 40)}..."`);
+
+        const imageBase64 = await generateImageWithPollinations(imagePrompt, process.env.POLLINATIONS_API_KEY);
+        const imageBuffer = Buffer.from(imageBase64, 'base64');
+
+        // Validate image
+        if (imageBuffer.length < 1000) {
+            console.warn(`[Image] Generation failed (too small: ${imageBuffer.length} bytes)`);
+            return null;
+        }
+
+        // Save to disk
+        await fs.writeFile(filePath, imageBuffer);
+        console.log(`[Image] Saved: ${filename} (${imageBuffer.length} bytes)`);
+
+        return `/images/questions/${filename}`;
+    } catch (error) {
+        console.error('[Image] Generation error:', error.message);
+        return null;
+    }
+}
 
 // Helper: Extract video ID from URL
 function extractVideoId(url) {
@@ -1105,10 +1152,6 @@ app.post('/api/youtube', async (req, res) => {
             transcriptIsGenerated: transcriptData.isGenerated || false
         };
 
-        // --- PRE-GENERATE IMAGES SKIPPED FOR SPEED ---
-        console.log(`[YouTube] Skipping pre-generation to return questions immediately.`);
-
-
         db.files.unshift(newFileEntry);
         const userId = getUserID(req);
         await logActivity(userId, 'upload', { filename: newFileEntry.filename });
@@ -1120,6 +1163,26 @@ app.post('/api/youtube', async (req, res) => {
             transcriptError: transcriptError, // Pass error to client
             qualitySource: qualitySource      // Pass source info
         });
+
+        // Generate images asynchronously (after response sent)
+        console.log(`[YouTube] Generating images for ${newFileEntry.questions.length} questions...`);
+        (async () => {
+            try {
+                for (const question of newFileEntry.questions) {
+                    if (!question.imageUrl) {
+                        const imageUrl = await generateQuestionImage(question, userId, apiKey);
+                        if (imageUrl) {
+                            question.imageUrl = imageUrl;
+                        }
+                    }
+                }
+                // Save updated questions with image URLs
+                await saveDB(req, db);
+                console.log(`[YouTube] Images generated and saved`);
+            } catch (err) {
+                console.error('[YouTube] Image generation error:', err);
+            }
+        })();
 
     } catch (error) {
         console.error('Error processing YouTube:', error);
@@ -2654,6 +2717,25 @@ app.post('/api/generate-more/:id', async (req, res) => {
         await saveDB(req, db);
 
         res.json({ success: true, newQuestions: result.questions });
+
+        // Generate images asynchronously for new questions
+        (async () => {
+            try {
+                const userId = getUserID(req);
+                for (const question of result.questions) {
+                    if (!question.imageUrl) {
+                        const imageUrl = await generateQuestionImage(question, userId, apiKey);
+                        if (imageUrl) {
+                            question.imageUrl = imageUrl;
+                        }
+                    }
+                }
+                await saveDB(req, db);
+                console.log(`[Generate More] Images generated for ${result.questions.length} questions`);
+            } catch (err) {
+                console.error('[Generate More] Image generation error:', err);
+            }
+        })();
 
     } catch (err) {
         console.error('Generate More Error:', err);
