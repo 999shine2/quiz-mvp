@@ -969,101 +969,112 @@ function getMockQuestions(reason = "Unknown Error") {
     };
 }
 
-// Pollinations AI (Flux) - Authenticated with API Key
+// Image Generation using Unsplash Source API (Free, No Auth Required)
+// NOTE: Pollinations was rate limiting even with API key, switched to reliable free alternative
 export async function generateImageWithPollinations(prompt, apiKey) {
-    // FIX: Truncate prompt to safe length (500 chars) to prevent URL length issues
-    // Long URLs cause 414 URI Too Long or break the POST request signature
-    const safePrompt = prompt.length > 500 ? prompt.substring(0, 500) : prompt;
-    const encoded = encodeURIComponent(safePrompt);
+    // Extract key visual concepts from the prompt
+    const keywords = prompt
+        .replace(/[^a-zA-Z0-9\s]/g, '') // Remove special chars
+        .split(/\s+/) // Split into words
+        .filter(word => word.length > 3) // Keep meaningful words
+        .slice(0, 3) // Take first 3 keywords
+        .join(',');
 
-    // Use the full API endpoint with model specification
-    // FIX: Add random seed to prevent caching
-    // FIX: Add nologo=true and private=true (Paid tier features)
-    // CRITICAL: DO NOT use 'api_key' query param - it breaks authentication. Header only.
-    const seed = Math.floor(Math.random() * 10000000);
-    const safeKey = apiKey ? apiKey.trim() : '';
+    const searchTerm = keywords || 'abstract,concept';
 
-    const url = `https://image.pollinations.ai/prompt/${encoded}?model=flux&width=1024&height=1024&seed=${seed}&nologo=true&private=true&enhance=false`;
+    // Use Unsplash Source API (completely free, no authentication)
+    // Returns a random image matching the keywords
+    const url = `https://source.unsplash.com/1024x1024/?${encodeURIComponent(searchTerm)}`;
 
-    console.log(`[Pollinations] Generating with Flux (authenticated)...`);
-    console.log(`[Pollinations] API Key present: ${safeKey.length > 5 ? 'Yes' : 'No'}`);
-    console.log(`[Pollinations] Prompt Length: ${safePrompt.length} (Truncated from ${prompt.length})`);
+    console.log(`[Unsplash] Fetching image for: "${searchTerm}"`);
 
     return new Promise((resolve, reject) => {
-        // Build curl arguments with Authorization header if API key is provided
-        const curlArgs = [
-            '-X', 'POST', // CRITICAL: Paid tier requires POST to work reliably
+        const curl = spawn('curl', [
             '-L',  // Follow redirects
             '-s',  // Silent
-        ];
+            url
+        ]);
 
-        // CRITICAL: Add Authorization header with Bearer token
-        if (safeKey.length > 0) {
-            curlArgs.push('-H', `Authorization: Bearer ${safeKey}`);
-            console.log(`[Pollinations] Using authenticated request (Header Only)`);
-        } else {
-            console.warn(`[Pollinations] Warning: No API key provided, using anonymous tier (rate limited)`);
-        }
-
-        curlArgs.push(url);
-
-        const curl = spawn('curl', curlArgs);
         const chunks = [];
 
         curl.stdout.on('data', (chunk) => chunks.push(chunk));
-        curl.stderr.on('data', (data) => console.error(`[Curl Stderr]: ${data}`));
+        curl.stderr.on('data', (data) => console.error(`[Curl Error]: ${data}`));
 
         curl.on('close', (code) => {
-            if (code !== 0) return reject(new Error(`Curl process exited with code ${code}`));
+            if (code !== 0) {
+                console.error(`[Unsplash] Curl failed with code ${code}`);
+                return resolve(null);
+            }
 
             const buffer = Buffer.concat(chunks);
 
-            // CRITICAL: Check file size to detect "Anonymous Limit" image (~100KB)
-            // Real Flux images are usually > 500KB - 1.5MB
-            if (buffer.length < 200000) {
-                console.warn(`[Pollinations] Rate Limit Hit (Small File: ${buffer.length} bytes). Switching to Fallback API.`);
-
-                // FALLBACK: Use alternative free API (Hugging Face or Replicate public endpoints)
-                // Try simpler stable-diffusion endpoint
-                const fallbackUrl = `https://image.pollinations.ai/prompt/${encoded}?width=512&height=512&seed=${seed}&nologo=true`;
-
-                console.log(`[Pollinations] Fetching from fallback URL...`);
-
-                // Fetch from fallback
-                const fallbackCurl = spawn('curl', ['-L', '-s', fallbackUrl]);
-                const fallbackChunks = [];
-
-                fallbackCurl.stdout.on('data', (chunk) => fallbackChunks.push(chunk));
-
-                fallbackCurl.on('close', (fallbackCode) => {
-                    if (fallbackCode !== 0) {
-                        console.error(`[Pollinations] Fallback also failed`);
-                        return resolve(null); // Give up gracefully
-                    }
-
-                    const fallbackBuffer = Buffer.concat(fallbackChunks);
-
-                    if (fallbackBuffer.length < 1000) {
-                        console.error(`[Pollinations] Fallback returned tiny file: ${fallbackBuffer.length} bytes`);
-                        return resolve(null);
-                    }
-
-                    console.log(`[Pollinations] Fallback Success: ${fallbackBuffer.length} bytes`);
-                    resolve(fallbackBuffer.toString('base64'));
-                });
-
-                fallbackCurl.on('error', (err) => {
-                    console.error(`[Pollinations] Fallback error:`, err);
-                    resolve(null);
-                });
-
-                return;
+            // Validate image size
+            if (buffer.length < 10000) {
+                console.warn(`[Unsplash] Image too small: ${buffer.length} bytes`);
+                return resolve(null);
             }
 
-            console.log(`[Pollinations] Success: ${buffer.length} bytes`);
+            console.log(`[Unsplash] Success: ${buffer.length} bytes`);
             resolve(buffer.toString('base64'));
         });
 
-        curl.on('error', (err) => reject(err));
+        curl.on('error', (err) => {
+            console.error(`[Unsplash] Error:`, err);
+            resolve(null);
+        });
+    });
+}
+// Image Generation using Unsplash Source API (Free, No Auth Required)
+export async function generateImageWithPollinations(prompt, apiKey) {
+    // Extract key visual concepts from the prompt
+    const keywords = prompt
+        .replace(/[^a-zA-Z0-9\s]/g, '') // Remove special chars
+        .split(/\s+/) // Split into words
+        .filter(word => word.length > 3) // Keep meaningful words
+        .slice(0, 3) // Take first 3 keywords
+        .join(',');
+
+    const searchTerm = keywords || 'abstract,concept';
+
+    // Use Unsplash Source API (completely free, no authentication)
+    // Returns a random image matching the keywords
+    const url = `https://source.unsplash.com/1024x1024/?${encodeURIComponent(searchTerm)}`;
+
+    console.log(`[Unsplash] Fetching image for: "${searchTerm}"`);
+
+    return new Promise((resolve, reject) => {
+        const curl = spawn('curl', [
+            '-L',  // Follow redirects
+            '-s',  // Silent
+            url
+        ]);
+
+        const chunks = [];
+
+        curl.stdout.on('data', (chunk) => chunks.push(chunk));
+        curl.stderr.on('data', (data) => console.error(`[Curl Error]: ${data}`));
+
+        curl.on('close', (code) => {
+            if (code !== 0) {
+                console.error(`[Unsplash] Curl failed with code ${code}`);
+                return resolve(null);
+            }
+
+            const buffer = Buffer.concat(chunks);
+
+            // Validate image size
+            if (buffer.length < 10000) {
+                console.warn(`[Unsplash] Image too small: ${buffer.length} bytes`);
+                return resolve(null);
+            }
+
+            console.log(`[Unsplash] Success: ${buffer.length} bytes`);
+            resolve(buffer.toString('base64'));
+        });
+
+        curl.on('error', (err) => {
+            console.error(`[Unsplash] Error:`, err);
+            resolve(null);
+        });
     });
 }

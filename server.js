@@ -575,6 +575,13 @@ async function generateQuestionImage(question, userId, apiKey) {
         console.log(`[Image] Generating for: "${imagePrompt.substring(0, 40)}..."`);
 
         const imageBase64 = await generateImageWithPollinations(imagePrompt, process.env.POLLINATIONS_API_KEY);
+
+        // CRITICAL: Check if generation failed (returned null)
+        if (!imageBase64) {
+            console.warn(`[Image] Generation failed: API returned null`);
+            return null;
+        }
+
         const imageBuffer = Buffer.from(imageBase64, 'base64');
 
         // Validate image
