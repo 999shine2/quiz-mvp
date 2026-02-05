@@ -982,6 +982,26 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         await saveDB(req, db);
 
         res.json({ ...newFileEntry, isMock: aiResult.isMock });
+
+        // Generate images asynchronously (after response sent)
+        console.log(`[Upload] Generating images for ${newFileEntry.questions.length} questions...`);
+        (async () => {
+            try {
+                for (const question of newFileEntry.questions) {
+                    if (!question.imageUrl) {
+                        const imageUrl = await generateQuestionImage(question, userId, apiKey);
+                        if (imageUrl) {
+                            question.imageUrl = imageUrl;
+                        }
+                    }
+                }
+                // Save updated questions with image URLs
+                await saveDB(req, db);
+                console.log(`[Upload] Images generated and saved`);
+            } catch (err) {
+                console.error('[Upload] Image generation error:', err);
+            }
+        })();
     } catch (error) {
         console.error('Error processing upload:', error);
         res.status(500).json({ error: error.message || 'Failed to process file' });
@@ -1226,6 +1246,27 @@ app.post('/api/creative', async (req, res) => {
         await saveDB(req, db);
 
         res.json({ ...newFileEntry, isMock: aiResult.isMock });
+
+        // Generate images asynchronously (after response sent)
+        console.log(`[Creative] Generating images for ${newFileEntry.questions.length} questions...`);
+        (async () => {
+            try {
+                const apiKey = req.body.apiKey || process.env.GEMINI_API_KEY;
+                for (const question of newFileEntry.questions) {
+                    if (!question.imageUrl) {
+                        const imageUrl = await generateQuestionImage(question, userId, apiKey);
+                        if (imageUrl) {
+                            question.imageUrl = imageUrl;
+                        }
+                    }
+                }
+                // Save updated questions with image URLs
+                await saveDB(req, db);
+                console.log(`[Creative] Images generated and saved`);
+            } catch (err) {
+                console.error('[Creative] Image generation error:', err);
+            }
+        })();
 
     } catch (error) {
         console.error('Error processing Creative Work:', error);
