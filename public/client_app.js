@@ -1265,10 +1265,22 @@ document.addEventListener('DOMContentLoaded', () => {
             if (q.imageUrl) {
                 image.src = q.imageUrl;
                 console.log("[Standard Quiz] Loaded Image:", q.imageUrl);
+
+                // Retry on error (e.g. 404 if generated but not synced yet)
+                image.onerror = function () {
+                    console.warn("Image load failed, retrying with cache buster...");
+                    this.onerror = null; // Prevent infinite loop
+                    setTimeout(() => {
+                        this.src = q.imageUrl + '?t=' + new Date().getTime();
+                    }, 1000);
+                };
             } else {
                 // Image is generating in background - show placeholder
                 console.log("[Standard Quiz] Image not ready yet, showing placeholder");
                 image.style.opacity = '0.5';
+
+                // Poll for image availability? (User Request: "Lazy Load" is handled by buffer, but standard quiz needs this)
+                // For now, let's just leave placeholder.
             }
         };
 
