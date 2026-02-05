@@ -969,24 +969,17 @@ function getMockQuestions(reason = "Unknown Error") {
     };
 }
 
-// Image Generation using Unsplash Source API (Free, No Auth Required)
-// NOTE: Pollinations was rate limiting even with API key, switched to reliable free alternative
+// Image Generation using Picsum Photos (Lorem Picsum) - Free, No Auth Required
+// NOTE: Unsplash Source was deprecated. Picsum provides free placeholder images.
 export async function generateImageWithPollinations(prompt, apiKey) {
-    // Extract key visual concepts from the prompt
-    const keywords = prompt
-        .replace(/[^a-zA-Z0-9\s]/g, '') // Remove special chars
-        .split(/\s+/) // Split into words
-        .filter(word => word.length > 3) // Keep meaningful words
-        .slice(0, 3) // Take first 3 keywords
-        .join(',');
+    // Use Picsum Photos API for reliable placeholder images
+    // Adds a random seed based on prompt for variety
+    const seed = Math.abs(prompt.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0));
 
-    const searchTerm = keywords || 'abstract,concept';
+    // Picsum URL format: https://picsum.photos/seed/{seed}/{width}/{height}
+    const url = `https://picsum.photos/seed/${seed}/1024/1024`;
 
-    // Use Unsplash Source API (completely free, no authentication)
-    // Returns a random image matching the keywords
-    const url = `https://source.unsplash.com/1024x1024/?${encodeURIComponent(searchTerm)}`;
-
-    console.log(`[Unsplash] Fetching image for: "${searchTerm}"`);
+    console.log(`[Picsum] Fetching image with seed: ${seed}`);
 
     return new Promise((resolve, reject) => {
         const curl = spawn('curl', [
@@ -1002,24 +995,24 @@ export async function generateImageWithPollinations(prompt, apiKey) {
 
         curl.on('close', (code) => {
             if (code !== 0) {
-                console.error(`[Unsplash] Curl failed with code ${code}`);
+                console.error(`[Picsum] Curl failed with code ${code}`);
                 return resolve(null);
             }
 
             const buffer = Buffer.concat(chunks);
 
-            // Validate image size
-            if (buffer.length < 10000) {
-                console.warn(`[Unsplash] Image too small: ${buffer.length} bytes`);
+            // Validate image size (should be >100KB for 1024x1024)
+            if (buffer.length < 50000) {
+                console.warn(`[Picsum] Image too small: ${buffer.length} bytes`);
                 return resolve(null);
             }
 
-            console.log(`[Unsplash] Success: ${buffer.length} bytes`);
+            console.log(`[Picsum] Success: ${buffer.length} bytes`);
             resolve(buffer.toString('base64'));
         });
 
         curl.on('error', (err) => {
-            console.error(`[Unsplash] Error:`, err);
+            console.error(`[Picsum] Error:`, err);
             resolve(null);
         });
     });
