@@ -996,7 +996,8 @@ export async function generateImageWithPollinations(prompt, apiKey) {
                     redirectRes.on('end', () => {
                         const buffer = Buffer.concat(chunks);
 
-                        if (buffer.length < 50000) {
+                        // Validate image size (Lowered threshold to 2KB as JPEGs can be compressed)
+                        if (buffer.length < 2000) {
                             console.warn(`[Picsum] Image too small: ${buffer.length} bytes`);
                             return resolve(null);
                         }
@@ -1023,7 +1024,8 @@ export async function generateImageWithPollinations(prompt, apiKey) {
             response.on('end', () => {
                 const buffer = Buffer.concat(chunks);
 
-                if (buffer.length < 50000) {
+                // Validate image size (Lowered threshold to 2KB as JPEGs can be compressed)
+                if (buffer.length < 2000) {
                     console.warn(`[Picsum] Image too small: ${buffer.length} bytes`);
                     return resolve(null);
                 }
