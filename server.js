@@ -1637,6 +1637,31 @@ app.get('/api/library', async (req, res) => {
         });
 
         res.json(filesWithStats);
+
+        // === GENERATE IMAGES ASYNCHRONOUSLY (after response) ===
+        console.log(`[Library] Generating images for all questions in background...`);
+        let totalQuestions = 0;
+        filesWithStats.forEach(file => {
+            if (file.questions && Array.isArray(file.questions)) {
+                totalQuestions += file.questions.length;
+                file.questions.forEach(async (q) => {
+                    try {
+                        const imageUrl = await generateQuestionImage(q, userId, process.env.GEMINI_API_KEY);
+                        if (imageUrl) {
+                            // Update question in database with imageUrl
+                            await Material.findOneAndUpdate(
+                                { id: file.id, userId, 'questions.question': q.question },
+                                { $set: { 'questions.$.imageUrl': imageUrl } }
+                            );
+                        }
+                    } catch (err) {
+                        console.error(`[Library] Image generation error for question:`, err.message);
+                    }
+                });
+            }
+        });
+        console.log(`[Library] Started background image generation for ${totalQuestions} questions`);
+
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch library' });
     }
@@ -2033,6 +2058,29 @@ app.get('/api/reels/pregenerated', async (req, res) => {
         }
 
         res.json(buffer);
+
+        // === GENERATE IMAGES ASYNCHRONOUSLY (after response) ===
+        if (buffer.length > 0) {
+            console.log(`[Reels] Generating images for ${buffer.length} pre-generated questions in background...`);
+            const userId = getUserID(req);
+            buffer.forEach(async (reel) => {
+                try {
+                    if (reel.question && !reel.imageUrl) {
+                        const imageUrl = await generateQuestionImage(reel.question, userId, process.env.GEMINI_API_KEY);
+                        if (imageUrl) {
+                            // Update reel in ReelsBuffer with imageUrl
+                            await ReelsBuffer.findOneAndUpdate(
+                                { userId, 'questions.question.question': reel.question.question },
+                                { $set: { 'questions.$.imageUrl': imageUrl } }
+                            );
+                        }
+                    }
+                } catch (err) {
+                    console.error(`[Reels] Image generation error:`, err.message);
+                }
+            });
+        }
+
     } catch (err) {
         console.error('Failed to fetch pregenerated reels:', err);
         res.status(500).json({ error: 'Failed' });
