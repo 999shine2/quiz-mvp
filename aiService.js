@@ -970,8 +970,10 @@ function getMockQuestions(reason = "Unknown Error") {
 }
 
 // Image Generation using Picsum Photos (Lorem Picsum) - Free, No Auth Required
-// NOTE: Unsplash Source was deprecated. Picsum provides free placeholder images.
+// NOTE: Using Node.js https module instead of curl for Render compatibility
 export async function generateImageWithPollinations(prompt, apiKey) {
+    const https = await import('https');
+
     // Use Picsum Photos API for reliable placeholder images
     // Adds a random seed based on prompt for variety
     const seed = Math.abs(prompt.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0));
@@ -982,37 +984,60 @@ export async function generateImageWithPollinations(prompt, apiKey) {
     console.log(`[Picsum] Fetching image with seed: ${seed}`);
 
     return new Promise((resolve, reject) => {
-        const curl = spawn('curl', [
-            '-L',  // Follow redirects
-            '-s',  // Silent
-            url
-        ]);
+        https.get(url, (response) => {
+            // Handle redirects
+            if (response.statusCode === 301 || response.statusCode === 302) {
+                console.log(`[Picsum] Following redirect to: ${response.headers.location}`);
+                https.get(response.headers.location, (redirectRes) => {
+                    const chunks = [];
 
-        const chunks = [];
+                    redirectRes.on('data', (chunk) => chunks.push(chunk));
 
-        curl.stdout.on('data', (chunk) => chunks.push(chunk));
-        curl.stderr.on('data', (data) => console.error(`[Curl Error]: ${data}`));
+                    redirectRes.on('end', () => {
+                        const buffer = Buffer.concat(chunks);
 
-        curl.on('close', (code) => {
-            if (code !== 0) {
-                console.error(`[Picsum] Curl failed with code ${code}`);
-                return resolve(null);
+                        if (buffer.length < 50000) {
+                            console.warn(`[Picsum] Image too small: ${buffer.length} bytes`);
+                            return resolve(null);
+                        }
+
+                        console.log(`[Picsum] Success: ${buffer.length} bytes`);
+                        resolve(buffer.toString('base64'));
+                    });
+
+                    redirectRes.on('error', (err) => {
+                        console.error(`[Picsum] Redirect error:`, err.message);
+                        resolve(null);
+                    });
+                }).on('error', (err) => {
+                    console.error(`[Picsum] Redirect request error:`, err.message);
+                    resolve(null);
+                });
+                return;
             }
 
-            const buffer = Buffer.concat(chunks);
+            const chunks = [];
 
-            // Validate image size (should be >100KB for 1024x1024)
-            if (buffer.length < 50000) {
-                console.warn(`[Picsum] Image too small: ${buffer.length} bytes`);
-                return resolve(null);
-            }
+            response.on('data', (chunk) => chunks.push(chunk));
 
-            console.log(`[Picsum] Success: ${buffer.length} bytes`);
-            resolve(buffer.toString('base64'));
-        });
+            response.on('end', () => {
+                const buffer = Buffer.concat(chunks);
 
-        curl.on('error', (err) => {
-            console.error(`[Picsum] Error:`, err);
+                if (buffer.length < 50000) {
+                    console.warn(`[Picsum] Image too small: ${buffer.length} bytes`);
+                    return resolve(null);
+                }
+
+                console.log(`[Picsum] Success: ${buffer.length} bytes`);
+                resolve(buffer.toString('base64'));
+            });
+
+            response.on('error', (err) => {
+                console.error(`[Picsum] Response error:`, err.message);
+                resolve(null);
+            });
+        }).on('error', (err) => {
+            console.error(`[Picsum] Request error:`, err.message);
             resolve(null);
         });
     });
