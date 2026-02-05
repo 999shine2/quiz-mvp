@@ -969,78 +969,106 @@ function getMockQuestions(reason = "Unknown Error") {
     };
 }
 
-// Image Generation using Picsum Photos (Lorem Picsum) - Free, No Auth Required
-// NOTE: Using Node.js https module instead of curl for Render compatibility
 export async function generateImageWithPollinations(prompt, apiKey) {
     const https = await import('https');
 
-    // Use Picsum Photos API for reliable placeholder images
-    // Adds a random seed based on prompt for variety
-    const seed = Math.abs(prompt.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0));
+    // Helper function for Pollinations API
+    const fetchFromPollinations = async (prompt, key) => {
+        // Construct Pollinations URL
+        // Using 'flux' model by default, or 'turbo'
+        const encodedPrompt = encodeURIComponent(prompt);
+        // Note: Pollinations allows GET requests directly to image.pollinations.ai
+        // Adding nologo, private, and enhance flags
+        const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?nologo=true&private=true&enhance=true&model=flux`;
 
-    // Picsum URL format: https://picsum.photos/seed/{seed}/{width}/{height}
-    const url = `https://picsum.photos/seed/${seed}/1024/1024`;
+        console.log(`[Pollinations] Requesting: ${prompt.substring(0, 30)}...`);
 
-    console.log(`[Picsum] Fetching image with seed: ${seed}`);
+        return new Promise((resolve, reject) => {
+            const options = {
+                headers: {
+                    'User-Agent': 'Node.js/MVP1'
+                }
+            };
 
-    return new Promise((resolve, reject) => {
-        https.get(url, (response) => {
-            // Handle redirects
-            if (response.statusCode === 301 || response.statusCode === 302) {
-                console.log(`[Picsum] Following redirect to: ${response.headers.location}`);
-                https.get(response.headers.location, (redirectRes) => {
-                    const chunks = [];
-
-                    redirectRes.on('data', (chunk) => chunks.push(chunk));
-
-                    redirectRes.on('end', () => {
-                        const buffer = Buffer.concat(chunks);
-
-                        // Validate image size (Lowered threshold to 2KB as JPEGs can be compressed)
-                        if (buffer.length < 2000) {
-                            console.warn(`[Picsum] Image too small: ${buffer.length} bytes`);
-                            return resolve(null);
-                        }
-
-                        console.log(`[Picsum] Success: ${buffer.length} bytes`);
-                        resolve(buffer.toString('base64'));
-                    });
-
-                    redirectRes.on('error', (err) => {
-                        console.error(`[Picsum] Redirect error:`, err.message);
-                        resolve(null);
-                    });
-                }).on('error', (err) => {
-                    console.error(`[Picsum] Redirect request error:`, err.message);
-                    resolve(null);
-                });
-                return;
+            // If API Key provided, add Authorization header (for paid tier handling if applicable)
+            if (key) {
+                options.headers['Authorization'] = `Bearer ${key}`;
+                // Also add query param if documentation suggests, but Header is standard
             }
 
-            const chunks = [];
-
-            response.on('data', (chunk) => chunks.push(chunk));
-
-            response.on('end', () => {
-                const buffer = Buffer.concat(chunks);
-
-                // Validate image size (Lowered threshold to 2KB as JPEGs can be compressed)
-                if (buffer.length < 2000) {
-                    console.warn(`[Picsum] Image too small: ${buffer.length} bytes`);
-                    return resolve(null);
+            https.get(url, options, (response) => {
+                // Pollinations might redirect to the generated image or stream it directly
+                if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+                    console.log(`[Pollinations] Following redirect...`);
+                    https.get(response.headers.location, (redirectRes) => {
+                        const chunks = [];
+                        redirectRes.on('data', c => chunks.push(c));
+                        redirectRes.on('end', () => resolve({ buffer: Buffer.concat(chunks), status: redirectRes.statusCode }));
+                        redirectRes.on('error', err => reject(err));
+                    }).on('error', err => reject(err));
+                    return;
                 }
 
-                console.log(`[Picsum] Success: ${buffer.length} bytes`);
-                resolve(buffer.toString('base64'));
-            });
-
-            response.on('error', (err) => {
-                console.error(`[Picsum] Response error:`, err.message);
-                resolve(null);
-            });
-        }).on('error', (err) => {
-            console.error(`[Picsum] Request error:`, err.message);
-            resolve(null);
+                const chunks = [];
+                response.on('data', c => chunks.push(c));
+                response.on('end', () => resolve({ buffer: Buffer.concat(chunks), status: response.statusCode }));
+                response.on('error', err => reject(err));
+            }).on('error', err => reject(err));
         });
-    });
+    };
+
+    // Helper function for Picsum (Fallback)
+    const fetchFromPicsum = async (prompt) => {
+        const seed = Math.abs(prompt.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0));
+        const url = `https://picsum.photos/seed/${seed}/1024/1024`;
+        console.log(`[Picsum] Fallback fetching with seed: ${seed}`);
+
+        return new Promise((resolve, reject) => {
+            https.get(url, (response) => {
+                // Handle Redirects (Picsum uses 302)
+                if (response.statusCode === 301 || response.statusCode === 302) {
+                    https.get(response.headers.location, (redirectRes) => {
+                        const chunks = [];
+                        redirectRes.on('data', c => chunks.push(c));
+                        redirectRes.on('end', () => resolve(Buffer.concat(chunks)));
+                        redirectRes.on('error', err => reject(err));
+                    }).on('error', err => reject(err));
+                    return;
+                }
+                const chunks = [];
+                response.on('data', c => chunks.push(c));
+                response.on('end', () => resolve(Buffer.concat(chunks)));
+                response.on('error', err => reject(err));
+            }).on('error', err => reject(err));
+        });
+    };
+
+    // 1. Try Pollinations First
+    try {
+        // Use provided key or env var
+        const keyToUse = apiKey || process.env.POLLINATIONS_API_KEY;
+        const result = await fetchFromPollinations(prompt, keyToUse);
+
+        if (result.buffer && result.buffer.length > 2000 && result.status === 200) {
+            console.log(`[Pollinations] Success: ${result.buffer.length} bytes`);
+            return result.buffer.toString('base64');
+        } else {
+            console.warn(`[Pollinations] Failed or small image (${result.buffer ? result.buffer.length : 0} bytes). Status: ${result.status}`);
+        }
+    } catch (err) {
+        console.error(`[Pollinations] Error: ${err.message}`);
+    }
+
+    // 2. Fallback to Picsum
+    try {
+        const buffer = await fetchFromPicsum(prompt);
+        if (buffer && buffer.length > 2000) {
+            console.log(`[Picsum] Success (Fallback): ${buffer.length} bytes`);
+            return buffer.toString('base64');
+        }
+    } catch (err) {
+        console.error(`[Picsum] Error: ${err.message}`);
+    }
+
+    return null;
 }

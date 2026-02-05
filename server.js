@@ -550,7 +550,17 @@ app.post('/api/auth/login', async (req, res) => {
 async function generateQuestionImage(question, userId, apiKey) {
     try {
         const imageDir = path.join(__dirname, 'public', 'images', 'questions');
+        console.log(`[Image] Target Directory: ${imageDir}`);
+
         await fs.mkdir(imageDir, { recursive: true });
+
+        // Debug: List files in directory
+        try {
+            const files = await fs.readdir(imageDir);
+            console.log(`[Image] Existing files count: ${files.length}`);
+        } catch (e) {
+            console.warn(`[Image] Could not list directory: ${e.message}`);
+        }
 
         // Create hash from question text for caching
         const crypto = await import('crypto');
