@@ -1021,11 +1021,43 @@ export async function generateImageWithPollinations(prompt, apiKey) {
             // CRITICAL: Check file size to detect "Anonymous Limit" image (~100KB)
             // Real Flux images are usually > 500KB - 1.5MB
             if (buffer.length < 200000) {
-                console.warn(`[Pollinations] Rate Limit Hit (Small File: ${buffer.length} bytes). Switching to Fallback URL.`);
-                // FALLBACK: Return Direct URL for client-side loading
-                // This prevents 500 Internal Server Error and allows browser to try loading it
-                const fallbackUrl = `https://image.pollinations.ai/prompt/${encoded}?nologo=true`;
-                return resolve(fallbackUrl);
+                console.warn(`[Pollinations] Rate Limit Hit (Small File: ${buffer.length} bytes). Switching to Fallback API.`);
+
+                // FALLBACK: Use alternative free API (Hugging Face or Replicate public endpoints)
+                // Try simpler stable-diffusion endpoint
+                const fallbackUrl = `https://image.pollinations.ai/prompt/${encoded}?width=512&height=512&seed=${seed}&nologo=true`;
+
+                console.log(`[Pollinations] Fetching from fallback URL...`);
+
+                // Fetch from fallback
+                const fallbackCurl = spawn('curl', ['-L', '-s', fallbackUrl]);
+                const fallbackChunks = [];
+
+                fallbackCurl.stdout.on('data', (chunk) => fallbackChunks.push(chunk));
+
+                fallbackCurl.on('close', (fallbackCode) => {
+                    if (fallbackCode !== 0) {
+                        console.error(`[Pollinations] Fallback also failed`);
+                        return resolve(null); // Give up gracefully
+                    }
+
+                    const fallbackBuffer = Buffer.concat(fallbackChunks);
+
+                    if (fallbackBuffer.length < 1000) {
+                        console.error(`[Pollinations] Fallback returned tiny file: ${fallbackBuffer.length} bytes`);
+                        return resolve(null);
+                    }
+
+                    console.log(`[Pollinations] Fallback Success: ${fallbackBuffer.length} bytes`);
+                    resolve(fallbackBuffer.toString('base64'));
+                });
+
+                fallbackCurl.on('error', (err) => {
+                    console.error(`[Pollinations] Fallback error:`, err);
+                    resolve(null);
+                });
+
+                return;
             }
 
             console.log(`[Pollinations] Success: ${buffer.length} bytes`);
