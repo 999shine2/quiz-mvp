@@ -1038,10 +1038,11 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
                     console.error(`[Q${questionNum}] ❌ ERROR: ${err.message}`);
                 }
 
-                // 2-second delay between requests to prevent API throttling
+
+                // 3-second delay between requests to prevent 502 Error
                 if (i < newFileEntry.questions.length - 1) {
-                    console.log(`[Q${questionNum}] ⏳ Waiting 2 seconds before next...`);
-                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    console.log(`[Q${questionNum}] ⏳ Waiting 3 seconds before next...`);
+                    await new Promise(resolve => setTimeout(resolve, 3000));
                 }
             }
         }
