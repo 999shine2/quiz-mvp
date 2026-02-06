@@ -1014,36 +1014,21 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 
         for (let i = 0; i < newFileEntry.questions.length; i++) {
             const question = newFileEntry.questions[i];
+            console.log(`[Sequencer] [${i + 1}/${newFileEntry.questions.length}] Starting: "${question.question.substring(0, 20)}..."`);
 
-            if (!question.imageUrl) {
-                const questionNum = `${i + 1}/${newFileEntry.questions.length}`;
-                console.log(`\n[Q${questionNum}] 📝 Processing: "${question.question.substring(0, 50)}..."`);
-
-                try {
-                    // CRITICAL: This must BLOCK until image is fully saved
-                    const startTime = Date.now();
-                    const imageUrl = await generateQuestionImage(question, userId, apiKey);
-                    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-
-                    if (imageUrl) {
-                        question.imageUrl = imageUrl;
-                        successCount++;
-                        console.log(`[Q${questionNum}] ✅ SUCCESS in ${elapsed}s: ${imageUrl}`);
-                    } else {
-                        failCount++;
-                        console.warn(`[Q${questionNum}] ⚠️ FAILED in ${elapsed}s: returned null`);
-                    }
-                } catch (err) {
-                    failCount++;
-                    console.error(`[Q${questionNum}] ❌ ERROR: ${err.message}`);
-                }
-
-
-                // 3-second delay between requests to prevent 502 Error
+            try {
+                // 1. Force AWAIT (Block execution)
+                const imageUrl = await generateQuestionImage(question, userId, apiKey);
+                // 2. Assign URL
+                question.imageUrl = imageUrl;
+                console.log(`[Sequencer] [${i + 1}/${newFileEntry.questions.length}] ✅ Success: ${imageUrl}`);
+                // 3. MANDATORY DELAY (3 seconds)
                 if (i < newFileEntry.questions.length - 1) {
-                    console.log(`[Q${questionNum}] ⏳ Waiting 3 seconds before next...`);
+                    console.log(`[Sequencer] ⏳ Waiting 3s...`);
                     await new Promise(resolve => setTimeout(resolve, 3000));
                 }
+            } catch (err) {
+                console.error(`[Sequencer] [${i + 1}/${newFileEntry.questions.length}] ❌ Failed: ${err.message}`);
             }
         }
 
