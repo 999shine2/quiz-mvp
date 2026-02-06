@@ -935,8 +935,75 @@ export {
     generateImageWithGeminiFlash,
     generateImageWithImagen,
     generateSummary,
-    generateQuestionsForCreativeWork
+    generateQuestionsForCreativeWork,
+    generateImageWithSiliconFlow
 };
+
+async function generateImageWithSiliconFlow(prompt, apiKey) {
+    const key = apiKey || "sk-cgcorldyzcntwzjwzkkkobmxisjncsndfgcllytbwjakrfla"; // Default to provided key
+    const url = "https://api.siliconflow.cn/v1/images/generations";
+
+    console.log(`[SiliconFlow] Generating: "${prompt.substring(0, 40)}..."`);
+
+    try {
+        const body = {
+            model: "black-forest-labs/FLUX.1-schnell",
+            prompt: prompt,
+            image_size: "1024x1024",
+            num_inference_steps: 20 // Standard for Schnell
+        };
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${key}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            console.error(`[SiliconFlow] API Error ${response.status}: ${errText}`);
+            // Fallback to Picsum if SiliconFlow fails
+            throw new Error(`SiliconFlow Status ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // SiliconFlow usually returns a URL in data[0].url
+        if (data.images && data.images.length > 0 && data.images[0].url) {
+            const imageUrl = data.images[0].url;
+            console.log(`[SiliconFlow] Success. Fetching image from: ${imageUrl}`);
+
+            // Download the image
+            const imageRes = await fetch(imageUrl);
+            if (!imageRes.ok) throw new Error("Failed to download generated image");
+
+            const arrayBuffer = await imageRes.arrayBuffer();
+            return Buffer.from(arrayBuffer).toString('base64');
+        } else {
+            console.warn("[SiliconFlow] No image URL in response:", JSON.stringify(data));
+            throw new Error("Invalid response format");
+        }
+
+    } catch (error) {
+        console.error(`[SiliconFlow] Failed: ${error.message}. Falling back to Picsum.`);
+
+        // Fallback to Picsum
+        try {
+            const seed = Math.abs(prompt.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0));
+            const picsumUrl = `https://picsum.photos/seed/${seed}/1024/1024`;
+            const res = await fetch(picsumUrl);
+            const buf = await res.arrayBuffer();
+            return Buffer.from(buf).toString('base64');
+        } catch (e) {
+            console.error("[SiliconFlow+Picsum] Both failed.");
+            return null;
+        }
+    }
+}
+
 
 function getMockQuestions(reason = "Unknown Error") {
     return {

@@ -6,7 +6,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { parseDocument } from './documentParser.js';
-import { generateQuestions, generateSummary, generateQuestionsForCreativeWork, generateImagePrompt, generateImageWithImagen, generateImageWithGeminiFlash, generateImageWithPollinations } from './aiService.js';
+import { generateQuestions, generateSummary, generateQuestionsForCreativeWork, generateImagePrompt, generateImageWithImagen, generateImageWithGeminiFlash, generateImageWithPollinations, generateImageWithSiliconFlow } from './aiService.js';
 import * as aiService from './aiService.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { exec } from 'child_process';
@@ -584,7 +584,10 @@ async function generateQuestionImage(question, userId, apiKey) {
         const imagePrompt = question.imagePrompt || question.question;
         console.log(`[Image] Generating for: "${imagePrompt.substring(0, 40)}..."`);
 
-        const imageBase64 = await generateImageWithPollinations(imagePrompt, process.env.POLLINATIONS_API_KEY);
+        // Use SiliconFlow (Flux Schnell)
+        // Key provided by user: sk-cgcorldyzcntwzjwzkkkobmxisjncsndfgcllytbwjakrfla
+        const siliconKey = process.env.SILICONFLOW_API_KEY || "sk-cgcorldyzcntwzjwzkkkobmxisjncsndfgcllytbwjakrfla";
+        const imageBase64 = await generateImageWithSiliconFlow(imagePrompt, siliconKey);
 
         // CRITICAL: Check if generation failed (returned null)
         if (!imageBase64) {
