@@ -1017,18 +1017,19 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
             console.log(`[Sequencer] [${i + 1}/${newFileEntry.questions.length}] Starting: "${question.question.substring(0, 20)}..."`);
 
             try {
-                // 1. Force AWAIT (Block execution)
+                // 1. GENERATE (With 60s Timeout)
+                // You MUST await this. Do not remove the await.
                 const imageUrl = await generateQuestionImage(question, userId, apiKey);
-                // 2. Assign URL
+                // 2. ASSIGN
                 question.imageUrl = imageUrl;
-                console.log(`[Sequencer] [${i + 1}/${newFileEntry.questions.length}] ✅ Success: ${imageUrl}`);
-                // 3. MANDATORY DELAY (3 seconds)
+                console.log(`[Sequencer] ✅ Question ${i + 1} Done: ${imageUrl}`);
+                // 3. SAFETY DELAY (2 seconds)
                 if (i < newFileEntry.questions.length - 1) {
-                    console.log(`[Sequencer] ⏳ Waiting 3s...`);
-                    await new Promise(resolve => setTimeout(resolve, 3000));
+                    await new Promise(r => setTimeout(r, 2000));
                 }
-            } catch (err) {
-                console.error(`[Sequencer] [${i + 1}/${newFileEntry.questions.length}] ❌ Failed: ${err.message}`);
+            } catch (error) {
+                console.error(`[Sequencer] ❌ Failed Q${i + 1}:`, error.message);
+                // Keep going even if one fails
             }
         }
 
