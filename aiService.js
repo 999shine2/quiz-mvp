@@ -977,12 +977,19 @@ async function attemptGeneration(prompt, key) {
 
         // STRICT HEADER CONSTRUCTION (exactly as SiliconFlow docs specify)
         const authHeader = `Bearer ${key}`;
-        console.log(`[SiliconFlow] 📤 Auth Header: "Bearer ${maskedKey}" (${authHeader.length} chars total)`);
+
+        // CRITICAL DEBUG: Show EXACT header string with quotes to reveal whitespace
+        console.log(`[SiliconFlow] DEBUG: Final Authorization Header sent: '${authHeader}'`);
+        console.log(`[SiliconFlow] DEBUG: Header length: ${authHeader.length} chars (should be ${7 + key.length})`);
+        console.log(`[SiliconFlow] DEBUG: Key starts with 'sk-': ${key.startsWith('sk-')}`);
+        console.log(`[SiliconFlow] DEBUG: Key has no internal spaces: ${!key.includes(' ')}`);
 
         const headers = {
             'Authorization': authHeader,
             'Content-Type': 'application/json'
         };
+
+        console.log(`[SiliconFlow] 📤 Sending POST to: ${url}`);
 
         const response = await fetch(url, {
             method: 'POST',
@@ -1018,23 +1025,42 @@ async function attemptGeneration(prompt, key) {
 
     } catch (error) {
         console.warn(`[SiliconFlow] ⚠️ Failed: ${error.message}`);
+        console.error(`[SiliconFlow] Full error:`, error);
 
         // FALLBACK TO PICSUM
         try {
             const seed = Math.abs(prompt.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0));
             const picsumUrl = `https://picsum.photos/seed/${seed}/800/800`;
-            console.log(`[Picsum] 🔄 Fallback: ${picsumUrl}`);
+            console.log(`[Picsum] 🔄 Attempting fallback: ${picsumUrl}`);
 
-            const res = await fetch(picsumUrl);
-            if (!res.ok) throw new Error(`Picsum ${res.status}`);
+            // Add timeout to prevent hanging
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+            const res = await fetch(picsumUrl, {
+                signal: controller.signal,
+                redirect: 'follow' // Explicitly follow redirects
+            });
+            clearTimeout(timeoutId);
+
+            console.log(`[Picsum] Response status: ${res.status}, OK: ${res.ok}`);
+
+            if (!res.ok) {
+                throw new Error(`Picsum returned status ${res.status}`);
+            }
 
             const buf = await res.arrayBuffer();
+            console.log(`[Picsum] Downloaded ${buf.byteLength} bytes`);
+
             const base64 = Buffer.from(buf).toString('base64');
-            console.log(`[Picsum] ✅ Fallback success (${base64.length} bytes)`);
+            console.log(`[Picsum] ✅ Fallback success (${base64.length} chars base64)`);
             return base64;
 
         } catch (e) {
-            console.error(`[SiliconFlow+Picsum] ❌ Both failed. Picsum error: ${e.message}`);
+            console.error(`[Picsum] ❌ Fallback failed`);
+            console.error(`[Picsum] Error name: ${e.name}`);
+            console.error(`[Picsum] Error message: ${e.message}`);
+            console.error(`[Picsum] Full error:`, e);
 
             // SAFETY NET: Return 1x1 red pixel
             console.warn("[Safety Net] 🟥 Returning red pixel fallback");
