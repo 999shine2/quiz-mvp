@@ -934,6 +934,7 @@ export {
     generateImagePrompt,
     generateImageWithGeminiFlash,
     generateImageWithImagen,
+    generateSummary,
     generateQuestionsForCreativeWork
 };
 
