@@ -1002,29 +1002,32 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         db.files.unshift(newFileEntry);
         const userId = getUserID(req);
         await logActivity(userId, 'upload', { filename: newFileEntry.filename });
-        await saveDB(req, db);
 
-        res.json({ ...newFileEntry, isMock: aiResult.isMock });
-
-        // Generate images asynchronously (after response sent)
+        // Generate images BEFORE sending response (so imageUrl is included)
         console.log(`[Upload] Generating images for ${newFileEntry.questions.length} questions...`);
-        (async () => {
-            try {
-                for (const question of newFileEntry.questions) {
-                    if (!question.imageUrl) {
-                        const imageUrl = await generateQuestionImage(question, userId, apiKey);
-                        if (imageUrl) {
-                            question.imageUrl = imageUrl;
-                        }
+        try {
+            for (const question of newFileEntry.questions) {
+                if (!question.imageUrl) {
+                    const imageUrl = await generateQuestionImage(question, userId, apiKey);
+                    if (imageUrl) {
+                        question.imageUrl = imageUrl;
+                        console.log(`[Upload] Image generated: ${imageUrl}`);
+                    } else {
+                        console.warn(`[Upload] Image generation failed for question: ${question.question.substring(0, 30)}...`);
                     }
                 }
-                // Save updated questions with image URLs
-                await saveDB(req, db);
-                console.log(`[Upload] Images generated and saved`);
-            } catch (err) {
-                console.error('[Upload] Image generation error:', err);
             }
-        })();
+            console.log(`[Upload] All images generated`);
+        } catch (err) {
+            console.error('[Upload] Image generation error:', err);
+            // Continue even if image generation fails
+        }
+
+        // Save DB with image URLs
+        await saveDB(req, db);
+
+        // NOW send response with imageUrls included
+        res.json({ ...newFileEntry, isMock: aiResult.isMock });
     } catch (error) {
         console.error('Error processing upload:', error);
         res.status(500).json({ error: error.message || 'Failed to process file' });
