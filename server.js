@@ -584,9 +584,12 @@ async function generateQuestionImage(question, userId, apiKey) {
         const imagePrompt = question.imagePrompt || question.question;
         console.log(`[Image] Generating for: "${imagePrompt.substring(0, 40)}..."`);
 
+
         // Use SiliconFlow (Flux Schnell)
-        // Key provided by user: sk-cgcorldyzcntwzjwzkkkobmxisjncsndfgcllytbwjakrfla
-        const siliconKey = process.env.SILICONFLOW_API_KEY || "sk-cgcorldyzcntwzjwzkkkobmxisjncsndfgcllytbwjakrfla";
+        // Sanitize key: trim whitespace that may have been pasted into Render dashboard
+        const rawSiliconKey = process.env.SILICONFLOW_API_KEY || "sk-cgcorldyzcntwzjwzkkkobmxisjncsndfgcllytbwjakrfla";
+        const siliconKey = rawSiliconKey.trim();
+        console.log(`[Image] Using SiliconFlow key: ${siliconKey.substring(0, 5)}...${siliconKey.substring(siliconKey.length - 4)} (${siliconKey.length} chars)`);
         const imageBase64 = await generateImageWithSiliconFlow(imagePrompt, siliconKey);
 
         // CRITICAL: Check if generation failed (returned null)
@@ -2963,7 +2966,10 @@ app.post('/api/generate-image', async (req, res) => {
         // Use SiliconFlow (Flux Schnell)
         console.log(`[API Gen] Generating with SiliconFlow (Flux)...`);
 
-        const siliconKey = process.env.SILICONFLOW_API_KEY || "sk-cgcorldyzcntwzjwzkkkobmxisjncsndfgcllytbwjakrfla";
+        // Sanitize key: trim whitespace from environment variable
+        const rawSiliconKey = process.env.SILICONFLOW_API_KEY || "sk-cgcorldyzcntwzjwzkkkobmxisjncsndfgcllytbwjakrfla";
+        const siliconKey = rawSiliconKey.trim();
+        console.log(`[API Gen] Key: ${siliconKey.substring(0, 5)}...${siliconKey.substring(siliconKey.length - 4)} (${siliconKey.length} chars)`);
         // Check imageBase64 result
         const imageBase64 = await generateImageWithSiliconFlow(finalPrompt, siliconKey);
 

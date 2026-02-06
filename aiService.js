@@ -939,97 +939,105 @@ export {
 };
 
 export async function generateImageWithSiliconFlow(prompt, apiKey) {
-    // 1. ROBUST KEY HANDLING
-    // Fallback to strict hardcoded key if apiKey is missing or placeholder
-    let rawKey = apiKey;
-    if (!rawKey || rawKey.includes("YOUR_API_KEY") || rawKey.length < 20) {
-        console.warn("[SiliconFlow] Invalid key passed, using hardcoded fallback.");
-        rawKey = "sk-cgcorldyzcntwzjwzkkkobmxisjncsndfgcllytbwjakrfla";
+    // MULTI-LAYER KEY SANITIZATION
+    // Layer 1: Handle undefined/null
+    let rawKey = apiKey || process.env.SILICONFLOW_API_KEY || "sk-cgcorldyzcntwzjwzkkkobmxisjncsndfgcllytbwjakrfla";
+
+    // Layer 2: Trim ALL whitespace (spaces, tabs, newlines)
+    const key = rawKey.trim().replace(/\s/g, '');
+
+    // Layer 3: Validate key format
+    if (!key.startsWith('sk-') || key.length < 20) {
+        console.error(`[SiliconFlow] CRITICAL: Invalid key format detected!`);
+        console.error(`[SiliconFlow] Key starts with: ${key.substring(0, 3)}, Length: ${key.length}`);
+        // Use hardcoded key as absolute fallback
+        const fallbackKey = "sk-cgcorldyzcntwzjwzkkkobmxisjncsndfgcllytbwjakrfla".trim();
+        console.warn(`[SiliconFlow] Using hardcoded fallback key`);
+        return await attemptGeneration(prompt, fallbackKey);
     }
 
-    // TRIM WHITESPACE (Critical for pasted keys)
-    const key = rawKey.trim();
+    return await attemptGeneration(prompt, key);
+}
 
-    // DEBUG LOGGING (Masked)
-    const maskedKey = key.length > 8 ? `${key.substring(0, 6)}...${key.substring(key.length - 4)}` : "INVALID";
-    console.log(`[SiliconFlow] Generating with Key: ${maskedKey} (Length: ${key.length})`);
+async function attemptGeneration(prompt, key) {
+    // SAFE DEBUG LOGGING (first 5 + last 4 chars only)
+    const maskedKey = `${key.substring(0, 5)}...${key.substring(key.length - 4)}`;
+    console.log(`[SiliconFlow] 🔑 Using Key: ${maskedKey} (Length: ${key.length} chars)`);
+    console.log(`[SiliconFlow] 📝 Prompt: "${prompt.substring(0, 40)}..."`);
 
     const url = "https://api.siliconflow.cn/v1/images/generations";
-    console.log(`[SiliconFlow] Prompt: "${prompt.substring(0, 40)}..."`);
 
     try {
-        const body = {
+        const requestBody = {
             model: "black-forest-labs/FLUX.1-schnell",
             prompt: prompt,
             image_size: "1024x1024",
             num_inference_steps: 20
         };
 
-        // EXPLICIT HEADER CONSTRUCTION
+        // STRICT HEADER CONSTRUCTION (exactly as SiliconFlow docs specify)
+        const authHeader = `Bearer ${key}`;
+        console.log(`[SiliconFlow] 📤 Auth Header: "Bearer ${maskedKey}" (${authHeader.length} chars total)`);
+
         const headers = {
-            'Authorization': `Bearer ${key}`,
+            'Authorization': authHeader,
             'Content-Type': 'application/json'
         };
-
-        // DEBUG HEADER (Uncomment if needed, but risky to log full key)
-        // console.log(`[SiliconFlow] Headers: Authorization: Bearer ${maskedKey}`);
 
         const response = await fetch(url, {
             method: 'POST',
             headers: headers,
-            body: JSON.stringify(body)
+            body: JSON.stringify(requestBody)
         });
 
         if (!response.ok) {
             const errText = await response.text();
-            console.error(`[SiliconFlow] API Error ${response.status}: ${errText}`);
-            console.error(`[SiliconFlow] Request Key was: ${maskedKey}`); // Re-verify what was sent
-            throw new Error(`SiliconFlow Status ${response.status}: ${errText}`);
+            console.error(`[SiliconFlow] ❌ API Error ${response.status}`);
+            console.error(`[SiliconFlow] Response: ${errText}`);
+            console.error(`[SiliconFlow] Key used: ${maskedKey}`);
+            throw new Error(`SiliconFlow ${response.status}: ${errText}`);
         }
 
         const data = await response.json();
 
         if (data.images && data.images.length > 0 && data.images[0].url) {
             const imageUrl = data.images[0].url;
-            console.log(`[SiliconFlow] Success -> Fetching image URL: ${imageUrl.substring(0, 50)}...`);
+            console.log(`[SiliconFlow] ✅ Success! Downloading image...`);
 
             const imageRes = await fetch(imageUrl);
-            if (!imageRes.ok) throw new Error("Failed to download generated image from SiliconFlow URL");
+            if (!imageRes.ok) throw new Error("Failed to download generated image");
 
             const arrayBuffer = await imageRes.arrayBuffer();
             const base64 = Buffer.from(arrayBuffer).toString('base64');
-            console.log(`[SiliconFlow] Image Downloaded (${base64.length} bytes base64)`);
+            console.log(`[SiliconFlow] ✅ Image ready (${base64.length} bytes base64)`);
             return base64;
         } else {
-            console.warn("[SiliconFlow] Response missing image URL:", JSON.stringify(data));
-            throw new Error("Invalid response format from SiliconFlow");
+            console.warn("[SiliconFlow] ⚠️ No image URL in response:", JSON.stringify(data).substring(0, 200));
+            throw new Error("Invalid response format");
         }
 
     } catch (error) {
-        console.warn(`[SiliconFlow] Failed: ${error.message}. FALLING BACK TO PICSUM.`);
+        console.warn(`[SiliconFlow] ⚠️ Failed: ${error.message}`);
 
-        // 2. ROBUST PICSUM FALLBACK
+        // FALLBACK TO PICSUM
         try {
             const seed = Math.abs(prompt.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0));
-            // Use 800x800 for reliability
             const picsumUrl = `https://picsum.photos/seed/${seed}/800/800`;
-            console.log(`[Picsum] Fallback URL: ${picsumUrl}`);
+            console.log(`[Picsum] 🔄 Fallback: ${picsumUrl}`);
 
             const res = await fetch(picsumUrl);
-            // Picsum redirects (302) are handled automatically by fetch, but check final status
-            if (!res.ok) throw new Error(`Picsum failed with status ${res.status}`);
+            if (!res.ok) throw new Error(`Picsum ${res.status}`);
 
             const buf = await res.arrayBuffer();
             const base64 = Buffer.from(buf).toString('base64');
-            console.log(`[Picsum] Success (${base64.length} bytes)`);
+            console.log(`[Picsum] ✅ Fallback success (${base64.length} bytes)`);
             return base64;
 
         } catch (e) {
-            console.error(`[SiliconFlow+Picsum] CRITICAL FAILURE. Picsum Error: ${e.message}`);
+            console.error(`[SiliconFlow+Picsum] ❌ Both failed. Picsum error: ${e.message}`);
 
-            // 3. SAFETY NET (Red Pixel)
-            // Ensure frontend ALWAYS gets an image
-            console.warn("[Safety Net] Returning 1x1 Red Pixel to prevent frontend crash.");
+            // SAFETY NET: Return 1x1 red pixel
+            console.warn("[Safety Net] 🟥 Returning red pixel fallback");
             return "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKwAEAAAAABJRU5ErkJggg==";
         }
     }
