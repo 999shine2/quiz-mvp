@@ -997,11 +997,21 @@ async function attemptGeneration(prompt, key) {
 
         console.log(`[SiliconFlow] 📤 Sending POST to: ${url}`);
 
+        // 60-second timeout for image generation (AI is slow)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+            console.error(`[SiliconFlow] ⏱️ Request timeout after 60 seconds`);
+            controller.abort();
+        }, 60000);
+
         const response = await fetch(url, {
             method: 'POST',
             headers: headers,
-            body: JSON.stringify(requestBody)
+            body: JSON.stringify(requestBody),
+            signal: controller.signal
         });
+
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
             const errText = await response.text();
