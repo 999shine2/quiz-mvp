@@ -582,7 +582,8 @@ async function generateQuestionImage(question, userId, apiKey) {
 
         // Generate image using imagePrompt from question
         const imagePrompt = question.imagePrompt || question.question;
-        console.log(`[Image] Generating for: "${imagePrompt.substring(0, 40)}..."`);
+        const questionHash = hash;
+        console.log(`[Image] ⏩ START Generation for ${questionHash}: "${imagePrompt.substring(0, 40)}..."`);
 
 
         // Use SiliconFlow (Flux Schnell)
@@ -608,7 +609,7 @@ async function generateQuestionImage(question, userId, apiKey) {
 
         // Save to disk
         await fs.writeFile(filePath, imageBuffer);
-        console.log(`[Image] Saved: ${filename} (${imageBuffer.length} bytes)`);
+        console.log(`[Image] ✅ COMPLETE ${questionHash}: Saved ${filename} (${imageBuffer.length} bytes)`);
 
         return `/images/questions/${filename}`;
     } catch (error) {
