@@ -939,163 +939,99 @@ export {
     generateImageWithSiliconFlow
 };
 
-async function generateImageWithSiliconFlow(prompt, apiKey) {
-    const key = apiKey || "sk-cgcorldyzcntwzjwzkkkobmxisjncsndfgcllytbwjakrfla"; // Default to provided key
-    const url = "https://api.siliconflow.cn/v1/images/generations";
+export async function generateImageWithSiliconFlow(prompt, apiKey) {
+    // 1. ROBUST KEY HANDLING
+    // Fallback to strict hardcoded key if apiKey is missing or placeholder
+    let rawKey = apiKey;
+    if (!rawKey || rawKey.includes("YOUR_API_KEY") || rawKey.length < 20) {
+        console.warn("[SiliconFlow] Invalid key passed, using hardcoded fallback.");
+        rawKey = "sk-cgcorldyzcntwzjwzkkkobmxisjncsndfgcllytbwjakrfla";
+    }
 
-    console.log(`[SiliconFlow] Generating: "${prompt.substring(0, 40)}..."`);
+    // TRIM WHITESPACE (Critical for pasted keys)
+    const key = rawKey.trim();
+
+    // DEBUG LOGGING (Masked)
+    const maskedKey = key.length > 8 ? `${key.substring(0, 6)}...${key.substring(key.length - 4)}` : "INVALID";
+    console.log(`[SiliconFlow] Generating with Key: ${maskedKey} (Length: ${key.length})`);
+
+    const url = "https://api.siliconflow.cn/v1/images/generations";
+    console.log(`[SiliconFlow] Prompt: "${prompt.substring(0, 40)}..."`);
 
     try {
         const body = {
             model: "black-forest-labs/FLUX.1-schnell",
             prompt: prompt,
             image_size: "1024x1024",
-            num_inference_steps: 20 // Standard for Schnell
+            num_inference_steps: 20
         };
+
+        // EXPLICIT HEADER CONSTRUCTION
+        const headers = {
+            'Authorization': `Bearer ${key}`,
+            'Content-Type': 'application/json'
+        };
+
+        // DEBUG HEADER (Uncomment if needed, but risky to log full key)
+        // console.log(`[SiliconFlow] Headers: Authorization: Bearer ${maskedKey}`);
 
         const response = await fetch(url, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${key}`,
-                'Content-Type': 'application/json'
-            },
+            headers: headers,
             body: JSON.stringify(body)
         });
 
         if (!response.ok) {
             const errText = await response.text();
             console.error(`[SiliconFlow] API Error ${response.status}: ${errText}`);
-            // Fallback to Picsum if SiliconFlow fails
-            throw new Error(`SiliconFlow Status ${response.status}`);
+            console.error(`[SiliconFlow] Request Key was: ${maskedKey}`); // Re-verify what was sent
+            throw new Error(`SiliconFlow Status ${response.status}: ${errText}`);
         }
 
         const data = await response.json();
 
-        // SiliconFlow usually returns a URL in data[0].url
         if (data.images && data.images.length > 0 && data.images[0].url) {
             const imageUrl = data.images[0].url;
-            console.log(`[SiliconFlow] Success. Fetching image from: ${imageUrl}`);
+            console.log(`[SiliconFlow] Success -> Fetching image URL: ${imageUrl.substring(0, 50)}...`);
 
-            // Download the image
             const imageRes = await fetch(imageUrl);
-            if (!imageRes.ok) throw new Error("Failed to download generated image");
+            if (!imageRes.ok) throw new Error("Failed to download generated image from SiliconFlow URL");
 
             const arrayBuffer = await imageRes.arrayBuffer();
-            return Buffer.from(arrayBuffer).toString('base64');
+            const base64 = Buffer.from(arrayBuffer).toString('base64');
+            console.log(`[SiliconFlow] Image Downloaded (${base64.length} bytes base64)`);
+            return base64;
         } else {
-            console.warn("[SiliconFlow] No image URL in response:", JSON.stringify(data));
-            throw new Error("Invalid response format");
+            console.warn("[SiliconFlow] Response missing image URL:", JSON.stringify(data));
+            throw new Error("Invalid response format from SiliconFlow");
         }
 
     } catch (error) {
-        console.error(`[SiliconFlow] Failed: ${error.message}. Falling back to Picsum.`);
+        console.warn(`[SiliconFlow] Failed: ${error.message}. FALLING BACK TO PICSUM.`);
 
-        // Fallback to Picsum
+        // 2. ROBUST PICSUM FALLBACK
         try {
             const seed = Math.abs(prompt.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0));
-            const picsumUrl = `https://picsum.photos/seed/${seed}/1024/1024`;
+            // Use 800x800 for reliability
+            const picsumUrl = `https://picsum.photos/seed/${seed}/800/800`;
+            console.log(`[Picsum] Fallback URL: ${picsumUrl}`);
+
             const res = await fetch(picsumUrl);
+            // Picsum redirects (302) are handled automatically by fetch, but check final status
+            if (!res.ok) throw new Error(`Picsum failed with status ${res.status}`);
+
             const buf = await res.arrayBuffer();
-            return Buffer.from(buf).toString('base64');
+            const base64 = Buffer.from(buf).toString('base64');
+            console.log(`[Picsum] Success (${base64.length} bytes)`);
+            return base64;
+
         } catch (e) {
-            console.error("[SiliconFlow+Picsum] Both failed.");
-            return null;
+            console.error(`[SiliconFlow+Picsum] CRITICAL FAILURE. Picsum Error: ${e.message}`);
+
+            // 3. SAFETY NET (Red Pixel)
+            // Ensure frontend ALWAYS gets an image
+            console.warn("[Safety Net] Returning 1x1 Red Pixel to prevent frontend crash.");
+            return "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKwAEAAAAABJRU5ErkJggg==";
         }
     }
-}
-
-
-function getMockQuestions(reason = "Unknown Error") {
-    return {
-        subjectEmoji: "🐛",
-        suggestedTitle: "Error Diagnosis",
-        categories: ["Technology"],
-        questions: [
-            {
-                type: "MCQ",
-                question: `DEBUG INFO: Why are you seeing this ? REASON : ${reason} `,
-                options: ["Report this", "Check API Key", "Retry", "Ignore"],
-                correctAnswer: 0,
-                explanation: "This mock question contains the specific error that triggered the fallback."
-            },
-            {
-                type: "MCQ",
-                question: "Which of the following describes the current state?",
-                options: ["Success", "Loading", "Error Fallback", "Offline"],
-                correctAnswer: 2,
-                explanation: "You are seeing this because getMockQuestions() was called."
-            },
-            {
-                type: "MCQ",
-                question: "What should you do next?",
-                options: ["Panic", "Refresh", "Check API Key", "Dance"],
-                correctAnswer: 2,
-                explanation: "Ensure your GEMINI_API_KEY is set correctly in .env or passed in headers."
-            }
-        ]
-    };
-}
-
-export async function generateImageWithPollinations(prompt, apiKey) {
-    // 1. Try Pollinations (Flux Model)
-    try {
-        const seed = Math.floor(Math.random() * 1000000);
-        // Truncate prompt if too long to prevent 414 URI Too Long (Pollinations limit)
-        const safePrompt = encodeURIComponent(prompt.substring(0, 800));
-
-        // Use flux model, private, nologo, and SEED for consistency/cache-busting
-        const url = `https://image.pollinations.ai/prompt/${safePrompt}?nologo=true&private=true&enhance=true&model=flux&seed=${seed}`;
-
-        console.log(`[Pollinations] Fetching: ${url.substring(0, 60)}...`);
-
-        const headers = {
-            'User-Agent': 'MVP1/1.0' // Minimal UA
-        };
-        // Add Authorization only if key exists
-        const key = apiKey || process.env.POLLINATIONS_API_KEY;
-        if (key) {
-            headers['Authorization'] = `Bearer ${key}`;
-        }
-
-        const response = await fetch(url, { headers });
-
-        if (response.ok) {
-            const arrayBuffer = await response.arrayBuffer();
-            const buffer = Buffer.from(arrayBuffer);
-            if (buffer.length > 2000) {
-                console.log(`[Pollinations] Success: ${buffer.length} bytes`);
-                return buffer.toString('base64');
-            } else {
-                console.warn(`[Pollinations] Image too small: ${buffer.length} bytes`);
-            }
-        } else {
-            console.warn(`[Pollinations] Failed. Status: ${response.status}`);
-        }
-    } catch (error) {
-        console.error(`[Pollinations] Error:`, error.message);
-    }
-
-    // 2. Fallback to Picsum
-    try {
-        const seed = Math.abs(prompt.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0));
-        // Use 800x800 for speed/reliability
-        const url = `https://picsum.photos/seed/${seed}/800/800`;
-        console.log(`[Picsum] Fallback fetching: ${url}`);
-
-        const response = await fetch(url);
-        if (response.ok) {
-            const arrayBuffer = await response.arrayBuffer();
-            const buffer = Buffer.from(arrayBuffer);
-            if (buffer.length > 2000) {
-                console.log(`[Picsum] Success (Fallback): ${buffer.length} bytes`);
-                return buffer.toString('base64');
-            }
-        } else {
-            console.warn(`[Picsum] Failed. Status: ${response.status}`);
-        }
-    } catch (error) {
-        console.error(`[Picsum] Error:`, error.message);
-    }
-
-    return null;
 }
