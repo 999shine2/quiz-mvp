@@ -965,7 +965,9 @@ async function attemptGeneration(prompt, key) {
     console.log(`[SiliconFlow] 🔑 Using Key: ${maskedKey} (Length: ${key.length} chars)`);
     console.log(`[SiliconFlow] 📝 Prompt: "${prompt.substring(0, 40)}..."`);
 
-    const url = "https://api.siliconflow.cn/v1/images/generations";
+    // GLOBAL ENDPOINT (not Chinese .cn)
+    const url = "https://api.siliconflow.com/v1/images/generations";
+    console.log(`[SiliconFlow] 🌐 Using GLOBAL endpoint: ${url}`);
 
     try {
         const requestBody = {
