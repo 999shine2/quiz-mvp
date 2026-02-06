@@ -1004,30 +1004,56 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         const userId = getUserID(req);
         await logActivity(userId, 'upload', { filename: newFileEntry.filename });
 
-        // Generate images BEFORE sending response (so imageUrl is included)
-        console.log(`[Upload] Generating images for ${newFileEntry.questions.length} questions...`);
-        try {
-            for (const question of newFileEntry.questions) {
-                if (!question.imageUrl) {
+        // ===== STRICT SEQUENTIAL IMAGE GENERATION =====
+        console.log(`\n========================================`);
+        console.log(`SEQUENTIAL Image Generation: ${newFileEntry.questions.length} questions`);
+        console.log(`========================================\n`);
+
+        let successCount = 0;
+        let failCount = 0;
+
+        for (let i = 0; i < newFileEntry.questions.length; i++) {
+            const question = newFileEntry.questions[i];
+
+            if (!question.imageUrl) {
+                const questionNum = `${i + 1}/${newFileEntry.questions.length}`;
+                console.log(`\n[Q${questionNum}] 📝 Processing: "${question.question.substring(0, 50)}..."`);
+
+                try {
+                    // CRITICAL: This must BLOCK until image is fully saved
+                    const startTime = Date.now();
                     const imageUrl = await generateQuestionImage(question, userId, apiKey);
+                    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+
                     if (imageUrl) {
                         question.imageUrl = imageUrl;
-                        console.log(`[Upload] Image generated: ${imageUrl}`);
+                        successCount++;
+                        console.log(`[Q${questionNum}] ✅ SUCCESS in ${elapsed}s: ${imageUrl}`);
                     } else {
-                        console.warn(`[Upload] Image generation failed for question: ${question.question.substring(0, 30)}...`);
+                        failCount++;
+                        console.warn(`[Q${questionNum}] ⚠️ FAILED in ${elapsed}s: returned null`);
                     }
+                } catch (err) {
+                    failCount++;
+                    console.error(`[Q${questionNum}] ❌ ERROR: ${err.message}`);
+                }
+
+                // 2-second delay between requests to prevent API throttling
+                if (i < newFileEntry.questions.length - 1) {
+                    console.log(`[Q${questionNum}] ⏳ Waiting 2 seconds before next...`);
+                    await new Promise(resolve => setTimeout(resolve, 2000));
                 }
             }
-            console.log(`[Upload] All images generated`);
-        } catch (err) {
-            console.error('[Upload] Image generation error:', err);
-            // Continue even if image generation fails
         }
 
-        // Save DB with image URLs
+        console.log(`\n========================================`);
+        console.log(`Results: ${successCount} succeeded, ${failCount} failed`);
+        console.log(`========================================\n`);
+
+        // Save DB with updated image URLs
         await saveDB(req, db);
 
-        // NOW send response with imageUrls included
+        // Send response (includes imageUrls)
         res.json({ ...newFileEntry, isMock: aiResult.isMock });
     } catch (error) {
         console.error('Error processing upload:', error);
