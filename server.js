@@ -6,7 +6,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { parseDocument } from './documentParser.js';
-import { generateQuestions, generateSummary, generateQuestionsForCreativeWork, generateImagePrompt, generateImageWithImagen, generateImageWithGeminiFlash, generateImageWithPollinations, generateImageWithSiliconFlow } from './aiService.js';
+import { generateQuestions, generateSummary, generateQuestionsForCreativeWork, generateImagePrompt, generateImageWithImagen, generateImageWithGeminiFlash, generateImageWithSiliconFlow } from './aiService.js';
 import * as aiService from './aiService.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { exec } from 'child_process';
@@ -2960,10 +2960,12 @@ app.post('/api/generate-image', async (req, res) => {
         console.log(`[API Gen] Pollinations Flux for: "${finalPrompt.substring(0, 50)}..."`);
 
         // Use Pollinations (Flux) as requested by user
-        console.log(`[API Gen] Generating with Pollinations Flux (Authenticated)...`);
+        // Use SiliconFlow (Flux Schnell)
+        console.log(`[API Gen] Generating with SiliconFlow (Flux)...`);
 
-        // CRITICAL: Use the specific Pollinations Key from env, NOT the Gemini key
-        const imageBase64 = await generateImageWithPollinations(finalPrompt, process.env.POLLINATIONS_API_KEY);
+        const siliconKey = process.env.SILICONFLOW_API_KEY || "sk-cgcorldyzcntwzjwzkkkobmxisjncsndfgcllytbwjakrfla";
+        // Check imageBase64 result
+        const imageBase64 = await generateImageWithSiliconFlow(finalPrompt, siliconKey);
 
         const imageBuffer = Buffer.from(imageBase64, 'base64');
 
