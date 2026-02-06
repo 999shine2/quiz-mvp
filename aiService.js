@@ -976,13 +976,17 @@ async function attemptGeneration(prompt, key) {
         };
 
         // STRICT HEADER CONSTRUCTION (exactly as SiliconFlow docs specify)
-        const authHeader = `Bearer ${key}`;
+        const authHeader = "Bearer " + key;
 
-        // CRITICAL DEBUG: Show EXACT header string with quotes to reveal whitespace
-        console.log(`[SiliconFlow] DEBUG: Final Authorization Header sent: '${authHeader}'`);
-        console.log(`[SiliconFlow] DEBUG: Header length: ${authHeader.length} chars (should be ${7 + key.length})`);
-        console.log(`[SiliconFlow] DEBUG: Key starts with 'sk-': ${key.startsWith('sk-')}`);
-        console.log(`[SiliconFlow] DEBUG: Key has no internal spaces: ${!key.includes(' ')}`);
+        // ULTRA-EXPLICIT DEBUG: Prove Bearer space and key are concatenated correctly
+        console.log("=== AUTHORIZATION DEBUG START ===");
+        console.log("DEBUG: Bearer prefix: 'Bearer '");
+        console.log("DEBUG: Key value: '" + key + "'");
+        console.log("DEBUG: Concatenated header: '" + authHeader + "'");
+        console.log(`DEBUG: Header starts with 'Bearer ': ${authHeader.startsWith('Bearer ')}`);
+        console.log(`DEBUG: Header length: ${authHeader.length} (should be ${7 + key.length})`);
+        console.log(`DEBUG: Char at position 6 (space): '${authHeader.charAt(6)}' (should be ' ')`);
+        console.log("=== AUTHORIZATION DEBUG END ===");
 
         const headers = {
             'Authorization': authHeader,
