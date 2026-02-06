@@ -934,9 +934,7 @@ export {
     generateImagePrompt,
     generateImageWithGeminiFlash,
     generateImageWithImagen,
-    generateSummary,
-    generateQuestionsForCreativeWork,
-    generateImageWithSiliconFlow
+    generateQuestionsForCreativeWork
 };
 
 export async function generateImageWithSiliconFlow(prompt, apiKey) {
