@@ -1005,66 +1005,62 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         const userId = getUserID(req);
         await logActivity(userId, 'upload', { filename: newFileEntry.filename });
 
-        // [[ V9 - POLLINATIONS API KEY FIX ]]
-        console.log("=== [SEQ-V9] STARTING POLLINATIONS API ENGINE ===");
-        const POLLINATIONS_KEY = process.env.POLLINATIONS_API_KEY || process.env.SILICONFLOW_API_KEY;
-        console.log(`[SEQ-V9] Using API Key: ${POLLINATIONS_KEY ? POLLINATIONS_KEY.substring(0, 5) + '...' : 'NONE'}`);
+        // [[ V10 - PICSUM PRIMARY (Pollinations returns 502) ]]
+        console.log("=== [SEQ-V10] STARTING IMAGE GENERATION (Picsum) ===");
 
         // Use standard 'for' loop (No map/forEach)
         for (let i = 0; i < newFileEntry.questions.length; i++) {
             const q = newFileEntry.questions[i];
-            console.log(`[SEQ-V9] ▶️ Requesting Q${i + 1}/${newFileEntry.questions.length} via Pollinations API...`);
+            console.log(`[SEQ-V10] ▶️ Requesting Q${i + 1}/${newFileEntry.questions.length}...`);
 
             try {
-                // 1. Construct Prompt & URL
-                const prompt = encodeURIComponent(q.imagePrompt || q.question || "educational illustration");
-                const randomSeed = Math.floor(Math.random() * 1e9);
-                const imageUrl = `https://image.pollinations.ai/prompt/${prompt}?width=1024&height=1024&nologo=true&seed=${randomSeed}&model=flux`;
+                // Use Picsum Photos - Fast, reliable, free
+                const hash = crypto.createHash('md5').update(q.question).digest('hex').substring(0, 8);
+                const randomSeed = `${hash}-${Date.now()}`;
+                const imageUrl = `https://picsum.photos/seed/${randomSeed}/1024/768`;
 
-                console.log(`[SEQ-V9] 📡 Fetching: ${imageUrl.substring(0, 80)}...`);
+                console.log(`[SEQ-V10] 📡 Fetching Picsum: ${imageUrl.substring(0, 60)}...`);
 
-                // 2. FETCH with Headers (Crucial for API Key)
+                // FETCH with timeout
                 const response = await fetch(imageUrl, {
                     method: 'GET',
                     headers: {
-                        'Authorization': `Bearer ${POLLINATIONS_KEY}`,
-                        'User-Agent': 'Nodejs-Render-App',
-                        'Accept': 'image/*'
+                        'User-Agent': 'Nodejs-Render-App'
                     },
-                    signal: AbortSignal.timeout(60000) // 60s Timeout Limit
+                    redirect: 'follow',
+                    signal: AbortSignal.timeout(30000) // 30s timeout
                 });
 
                 if (!response.ok) {
-                    throw new Error(`API Error: ${response.status} ${response.statusText}`);
+                    throw new Error(`Picsum Error: ${response.status}`);
                 }
 
-                // 3. Save Image (Download Buffer)
+                // Save Image
                 const buffer = await response.arrayBuffer();
-                console.log(`[SEQ-V9] Downloaded ${buffer.byteLength} bytes`);
+                console.log(`[SEQ-V10] Downloaded ${buffer.byteLength} bytes`);
 
                 // Generate filename and path
-                const hash = crypto.createHash('md5').update(q.question).digest('hex').substring(0, 8);
-                const filename = `${hash}-${Date.now()}.png`;
+                const filename = `${hash}-${Date.now()}.jpg`;
                 const filepath = path.join(__dirname, 'public/images/questions', filename);
 
                 await fs.writeFile(filepath, Buffer.from(buffer));
 
                 q.imageUrl = `/images/questions/${filename}`;
-                console.log(`[SEQ-V9] ✅ Saved Q${i + 1}: ${filename}`);
+                console.log(`[SEQ-V10] ✅ Saved Q${i + 1}: ${filename}`);
 
             } catch (err) {
-                console.error(`[SEQ-V9] ❌ Failed Q${i + 1}:`, err.message);
-                // Continue loop even if failed (no image for this question)
+                console.error(`[SEQ-V10] ❌ Failed Q${i + 1}:`, err.message);
+                // Continue without image for this question
             }
 
-            // 4. MANDATORY 3s DELAY (To prevent rate limits)
+            // MANDATORY 2s DELAY
             if (i < newFileEntry.questions.length - 1) {
-                console.log(`[SEQ-V9] 💤 Resting 3s...`);
-                await new Promise(r => setTimeout(r, 3000));
+                console.log(`[SEQ-V10] 💤 Resting 2s...`);
+                await new Promise(r => setTimeout(r, 2000));
             }
         }
 
-        console.log("=== [SEQ-V9] ALL DONE ===");
+        console.log("=== [SEQ-V10] ALL DONE ===");
 
         // Save DB with updated image URLs
         await saveDB(req, db);
