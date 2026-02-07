@@ -1005,32 +1005,33 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         const userId = getUserID(req);
         await logActivity(userId, 'upload', { filename: newFileEntry.filename });
 
-        // [[ SEQUENTIAL GENERATION V5.1 - CLEANEST FIX ]]
-        console.log("=== [SEQ-V5.1] STARTING SEQUENTIAL GENERATION (5s Delay) - FIXED_V5_1 ===");
+        // [[ SEQUENTIAL V6 - MANDATORY DELAY FIX ]]
+        console.log("=== [SEQ-V6] STARTING (MANDATORY 5s DELAY) ===");
 
         // 1. Use a standard FOR loop (Do NOT use forEach/map)
         for (let i = 0; i < newFileEntry.questions.length; i++) {
             const q = newFileEntry.questions[i];
-            console.log(`[SEQ-V5] Processing ${i + 1}/${newFileEntry.questions.length}: "${q.question.substring(0, 15)}..."`);
+            console.log(`[SEQ-V6] Processing ${i + 1}/${newFileEntry.questions.length}: "${q.question.substring(0, 15)}..."`);
 
             try {
-                // 2. AWAIT Generation (Critical)
+                // 1. Attempt Generation
                 const url = await generateQuestionImage(q, userId, apiKey);
                 q.imageUrl = url;
-                console.log(`[SEQ-V5] ✅ Success Q${i + 1}`);
+                console.log(`[SEQ-V6] ✅ Success Q${i + 1}`);
 
-                // 3. MANDATORY 5-SECOND COOL-DOWN
-                if (i < newFileEntry.questions.length - 1) {
-                    console.log(`[SEQ-V5] ⏳ Cooling down for 5s...`);
-                    await new Promise(r => setTimeout(r, 5000));
-                }
             } catch (err) {
-                console.error(`[SEQ-V5] ❌ Failed Q${i + 1}:`, err.message);
-                // Continue to next question even if this one fails
+                console.error(`[SEQ-V6] ❌ Failed Q${i + 1}:`, err.message);
+                // We continue even if it fails
+            }
+
+            // 2. MANDATORY DELAY (Moved OUTSIDE try/catch to run ALWAYS)
+            if (i < newFileEntry.questions.length - 1) {
+                console.log(`[SEQ-V6] ⏳ Cooling down for 5s...`);
+                await new Promise(r => setTimeout(r, 5000));
             }
         }
 
-        console.log("=== [SEQ-V5] ALL DONE ===");
+        console.log("=== [SEQ-V6] ALL DONE ===");
 
         // Save DB with updated image URLs
         await saveDB(req, db);
