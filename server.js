@@ -1005,33 +1005,33 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         const userId = getUserID(req);
         await logActivity(userId, 'upload', { filename: newFileEntry.filename });
 
-        // [[ SEQUENTIAL V6 - MANDATORY DELAY FIX ]]
-        console.log("=== [SEQ-V6] STARTING (MANDATORY 5s DELAY) ===");
+        // [[ V7 - SEQUENTIAL LOOP ENFORCER ]]
+        console.log("=== [SEQ-V7] ENGINE START (Serial Mode) ===");
 
-        // 1. Use a standard FOR loop (Do NOT use forEach/map)
+        // ⚠️ CRITICAL: DO NOT use questions.map() or forEach().
+        // They fire all requests instantly. We MUST use a standard 'for' loop.
         for (let i = 0; i < newFileEntry.questions.length; i++) {
             const q = newFileEntry.questions[i];
-            console.log(`[SEQ-V6] Processing ${i + 1}/${newFileEntry.questions.length}: "${q.question.substring(0, 15)}..."`);
+            console.log(`[SEQ-V7] ▶️ START Q${i + 1}/${newFileEntry.questions.length} (Waiting for completion...)`);
 
             try {
-                // 1. Attempt Generation
+                // Because we are in a standard 'for' loop, this await will ACTUALLY PAUSE the loop.
                 const url = await generateQuestionImage(q, userId, apiKey);
                 q.imageUrl = url;
-                console.log(`[SEQ-V6] ✅ Success Q${i + 1}`);
+                console.log(`[SEQ-V7] ✅ FINISH Q${i + 1}`);
 
             } catch (err) {
-                console.error(`[SEQ-V6] ❌ Failed Q${i + 1}:`, err.message);
-                // We continue even if it fails
+                console.error(`[SEQ-V7] ❌ ERROR Q${i + 1}: ${err.message}`);
             }
 
-            // 2. MANDATORY DELAY (Moved OUTSIDE try/catch to run ALWAYS)
+            // MANDATORY 5s SLEEP (Run outside try/catch to ensure it happens)
             if (i < newFileEntry.questions.length - 1) {
-                console.log(`[SEQ-V6] ⏳ Cooling down for 5s...`);
+                console.log(`[SEQ-V7] 💤 SLEEPING 5s...`);
                 await new Promise(r => setTimeout(r, 5000));
             }
         }
 
-        console.log("=== [SEQ-V6] ALL DONE ===");
+        console.log("=== [SEQ-V7] ALL DONE ===");
 
         // Save DB with updated image URLs
         await saveDB(req, db);
