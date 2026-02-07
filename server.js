@@ -1004,10 +1004,8 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         const userId = getUserID(req);
         await logActivity(userId, 'upload', { filename: newFileEntry.filename });
 
-        // ===== STRICT SEQUENTIAL IMAGE GENERATION =====
-        console.log(`\n========================================`);
-        console.log(`SEQUENTIAL Image Generation: ${newFileEntry.questions.length} questions`);
-        console.log(`========================================\n`);
+        // [[SEQUENTIAL FIX V3 - FORCE APPLIED]]
+        console.log("=== [SEQ-V3] Starting Sequential Generation ===");
 
         let successCount = 0;
         let failCount = 0;
