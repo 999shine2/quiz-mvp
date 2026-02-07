@@ -953,6 +953,7 @@ app.post('/api/generate-image-prompt', async (req, res) => {
 
 // Upload file and generate questions
 app.post('/api/upload', upload.single('file'), async (req, res) => {
+    console.log("!!! DEBUG: FIX APPLIED - V3 !!!");
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'No file uploaded' });
@@ -1004,8 +1005,8 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         const userId = getUserID(req);
         await logActivity(userId, 'upload', { filename: newFileEntry.filename });
 
-        // [[SEQUENTIAL FIX V3 - FORCE APPLIED]]
-        console.log("=== [SEQ-V3] Starting Sequential Generation ===");
+        // [[SEQUENTIAL FIX V3 - FORCE APPLIED - RE-VERIFIED]]
+        console.log("=== [SEQ-V3] Starting Sequential Generation (RE-VERIFIED) ===");
 
         // Use a standard FOR loop to guarantee sequential execution
         for (let i = 0; i < newFileEntry.questions.length; i++) {
