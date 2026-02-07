@@ -583,19 +583,19 @@ async function generateQuestionImage(question, userId, apiKey) {
         // Generate image using imagePrompt from question
         const imagePrompt = question.imagePrompt || question.question;
         const questionHash = hash;
-        console.log(`[SEQ-V4] ⏩ START Generation for ${questionHash}: "${imagePrompt.substring(0, 40)}..."`);
+        console.log(`[SEQ-V5] ⏩ START Generation for ${questionHash}: "${imagePrompt.substring(0, 40)}..."`);
 
 
         // Use SiliconFlow (Flux Schnell)
         // Sanitize key: trim whitespace that may have been pasted into Render dashboard
         const rawSiliconKey = process.env.SILICONFLOW_API_KEY || "sk-cgcorldyzcntwzjwzkkkobmxisjncsndfgcllytbwjakrfla";
         const siliconKey = rawSiliconKey.trim();
-        console.log(`[SEQ-V4] Using SiliconFlow key: ${siliconKey.substring(0, 5)}...${siliconKey.substring(siliconKey.length - 4)} (${siliconKey.length} chars)`);
+        console.log(`[SEQ-V5] Using SiliconFlow key: ${siliconKey.substring(0, 5)}...${siliconKey.substring(siliconKey.length - 4)} (${siliconKey.length} chars)`);
         const imageBase64 = await generateImageWithSiliconFlow(imagePrompt, siliconKey);
 
         // CRITICAL: Check if generation failed (returned null)
         if (!imageBase64) {
-            console.warn(`[SEQ-V4] Generation failed: API returned null`);
+            console.warn(`[SEQ-V5] Generation failed: API returned null`);
             return null;
         }
 
@@ -603,17 +603,17 @@ async function generateQuestionImage(question, userId, apiKey) {
 
         // Validate image
         if (imageBuffer.length < 1000) {
-            console.warn(`[SEQ-V4] Generation failed (too small: ${imageBuffer.length} bytes)`);
+            console.warn(`[SEQ-V5] Generation failed (too small: ${imageBuffer.length} bytes)`);
             return null;
         }
 
         // Save to disk
         await fs.writeFile(filePath, imageBuffer);
-        console.log(`[SEQ-V4] ✅ COMPLETE ${questionHash}: Saved ${filename} (${imageBuffer.length} bytes)`);
+        console.log(`[SEQ-V5] ✅ COMPLETE ${questionHash}: Saved ${filename} (${imageBuffer.length} bytes)`);
 
         return `/images/questions/${filename}`;
     } catch (error) {
-        console.error('[SEQ-V4] Generation error:', error.message);
+        console.error('[SEQ-V5] Generation error:', error.message);
         return null;
     }
 }
