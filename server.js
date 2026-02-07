@@ -573,7 +573,7 @@ async function generateQuestionImage(question, userId, apiKey) {
             await fs.access(filePath);
             const stats = await fs.stat(filePath);
             if (stats.size > 1000) {
-                console.log(`[Image] Cache HIT: ${filename}`);
+                console.log(`[SEQ-V4] Cache HIT: ${filename}`);
                 return `/images/questions/${filename}`;
             }
         } catch (e) {
@@ -583,19 +583,19 @@ async function generateQuestionImage(question, userId, apiKey) {
         // Generate image using imagePrompt from question
         const imagePrompt = question.imagePrompt || question.question;
         const questionHash = hash;
-        console.log(`[Image] ⏩ START Generation for ${questionHash}: "${imagePrompt.substring(0, 40)}..."`);
+        console.log(`[SEQ-V4] ⏩ START Generation for ${questionHash}: "${imagePrompt.substring(0, 40)}..."`);
 
 
         // Use SiliconFlow (Flux Schnell)
         // Sanitize key: trim whitespace that may have been pasted into Render dashboard
         const rawSiliconKey = process.env.SILICONFLOW_API_KEY || "sk-cgcorldyzcntwzjwzkkkobmxisjncsndfgcllytbwjakrfla";
         const siliconKey = rawSiliconKey.trim();
-        console.log(`[Image] Using SiliconFlow key: ${siliconKey.substring(0, 5)}...${siliconKey.substring(siliconKey.length - 4)} (${siliconKey.length} chars)`);
+        console.log(`[SEQ-V4] Using SiliconFlow key: ${siliconKey.substring(0, 5)}...${siliconKey.substring(siliconKey.length - 4)} (${siliconKey.length} chars)`);
         const imageBase64 = await generateImageWithSiliconFlow(imagePrompt, siliconKey);
 
         // CRITICAL: Check if generation failed (returned null)
         if (!imageBase64) {
-            console.warn(`[Image] Generation failed: API returned null`);
+            console.warn(`[SEQ-V4] Generation failed: API returned null`);
             return null;
         }
 
@@ -603,17 +603,17 @@ async function generateQuestionImage(question, userId, apiKey) {
 
         // Validate image
         if (imageBuffer.length < 1000) {
-            console.warn(`[Image] Generation failed (too small: ${imageBuffer.length} bytes)`);
+            console.warn(`[SEQ-V4] Generation failed (too small: ${imageBuffer.length} bytes)`);
             return null;
         }
 
         // Save to disk
         await fs.writeFile(filePath, imageBuffer);
-        console.log(`[Image] ✅ COMPLETE ${questionHash}: Saved ${filename} (${imageBuffer.length} bytes)`);
+        console.log(`[SEQ-V4] ✅ COMPLETE ${questionHash}: Saved ${filename} (${imageBuffer.length} bytes)`);
 
         return `/images/questions/${filename}`;
     } catch (error) {
-        console.error('[Image] Generation error:', error.message);
+        console.error('[SEQ-V4] Generation error:', error.message);
         return null;
     }
 }
@@ -953,7 +953,7 @@ app.post('/api/generate-image-prompt', async (req, res) => {
 
 // Upload file and generate questions
 app.post('/api/upload', upload.single('file'), async (req, res) => {
-    console.log("!!! DEBUG: FIX APPLIED - V3 !!!");
+    console.log("!!! DEBUG: FINAL ATTEMPT - V4 (If you see this, it worked) !!!");
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'No file uploaded' });
@@ -1006,30 +1006,30 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         await logActivity(userId, 'upload', { filename: newFileEntry.filename });
 
         // [[SEQUENTIAL FIX V3 - FORCE APPLIED - RE-VERIFIED]]
-        console.log("=== [SEQ-V3] Starting Sequential Generation (RE-VERIFIED) ===");
+        console.log(`[SEQ-V4] Starting Sequential Processing for ${newFileEntry.questions.length} questions...`);
 
         // Use a standard FOR loop to guarantee sequential execution
         for (let i = 0; i < newFileEntry.questions.length; i++) {
             const q = newFileEntry.questions[i];
             // Accessing q.id might be undefined if not set, using safely
-            console.log(`[SEQ-V3] Processing ${i + 1}/${newFileEntry.questions.length}: ${q.id || 'no-id'}`);
+            console.log(`[SEQ-V4] Processing Q${i + 1}/${newFileEntry.questions.length}...`);
 
             try {
                 // 1. Force AWAIT (Critical)
                 const url = await generateQuestionImage(q, userId, apiKey);
                 q.imageUrl = url;
-                console.log(`[SEQ-V3] ✅ Success: ${url}`);
+                console.log(`[SEQ-V4] ✅ Success: ${url}`);
                 // 2. Safety Delay (3000ms)
                 if (i < newFileEntry.questions.length - 1) {
-                    console.log("[SEQ-V3] ⏳ Waiting 3s...");
+                    console.log("[SEQ-V4] ⏳ Waiting 3s...");
                     await new Promise(r => setTimeout(r, 3000));
                 }
             } catch (e) {
-                console.error(`[SEQ-V3] ❌ Failed: ${e.message}`);
+                console.error(`[SEQ-V4] ❌ Failed Q${i + 1}: ${e.message}`);
             }
         }
 
-        console.log("=== [SEQ-V3] Finished ===");
+        console.log("[SEQ-V4] All Done.");
 
         // Save DB with updated image URLs
         await saveDB(req, db);
