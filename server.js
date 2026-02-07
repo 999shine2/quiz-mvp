@@ -1005,8 +1005,8 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         const userId = getUserID(req);
         await logActivity(userId, 'upload', { filename: newFileEntry.filename });
 
-        // [[ REAL SEQUENTIAL FIX V5 ]]
-        console.log("=== [SEQ-V5] STARTING SEQUENTIAL GENERATION ===");
+        // [[ SEQUENTIAL GENERATION V5 - FINAL FIX ]]
+        console.log("=== [SEQ-V5] STARTING SEQUENTIAL GENERATION (5s Delay) ===");
 
         // 1. Use a standard FOR loop (Do NOT use forEach/map)
         for (let i = 0; i < newFileEntry.questions.length; i++) {
@@ -1016,30 +1016,30 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
             // 2. The AWAIT here makes it pause.
             // If you use map/forEach, this await does NOTHING.
             try {
-                const url = await generateQuestionImage(newFileEntry.questions[i], userId, apiKey);
-                newFileEntry.questions[i].imageUrl = url;
-                console.log(`[SEQ-V5] ✅ Finished ${i + 1}/${newFileEntry.questions.length}`);
+                // 2. AWAIT Generation (Critical)
+                const url = await generateQuestionImage(q, userId, apiKey);
+                q.imageUrl = url;
+                console.log(`[SEQ-V5] ✅ Success Q${i + 1}`);
+                // 3. MANDATORY 5-SECOND COOL-DOWN
+                if (i < newFileEntry.questions.length - 1) {
+                    console.log(`[SEQ-V5] ⏳ Cooling down for 5s...`);
+                    await new Promise(r => setTimeout(r, 5000));
+                }
             } catch (err) {
-                console.error(`[SEQ-V5] ❌ Failed ${i + 1}:`, err.message);
-                // Continue to next question even if this one fails
             }
 
-            // 3. Pause for 2 seconds
-            await new Promise(r => setTimeout(r, 2000));
+            console.log("=== [SEQ-V5] ALL DONE ===");
+
+            // Save DB with updated image URLs
+            await saveDB(req, db);
+
+            // Send response (includes imageUrls)
+            res.json({ ...newFileEntry, isMock: aiResult.isMock });
+        } catch (error) {
+            console.error('Error processing upload:', error);
+            res.status(500).json({ error: error.message || 'Failed to process file' });
         }
-
-        console.log("=== [SEQ-V5] ALL DONE ===");
-
-        // Save DB with updated image URLs
-        await saveDB(req, db);
-
-        // Send response (includes imageUrls)
-        res.json({ ...newFileEntry, isMock: aiResult.isMock });
-    } catch (error) {
-        console.error('Error processing upload:', error);
-        res.status(500).json({ error: error.message || 'Failed to process file' });
-    }
-});
+    });
 
 // Update File Metadata (Rename)
 app.post('/api/files/update', async (req, res) => {
