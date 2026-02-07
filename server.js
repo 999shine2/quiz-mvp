@@ -1005,12 +1005,13 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         const userId = getUserID(req);
         await logActivity(userId, 'upload', { filename: newFileEntry.filename });
 
-        // [[REAL SEQUENTIAL LOOP - NO MAP/FOREACH]]
-        console.log("!!! DEBUG: REAL SEQUENTIAL LOOP STARTING !!!");
+        // [[ REAL SEQUENTIAL FIX V5 ]]
+        console.log("=== [SEQ-V5] STARTING SEQUENTIAL GENERATION ===");
 
-        // 1. Use a standard FOR loop (NOT map, NOT forEach)
+        // 1. Use a standard FOR loop (Do NOT use forEach/map)
         for (let i = 0; i < newFileEntry.questions.length; i++) {
-            console.log(`[SEQ-REAL] Step ${i + 1}/${newFileEntry.questions.length}: Starting...`);
+            const q = newFileEntry.questions[i];
+            console.log(`[SEQ-V5] Processing ${i + 1}/${newFileEntry.questions.length}: "${q.question.substring(0, 15)}..."`);
 
             // 2. The AWAIT here makes it pause.
             // If you use map/forEach, this await does NOTHING.
@@ -1018,8 +1019,9 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
                 const url = await generateQuestionImage(newFileEntry.questions[i], userId, apiKey);
                 newFileEntry.questions[i].imageUrl = url;
                 console.log(`[SEQ-REAL] Step ${i + 1} Done.`);
-            } catch (e) {
-                console.error(`[SEQ-REAL] Step ${i + 1} Failed.`);
+            } catch (err) {
+                console.error(`[SEQ-V5] ❌ Failed ${i + 1}:`, err.message);
+                // Continue to next question even if this one fails
             }
 
             // 3. Pause for 2 seconds
