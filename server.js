@@ -1018,7 +1018,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
             try {
                 const url = await generateQuestionImage(newFileEntry.questions[i], userId, apiKey);
                 newFileEntry.questions[i].imageUrl = url;
-                console.log(`[SEQ-REAL] Step ${i + 1} Done.`);
+                console.log(`[SEQ-V5] ✅ Finished ${i + 1}/${newFileEntry.questions.length}`);
             } catch (err) {
                 console.error(`[SEQ-V5] ❌ Failed ${i + 1}:`, err.message);
                 // Continue to next question even if this one fails
@@ -1028,7 +1028,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
             await new Promise(r => setTimeout(r, 2000));
         }
 
-        console.log("[SEQ-V4] All Done.");
+        console.log("=== [SEQ-V5] ALL DONE ===");
 
         // Save DB with updated image URLs
         await saveDB(req, db);
