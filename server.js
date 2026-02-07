@@ -953,7 +953,7 @@ app.post('/api/generate-image-prompt', async (req, res) => {
 
 // Upload file and generate questions
 app.post('/api/upload', upload.single('file'), async (req, res) => {
-    console.log("!!! DEBUG: FINAL ATTEMPT - V4 (If you see this, it worked) !!!");
+    console.log("!!! DEBUG: REAL SEQUENTIAL LOOP STARTING !!!");
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'No file uploaded' });
@@ -1005,28 +1005,25 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         const userId = getUserID(req);
         await logActivity(userId, 'upload', { filename: newFileEntry.filename });
 
-        // [[SEQUENTIAL FIX V3 - FORCE APPLIED - RE-VERIFIED]]
-        console.log(`[SEQ-V4] Starting Sequential Processing for ${newFileEntry.questions.length} questions...`);
+        // [[REAL SEQUENTIAL LOOP - NO MAP/FOREACH]]
+        console.log("!!! DEBUG: REAL SEQUENTIAL LOOP STARTING !!!");
 
-        // Use a standard FOR loop to guarantee sequential execution
+        // 1. Use a standard FOR loop (NOT map, NOT forEach)
         for (let i = 0; i < newFileEntry.questions.length; i++) {
-            const q = newFileEntry.questions[i];
-            // Accessing q.id might be undefined if not set, using safely
-            console.log(`[SEQ-V4] Processing Q${i + 1}/${newFileEntry.questions.length}...`);
+            console.log(`[SEQ-REAL] Step ${i + 1}/${newFileEntry.questions.length}: Starting...`);
 
+            // 2. The AWAIT here makes it pause.
+            // If you use map/forEach, this await does NOTHING.
             try {
-                // 1. Force AWAIT (Critical)
-                const url = await generateQuestionImage(q, userId, apiKey);
-                q.imageUrl = url;
-                console.log(`[SEQ-V4] ✅ Success: ${url}`);
-                // 2. Safety Delay (3000ms)
-                if (i < newFileEntry.questions.length - 1) {
-                    console.log("[SEQ-V4] ⏳ Waiting 3s...");
-                    await new Promise(r => setTimeout(r, 3000));
-                }
+                const url = await generateQuestionImage(newFileEntry.questions[i], userId, apiKey);
+                newFileEntry.questions[i].imageUrl = url;
+                console.log(`[SEQ-REAL] Step ${i + 1} Done.`);
             } catch (e) {
-                console.error(`[SEQ-V4] ❌ Failed Q${i + 1}: ${e.message}`);
+                console.error(`[SEQ-REAL] Step ${i + 1} Failed.`);
             }
+
+            // 3. Pause for 2 seconds
+            await new Promise(r => setTimeout(r, 2000));
         }
 
         console.log("[SEQ-V4] All Done.");
