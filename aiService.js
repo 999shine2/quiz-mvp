@@ -939,26 +939,42 @@ export {
 };
 
 export async function generateImageWithSiliconFlow(prompt, apiKey) {
-    // SWITCHED TO POLLINATIONS (SiliconFlow was timing out)
-    console.log(`[Pollinations] 🎨 Starting generation...`);
+    // USE POLLINATIONS API WITH AUTHENTICATION
+    console.log(`[Pollinations] 🎨 Starting generation with API key...`);
     console.log(`[Pollinations] 📝 Prompt: "${prompt.substring(0, 60)}..."`);
 
+    // Get API key from environment
+    const pollinationsKey = process.env.POLLINATIONS_API_KEY || apiKey;
+
+    if (!pollinationsKey) {
+        console.error(`[Pollinations] ❌ No API key found!`);
+        throw new Error('POLLINATIONS_API_KEY not set');
+    }
+
+    const maskedKey = `${pollinationsKey.substring(0, 5)}...${pollinationsKey.substring(pollinationsKey.length - 4)}`;
+    console.log(`[Pollinations] 🔑 Using Key: ${maskedKey}`);
+
     try {
-        // Pollinations.ai - Free, fast, no API key required
-        const encodedPrompt = encodeURIComponent(prompt);
+        // Pollinations API endpoint
+        const apiUrl = "https://image.pollinations.ai/prompt/" + encodeURIComponent(prompt);
         const randomSeed = Math.floor(Math.random() * 1000000);
-        const pollinationsUrl = `https://pollinations.ai/p/${encodedPrompt}?width=1024&height=1024&seed=${randomSeed}&nologo=true`;
+        const fullUrl = `${apiUrl}?width=1024&height=1024&seed=${randomSeed}&nologo=true&model=flux`;
 
-        console.log(`[Pollinations] 🌐 URL: ${pollinationsUrl.substring(0, 100)}...`);
+        console.log(`[Pollinations] 🌐 API URL: ${fullUrl.substring(0, 100)}...`);
 
-        // 30-second timeout (Pollinations is much faster than SiliconFlow)
+        // 30-second timeout
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
             console.error(`[Pollinations] ⏱️ Request timeout after 30 seconds`);
             controller.abort();
         }, 30000);
 
-        const response = await fetch(pollinationsUrl, {
+        const response = await fetch(fullUrl, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${pollinationsKey}`,
+                'Accept': 'image/*'
+            },
             signal: controller.signal,
             redirect: 'follow'
         });
@@ -966,23 +982,18 @@ export async function generateImageWithSiliconFlow(prompt, apiKey) {
         clearTimeout(timeoutId);
 
         if (!response.ok) {
-            throw new Error(`Pollinations returned status ${response.status}`);
+            throw new Error(`Pollinations API returned status ${response.status}`);
         }
 
         const imageBuffer = await response.arrayBuffer();
         console.log(`[Pollinations] Downloaded ${imageBuffer.byteLength} bytes`);
-
-        // Validate image size
-        if (imageBuffer.byteLength < 1000) {
-            throw new Error(`Image too small: ${imageBuffer.byteLength} bytes`);
-        }
 
         const base64 = Buffer.from(imageBuffer).toString('base64');
         console.log(`[Pollinations] ✅ Success! (${base64.length} chars base64)`);
         return base64;
 
     } catch (error) {
-        console.error(`[Pollinations] ❌ Primary generation failed: ${error.message}`);
+        console.error(`[Pollinations] ❌ API generation failed: ${error.message}`);
 
         // FALLBACK 1: Try Picsum (random image service)
         try {
