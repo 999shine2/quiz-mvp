@@ -1890,6 +1890,28 @@ document.addEventListener('DOMContentLoaded', () => {
     window.startEndlessReview = async function (clickedBtn = null) {
         if (clickedBtn && clickedBtn.dataset.loading === 'true') return;
 
+        // VISUAL FEEDBACK: Show full loading overlay because fetching takes time
+        const loadingOverlay = document.createElement('div');
+        loadingOverlay.id = 'endless-loading-overlay';
+        loadingOverlay.style.position = 'fixed';
+        loadingOverlay.style.top = '0';
+        loadingOverlay.style.left = '0';
+        loadingOverlay.style.width = '100%';
+        loadingOverlay.style.height = '100%';
+        loadingOverlay.style.backgroundColor = 'rgba(0,0,0,0.7)';
+        loadingOverlay.style.zIndex = '9999';
+        loadingOverlay.style.display = 'flex';
+        loadingOverlay.style.flexDirection = 'column';
+        loadingOverlay.style.justifyContent = 'center';
+        loadingOverlay.style.alignItems = 'center';
+        loadingOverlay.style.color = 'white';
+        loadingOverlay.innerHTML = `
+            <div style="font-size: 3rem; margin-bottom: 20px;">♾️</div>
+            <div style="font-size: 1.5rem; font-weight: bold;">Initializing Endless Review...</div>
+            <div style="margin-top: 10px; opacity: 0.8;">Fetching your library...</div>
+        `;
+        document.body.appendChild(loadingOverlay);
+
         let originalText = '';
         if (clickedBtn) {
             clickedBtn.dataset.loading = 'true';
