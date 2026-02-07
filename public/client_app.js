@@ -2079,11 +2079,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             console.log(`[Endless] Starting with ${uniquePool.length} questions.`);
+
+            // Remove overlay before transitioning
+            const overlay = document.getElementById('endless-loading-overlay');
+            if (overlay) overlay.remove();
+
             await startReels(uniquePool);
 
         } catch (error) {
             console.error('ENDLESS ERROR:', error);
             alert('Error: ' + error.message);
+
+            const overlay = document.getElementById('endless-loading-overlay');
+            if (overlay) overlay.remove();
         } finally {
             if (clickedBtn) {
                 clickedBtn.dataset.loading = 'false';
