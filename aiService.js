@@ -939,127 +939,65 @@ export {
 };
 
 export async function generateImageWithSiliconFlow(prompt, apiKey) {
-    // MULTI-LAYER KEY SANITIZATION
-    // Layer 1: Handle undefined/null
-    let rawKey = apiKey || process.env.SILICONFLOW_API_KEY || "sk-cgcorldyzcntwzjwzkkkobmxisjncsndfgcllytbwjakrfla";
-
-    // Layer 2: Trim ALL whitespace (spaces, tabs, newlines)
-    const key = rawKey.trim().replace(/\s/g, '');
-
-    // Layer 3: Validate key format
-    if (!key.startsWith('sk-') || key.length < 20) {
-        console.error(`[SiliconFlow] CRITICAL: Invalid key format detected!`);
-        console.error(`[SiliconFlow] Key starts with: ${key.substring(0, 3)}, Length: ${key.length}`);
-        // Use hardcoded key as absolute fallback
-        const fallbackKey = "sk-cgcorldyzcntwzjwzkkkobmxisjncsndfgcllytbwjakrfla".trim();
-        console.warn(`[SiliconFlow] Using hardcoded fallback key`);
-        return await attemptGeneration(prompt, fallbackKey);
-    }
-
-    return await attemptGeneration(prompt, key);
-}
-
-async function attemptGeneration(prompt, key) {
-    // SAFE DEBUG LOGGING (first 5 + last 4 chars only)
-    const maskedKey = `${key.substring(0, 5)}...${key.substring(key.length - 4)}`;
-    console.log(`[SiliconFlow] 🔑 Using Key: ${maskedKey} (Length: ${key.length} chars)`);
-    console.log(`[SiliconFlow] 📝 Prompt: "${prompt.substring(0, 40)}..."`);
-
-    // GLOBAL ENDPOINT (not Chinese .cn)
-    const url = "https://api.siliconflow.com/v1/images/generations";
-    console.log(`[SiliconFlow] 🌐 Using GLOBAL endpoint: ${url}`);
+    // SWITCHED TO POLLINATIONS (SiliconFlow was timing out)
+    console.log(`[Pollinations] 🎨 Starting generation...`);
+    console.log(`[Pollinations] 📝 Prompt: "${prompt.substring(0, 60)}..."`);
 
     try {
-        const requestBody = {
-            model: "black-forest-labs/FLUX.1-schnell",
-            prompt: prompt,
-            image_size: "1024x1024",
-            num_inference_steps: 20
-        };
+        // Pollinations.ai - Free, fast, no API key required
+        const encodedPrompt = encodeURIComponent(prompt);
+        const randomSeed = Math.floor(Math.random() * 1000000);
+        const pollinationsUrl = `https://pollinations.ai/p/${encodedPrompt}?width=1024&height=1024&seed=${randomSeed}&nologo=true`;
 
-        // STRICT HEADER CONSTRUCTION (exactly as SiliconFlow docs specify)
-        const authHeader = "Bearer " + key;
+        console.log(`[Pollinations] 🌐 URL: ${pollinationsUrl.substring(0, 100)}...`);
 
-        // ULTRA-EXPLICIT DEBUG: Prove Bearer space and key are concatenated correctly
-        console.log("=== AUTHORIZATION DEBUG START ===");
-        console.log("DEBUG: Bearer prefix: 'Bearer '");
-        console.log("DEBUG: Key value: '" + key + "'");
-        console.log("DEBUG: Concatenated header: '" + authHeader + "'");
-        console.log(`DEBUG: Header starts with 'Bearer ': ${authHeader.startsWith('Bearer ')}`);
-        console.log(`DEBUG: Header length: ${authHeader.length} (should be ${7 + key.length})`);
-        console.log(`DEBUG: Char at position 6 (space): '${authHeader.charAt(6)}' (should be ' ')`);
-        console.log("=== AUTHORIZATION DEBUG END ===");
-
-        const headers = {
-            'Authorization': authHeader,
-            'Content-Type': 'application/json'
-        };
-
-        console.log(`[SiliconFlow] 📤 Sending POST to: ${url}`);
-
-        // 60-second timeout for image generation (AI is slow)
+        // 30-second timeout (Pollinations is much faster than SiliconFlow)
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
-            console.error(`[SiliconFlow] ⏱️ Request timeout after 60 seconds`);
+            console.error(`[Pollinations] ⏱️ Request timeout after 30 seconds`);
             controller.abort();
-        }, 60000);
+        }, 30000);
 
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify(requestBody),
-            signal: controller.signal
+        const response = await fetch(pollinationsUrl, {
+            signal: controller.signal,
+            redirect: 'follow'
         });
 
         clearTimeout(timeoutId);
 
         if (!response.ok) {
-            const errText = await response.text();
-            console.error(`[SiliconFlow] ❌ API Error ${response.status}`);
-            console.error(`[SiliconFlow] Response: ${errText}`);
-            console.error(`[SiliconFlow] Key used: ${maskedKey}`);
-            throw new Error(`SiliconFlow ${response.status}: ${errText}`);
+            throw new Error(`Pollinations returned status ${response.status}`);
         }
 
-        const data = await response.json();
+        const imageBuffer = await response.arrayBuffer();
+        console.log(`[Pollinations] Downloaded ${imageBuffer.byteLength} bytes`);
 
-        if (data.images && data.images.length > 0 && data.images[0].url) {
-            const imageUrl = data.images[0].url;
-            console.log(`[SiliconFlow] ✅ Success! Downloading image...`);
-
-            const imageRes = await fetch(imageUrl);
-            if (!imageRes.ok) throw new Error("Failed to download generated image");
-
-            const arrayBuffer = await imageRes.arrayBuffer();
-            const base64 = Buffer.from(arrayBuffer).toString('base64');
-            console.log(`[SiliconFlow] ✅ Image ready (${base64.length} bytes base64)`);
-            return base64;
-        } else {
-            console.warn("[SiliconFlow] ⚠️ No image URL in response:", JSON.stringify(data).substring(0, 200));
-            throw new Error("Invalid response format");
+        // Validate image size
+        if (imageBuffer.byteLength < 1000) {
+            throw new Error(`Image too small: ${imageBuffer.byteLength} bytes`);
         }
+
+        const base64 = Buffer.from(imageBuffer).toString('base64');
+        console.log(`[Pollinations] ✅ Success! (${base64.length} chars base64)`);
+        return base64;
 
     } catch (error) {
-        console.warn(`[SiliconFlow] ⚠️ Failed: ${error.message}`);
-        console.error(`[SiliconFlow] Full error:`, error);
+        console.error(`[Pollinations] ❌ Primary generation failed: ${error.message}`);
 
-        // FALLBACK TO PICSUM
+        // FALLBACK 1: Try Picsum (random image service)
         try {
-            const seed = Math.abs(prompt.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0));
-            const picsumUrl = `https://picsum.photos/seed/${seed}/800/800`;
+            const hash = Math.random().toString(36).substring(7);
+            const picsumUrl = `https://picsum.photos/seed/${hash}/800/600`;
             console.log(`[Picsum] 🔄 Attempting fallback: ${picsumUrl}`);
 
-            // Add timeout to prevent hanging
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
 
             const res = await fetch(picsumUrl, {
                 signal: controller.signal,
-                redirect: 'follow' // Explicitly follow redirects
+                redirect: 'follow'
             });
             clearTimeout(timeoutId);
-
-            console.log(`[Picsum] Response status: ${res.status}, OK: ${res.ok}`);
 
             if (!res.ok) {
                 throw new Error(`Picsum returned status ${res.status}`);
@@ -1069,14 +1007,11 @@ async function attemptGeneration(prompt, key) {
             console.log(`[Picsum] Downloaded ${buf.byteLength} bytes`);
 
             const base64 = Buffer.from(buf).toString('base64');
-            console.log(`[Picsum] ✅ Fallback success (${base64.length} chars base64)`);
+            console.log(`[Picsum] ✅ Fallback success`);
             return base64;
 
         } catch (e) {
-            console.error(`[Picsum] ❌ Fallback failed`);
-            console.error(`[Picsum] Error name: ${e.name}`);
-            console.error(`[Picsum] Error message: ${e.message}`);
-            console.error(`[Picsum] Full error:`, e);
+            console.error(`[Picsum] ❌ Fallback failed: ${e.message}`);
 
             // SAFETY NET: Return 1x1 red pixel
             console.warn("[Safety Net] 🟥 Returning red pixel fallback");
