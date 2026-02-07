@@ -1005,8 +1005,8 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         const userId = getUserID(req);
         await logActivity(userId, 'upload', { filename: newFileEntry.filename });
 
-        // [[ SEQUENTIAL GENERATION V5 - FINAL FIX ]]
-        console.log("=== [SEQ-V5] STARTING SEQUENTIAL GENERATION (5s Delay) ===");
+        // [[ SEQUENTIAL GENERATION V5.1 - CLEANEST FIX ]]
+        console.log("=== [SEQ-V5.1] STARTING SEQUENTIAL GENERATION (5s Delay) - FIXED_V5_1 ===");
 
         // 1. Use a standard FOR loop (Do NOT use forEach/map)
         for (let i = 0; i < newFileEntry.questions.length; i++) {
