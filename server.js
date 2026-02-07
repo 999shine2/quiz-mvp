@@ -1013,33 +1013,35 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
             const q = newFileEntry.questions[i];
             console.log(`[SEQ-V5] Processing ${i + 1}/${newFileEntry.questions.length}: "${q.question.substring(0, 15)}..."`);
 
-            // 2. The AWAIT here makes it pause.
-            // If you use map/forEach, this await does NOTHING.
             try {
                 // 2. AWAIT Generation (Critical)
                 const url = await generateQuestionImage(q, userId, apiKey);
                 q.imageUrl = url;
                 console.log(`[SEQ-V5] ✅ Success Q${i + 1}`);
+
                 // 3. MANDATORY 5-SECOND COOL-DOWN
                 if (i < newFileEntry.questions.length - 1) {
                     console.log(`[SEQ-V5] ⏳ Cooling down for 5s...`);
                     await new Promise(r => setTimeout(r, 5000));
                 }
             } catch (err) {
+                console.error(`[SEQ-V5] ❌ Failed Q${i + 1}:`, err.message);
+                // Continue to next question even if this one fails
             }
-
-            console.log("=== [SEQ-V5] ALL DONE ===");
-
-            // Save DB with updated image URLs
-            await saveDB(req, db);
-
-            // Send response (includes imageUrls)
-            res.json({ ...newFileEntry, isMock: aiResult.isMock });
-        } catch (error) {
-            console.error('Error processing upload:', error);
-            res.status(500).json({ error: error.message || 'Failed to process file' });
         }
-    });
+
+        console.log("=== [SEQ-V5] ALL DONE ===");
+
+        // Save DB with updated image URLs
+        await saveDB(req, db);
+
+        // Send response (includes imageUrls)
+        res.json({ ...newFileEntry, isMock: aiResult.isMock });
+    } catch (error) {
+        console.error('Error processing upload:', error);
+        res.status(500).json({ error: error.message || 'Failed to process file' });
+    }
+});
 
 // Update File Metadata (Rename)
 app.post('/api/files/update', async (req, res) => {
