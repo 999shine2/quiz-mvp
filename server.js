@@ -1007,8 +1007,6 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         // [[SEQUENTIAL FIX V3 - FORCE APPLIED]]
         console.log("=== [SEQ-V3] Starting Sequential Generation ===");
 
-        let successCount = 0;
-        let failCount = 0;
         // FORCE SEQUENTIAL EXECUTION
 
         for (let i = 0; i < newFileEntry.questions.length; i++) {
