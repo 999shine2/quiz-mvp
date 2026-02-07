@@ -1005,33 +1005,66 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         const userId = getUserID(req);
         await logActivity(userId, 'upload', { filename: newFileEntry.filename });
 
-        // [[ V7 - SEQUENTIAL LOOP ENFORCER ]]
-        console.log("=== [SEQ-V7] ENGINE START (Serial Mode) ===");
+        // [[ V9 - POLLINATIONS API KEY FIX ]]
+        console.log("=== [SEQ-V9] STARTING POLLINATIONS API ENGINE ===");
+        const POLLINATIONS_KEY = process.env.POLLINATIONS_API_KEY || process.env.SILICONFLOW_API_KEY;
+        console.log(`[SEQ-V9] Using API Key: ${POLLINATIONS_KEY ? POLLINATIONS_KEY.substring(0, 5) + '...' : 'NONE'}`);
 
-        // ⚠️ CRITICAL: DO NOT use questions.map() or forEach().
-        // They fire all requests instantly. We MUST use a standard 'for' loop.
+        // Use standard 'for' loop (No map/forEach)
         for (let i = 0; i < newFileEntry.questions.length; i++) {
             const q = newFileEntry.questions[i];
-            console.log(`[SEQ-V7] ▶️ START Q${i + 1}/${newFileEntry.questions.length} (Waiting for completion...)`);
+            console.log(`[SEQ-V9] ▶️ Requesting Q${i + 1}/${newFileEntry.questions.length} via Pollinations API...`);
 
             try {
-                // Because we are in a standard 'for' loop, this await will ACTUALLY PAUSE the loop.
-                const url = await generateQuestionImage(q, userId, apiKey);
-                q.imageUrl = url;
-                console.log(`[SEQ-V7] ✅ FINISH Q${i + 1}`);
+                // 1. Construct Prompt & URL
+                const prompt = encodeURIComponent(q.imagePrompt || q.question || "educational illustration");
+                const randomSeed = Math.floor(Math.random() * 1e9);
+                const imageUrl = `https://image.pollinations.ai/prompt/${prompt}?width=1024&height=1024&nologo=true&seed=${randomSeed}&model=flux`;
+
+                console.log(`[SEQ-V9] 📡 Fetching: ${imageUrl.substring(0, 80)}...`);
+
+                // 2. FETCH with Headers (Crucial for API Key)
+                const response = await fetch(imageUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${POLLINATIONS_KEY}`,
+                        'User-Agent': 'Nodejs-Render-App',
+                        'Accept': 'image/*'
+                    },
+                    signal: AbortSignal.timeout(60000) // 60s Timeout Limit
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status} ${response.statusText}`);
+                }
+
+                // 3. Save Image (Download Buffer)
+                const buffer = await response.arrayBuffer();
+                console.log(`[SEQ-V9] Downloaded ${buffer.byteLength} bytes`);
+
+                // Generate filename and path
+                const hash = crypto.createHash('md5').update(q.question).digest('hex').substring(0, 8);
+                const filename = `${hash}-${Date.now()}.png`;
+                const filepath = path.join(__dirname, 'public/images/questions', filename);
+
+                await fs.writeFile(filepath, Buffer.from(buffer));
+
+                q.imageUrl = `/images/questions/${filename}`;
+                console.log(`[SEQ-V9] ✅ Saved Q${i + 1}: ${filename}`);
 
             } catch (err) {
-                console.error(`[SEQ-V7] ❌ ERROR Q${i + 1}: ${err.message}`);
+                console.error(`[SEQ-V9] ❌ Failed Q${i + 1}:`, err.message);
+                // Continue loop even if failed (no image for this question)
             }
 
-            // MANDATORY 5s SLEEP (Run outside try/catch to ensure it happens)
+            // 4. MANDATORY 3s DELAY (To prevent rate limits)
             if (i < newFileEntry.questions.length - 1) {
-                console.log(`[SEQ-V7] 💤 SLEEPING 5s...`);
-                await new Promise(r => setTimeout(r, 5000));
+                console.log(`[SEQ-V9] 💤 Resting 3s...`);
+                await new Promise(r => setTimeout(r, 3000));
             }
         }
 
-        console.log("=== [SEQ-V7] ALL DONE ===");
+        console.log("=== [SEQ-V9] ALL DONE ===");
 
         // Save DB with updated image URLs
         await saveDB(req, db);
