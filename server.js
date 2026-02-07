@@ -1007,18 +1007,18 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         // [[SEQUENTIAL FIX V3 - FORCE APPLIED]]
         console.log("=== [SEQ-V3] Starting Sequential Generation ===");
 
-        // FORCE SEQUENTIAL EXECUTION
-
+        // Use a standard FOR loop to guarantee sequential execution
         for (let i = 0; i < newFileEntry.questions.length; i++) {
-            const question = newFileEntry.questions[i];
-            console.log(`[Sequencer] [${i + 1}/${newFileEntry.questions.length}] Starting: "${question.question.substring(0, 20)}..."`);
+            const q = newFileEntry.questions[i];
+            // Accessing q.id might be undefined if not set, using safely
+            console.log(`[SEQ-V3] Processing ${i + 1}/${newFileEntry.questions.length}: ${q.id || 'no-id'}`);
 
             try {
-                // 1. AWAIT is CRITICAL here
+                // 1. Force AWAIT (Critical)
                 const url = await generateQuestionImage(q, userId, apiKey);
                 q.imageUrl = url;
                 console.log(`[SEQ-V3] ✅ Success: ${url}`);
-                // 2. Safety Delay (3s)
+                // 2. Safety Delay (3000ms)
                 if (i < newFileEntry.questions.length - 1) {
                     console.log("[SEQ-V3] ⏳ Waiting 3s...");
                     await new Promise(r => setTimeout(r, 3000));
@@ -1028,9 +1028,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
             }
         }
 
-        console.log(`\n========================================`);
-        console.log(`Results: ${successCount} succeeded, ${failCount} failed`);
-        console.log(`========================================\n`);
+        console.log("=== [SEQ-V3] Finished ===");
 
         // Save DB with updated image URLs
         await saveDB(req, db);
