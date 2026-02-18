@@ -636,7 +636,7 @@ body.reels-mode .nav-item.active {
     /* Added Gap */
 
     /* Safe Zone above bottom nav (approx 80px nav + padding) */
-    margin-bottom: 90px;
+    margin-bottom: 110px;
 
     width: 100%;
     z-index: 50;

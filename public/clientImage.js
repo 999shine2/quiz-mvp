@@ -49,9 +49,9 @@ const clientImage = (() => {
                     referrerPolicy: 'no-referrer'
                 });
 
-                // 2. Fallback to proxy if 403 (Forbidden) or 530 (Cloudflare/Origin block)
-                if (response.status === 403 || response.status === 530) {
-                    console.warn(`[ClientImage] Direct access blocked (${response.status}). Falling back to proxy...`);
+                // 2. Fallback to proxy if not OK (e.g. 403, 530, 404, etc.)
+                if (!response.ok) {
+                    console.warn(`[ClientImage] Direct access failed (${response.status}). Falling back to proxy...`);
                     const proxyUrl = `/api/proxy/image?prompt=${encodedPrompt}&seed=${seed}`;
                     response = await fetch(proxyUrl, { signal: controller.signal });
                 }
