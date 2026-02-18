@@ -336,17 +336,20 @@
             // ── CREATIVE GENERATE ────────────────────────────
             if (path === '/api/creative/generate' && method === 'POST') {
                 try {
-                    const data = await fetchAICreative(body.title, body.author, body.type, 10);
                     const userId = getUserId();
+                    const data = await fetchAICreative(body.title, body.author, body.type, 10);
+                    // Generate images locally
+                    await clientImage.generateForQuestions(data.questions || [], userId);
 
                     const fileObj = {
                         id: generateId(),
-                        filename: data.suggestedTitle || body.title,
+                        filename: body.title || 'Creative Task',
                         subjectEmoji: data.subjectEmoji || '🎨',
                         questions: data.questions || [],
                         categories: data.categories || ['Design'],
                         type: 'creative',
-                        summary: data.summary || `Study set about: ${body.title}.`,
+                        transcript: `Creative task for ${body.author || 'Unknown Author'}: ${body.title}`,
+                        summary: data.summary || '',
                         uploadedAt: new Date().toISOString(),
                         userId
                     };
@@ -372,6 +375,9 @@
 
                     const userId = getUserId();
                     const data = await fetchAIQuestions(text, file.name, 5);
+
+                    // Generate images locally
+                    await clientImage.generateForQuestions(data.questions || [], userId);
 
                     const fileObj = {
                         id: generateId(),
@@ -429,6 +435,9 @@
                         const userId = getUserId();
                         const data = await fetchAIQuestions(transcript, videoTitle, 5);
 
+                        // Generate images locally
+                        await clientImage.generateForQuestions(data.questions || [], userId);
+
                         const fileObj = {
                             id: generateId(),
                             filename: data.suggestedTitle || videoTitle,
@@ -480,6 +489,9 @@
 
                     const newQuestions = data.questions || [];
 
+                    // Generate missing images locally
+                    await clientImage.generateForQuestions(newQuestions, userId);
+
                     // Append to file
                     file.questions = [...(file.questions || []), ...newQuestions];
                     await clientDB.saveLibraryItem(userId, file);
@@ -500,6 +512,11 @@
                         body.existingQuestions || [],
                         body.sourceTitle || 'this material'
                     );
+
+                    // Generate image for the new questions
+                    const userId = getUserId();
+                    await clientImage.generateForQuestions(result || [], userId);
+
                     return jsonResponse({ questions: result });
                 } catch (e) {
                     console.error('[Bridge] Spawn failed:', e);
@@ -537,6 +554,9 @@
                         originSubject: randomFile.subjectEmoji,
                         originId: randomFile.id
                     }));
+
+                    // Generate images
+                    await clientImage.generateForQuestions(newQuestions, userId);
 
                     return jsonResponse({ questions: newQuestions });
                 } catch (e) {
