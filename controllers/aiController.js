@@ -73,14 +73,30 @@ export const proxyImage = async (req, res) => {
         const { prompt, seed, width = 800, height = 600 } = req.query;
         if (!prompt) return res.status(400).send('Prompt is required');
 
-        const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${width}&height=${height}&seed=${seed || 123}&nologo=true`;
+        const encodedPrompt = encodeURIComponent(prompt);
+        // Using flux from server as it's often more stable for server-side fetches
+        const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${seed || 123}&nologo=true&model=flux`;
 
         console.log(`[Proxy Image] Fetching for client: ${prompt.substring(0, 40)}...`);
 
-        const response = await fetch(imageUrl);
-        if (!response.ok) throw new Error(`Pollinations failed with status ${response.status}`);
+        const response = await fetch(imageUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+            },
+            timeout: 30000 // 30s timeout
+        });
+
+        if (!response.ok) {
+            const errorBody = await response.text().catch(() => 'No error body');
+            throw new Error(`Pollinations status ${response.status}: ${errorBody.substring(0, 100)}`);
+        }
 
         const arrayBuffer = await response.arrayBuffer();
+        if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+            throw new Error('Received empty image from Pollinations');
+        }
+
         const buffer = Buffer.from(arrayBuffer);
 
         res.set('Content-Type', response.headers.get('content-type') || 'image/jpeg');
@@ -88,7 +104,7 @@ export const proxyImage = async (req, res) => {
         res.send(buffer);
     } catch (error) {
         console.error('[Proxy Image] Error:', error.message);
-        res.status(500).send('Failed to proxy image');
+        res.status(500).send(`Failed to proxy image: ${error.message}`);
     }
 };
 
