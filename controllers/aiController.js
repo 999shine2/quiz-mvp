@@ -1,4 +1,71 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { generateQuestions, generateSummary, generateQuestionsForCreativeWork } from '../aiService.js';
+
+/**
+ * AI Proxy Endpoints
+ * These allow the client to use the server's GEMINI_API_KEY
+ * when the user hasn't provided their own.
+ */
+
+export const generateQuestionsProxy = async (req, res) => {
+    try {
+        const { text, title, count, context, distribution, avoidQuestions } = req.body;
+        const apiKey = process.env.GEMINI_API_KEY;
+
+        if (!text) return res.status(400).json({ error: 'Text is required' });
+
+        const result = await generateQuestions(text, apiKey, count, title, context, null, distribution, avoidQuestions);
+        res.json(result);
+    } catch (error) {
+        console.error('[Proxy] Questions Failed:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const generateSummaryProxy = async (req, res) => {
+    try {
+        const { text, title } = req.body;
+        const apiKey = process.env.GEMINI_API_KEY;
+
+        if (!text) return res.status(400).json({ error: 'Text is required' });
+
+        const summary = await generateSummary(text, apiKey, title);
+        res.json({ summary });
+    } catch (error) {
+        console.error('[Proxy] Summary Failed:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const generateCreativeProxy = async (req, res) => {
+    try {
+        const { title, author, type, count } = req.body;
+        const apiKey = process.env.GEMINI_API_KEY;
+
+        if (!title) return res.status(400).json({ error: 'Title is required' });
+
+        const result = await generateQuestionsForCreativeWork(title, author, type, apiKey, count);
+        res.json(result);
+    } catch (error) {
+        console.error('[Proxy] Creative Failed:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const generateSimilarQuestionsProxy = async (req, res) => {
+    try {
+        const { seedQuestion, context, type, existingQuestions, sourceTitle } = req.body;
+        const apiKey = process.env.GEMINI_API_KEY;
+
+        if (!seedQuestion) return res.status(400).json({ error: 'Seed question is required' });
+
+        const result = await generateSimilarQuestions(seedQuestion, context, type, apiKey, existingQuestions, sourceTitle);
+        res.json(result);
+    } catch (error) {
+        console.error('[Proxy] Similar Failed:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
 
 /**
  * Generate Image Prompt Endpoint - V10

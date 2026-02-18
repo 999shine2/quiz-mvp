@@ -35,6 +35,69 @@
         });
     }
 
+    // ── AI FALLBACK HELPERS ────────────────────────────────────
+    async function fetchAIQuestions(text, title, count, context = '', distribution = 'standard', avoidQuestions = []) {
+        const apiKey = getApiKey();
+        if (apiKey && apiKey.length > 10) {
+            return clientAI.generateQuestions(text, apiKey, count, title, context, null, distribution, avoidQuestions);
+        }
+        // Fallback to Server Proxy
+        const res = await _originalFetch('/api/proxy/generate-questions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, title, count, context, distribution, avoidQuestions })
+        });
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+    }
+
+    async function fetchAISummary(text, title) {
+        const apiKey = getApiKey();
+        if (apiKey && apiKey.length > 10) {
+            return clientAI.generateSummary(text, apiKey, title);
+        }
+        // Fallback to Server Proxy
+        const res = await _originalFetch('/api/proxy/generate-summary', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, title })
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        return data.summary;
+    }
+
+    async function fetchAICreative(title, author, type, count) {
+        const apiKey = getApiKey();
+        if (apiKey && apiKey.length > 10) {
+            return clientAI.generateCreativeQuestions(title, author, type, apiKey, count);
+        }
+        // Fallback to Server Proxy
+        const res = await _originalFetch('/api/proxy/generate-creative', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, author, type, count })
+        });
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+    }
+
+    async function fetchAISimilar(seedQuestion, context, type, existingQuestions, sourceTitle) {
+        const apiKey = getApiKey();
+        if (apiKey && apiKey.length > 10) {
+            return clientAI.generateSimilarQuestions(seedQuestion, context, type, apiKey, existingQuestions, sourceTitle);
+        }
+        // Fallback to Server Proxy
+        const res = await _originalFetch('/api/proxy/generate-similar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ seedQuestion, context, type, existingQuestions, sourceTitle })
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        return data; // returns array
+    }
+
     // ── Route Matching ────────────────────────────────────────
     function matchRoute(url) {
         const path = typeof url === 'string' ? url : url.pathname || '';
@@ -272,11 +335,8 @@
 
             // ── CREATIVE GENERATE ────────────────────────────
             if (path === '/api/creative/generate' && method === 'POST') {
-                const apiKey = getApiKey();
-                if (!apiKey) return jsonResponse({ error: 'Please set your Gemini API key in Settings (Profile tab).' }, 400);
-
                 try {
-                    const data = await clientAI.generateCreativeQuestions(body.title, body.author, body.type, apiKey, 10);
+                    const data = await fetchAICreative(body.title, body.author, body.type, 10);
                     const userId = getUserId();
 
                     const fileObj = {
@@ -300,9 +360,6 @@
 
             // ── FILE UPLOAD (Document) ───────────────────────
             if (path === '/api/files' && method === 'POST') {
-                const apiKey = getApiKey();
-                if (!apiKey) return jsonResponse({ error: 'Please set your Gemini API key in Settings (Profile tab).' }, 400);
-
                 try {
                     // Parse file from FormData
                     const file = body instanceof FormData ? body.get('file') : null;
@@ -314,7 +371,7 @@
                     }
 
                     const userId = getUserId();
-                    const data = await clientAI.generateQuestions(text, apiKey, 5, file.name);
+                    const data = await fetchAIQuestions(text, file.name, 5);
 
                     const fileObj = {
                         id: generateId(),
@@ -330,7 +387,7 @@
                     };
 
                     // Generate summary in background
-                    clientAI.generateSummary(text, apiKey, fileObj.filename).then(summary => {
+                    fetchAISummary(text, fileObj.filename).then(summary => {
                         fileObj.summary = summary;
                         clientDB.saveLibraryItem(userId, fileObj);
                     }).catch(() => { });
@@ -369,11 +426,8 @@
                             return jsonResponse({ error: 'Could not extract transcript from this video.' }, 400);
                         }
 
-                        const apiKey = getApiKey();
-                        if (!apiKey) return jsonResponse({ error: 'Please set your Gemini API key in Settings.' }, 400);
-
                         const userId = getUserId();
-                        const data = await clientAI.generateQuestions(transcript, apiKey, 5, videoTitle);
+                        const data = await fetchAIQuestions(transcript, videoTitle, 5);
 
                         const fileObj = {
                             id: generateId(),
@@ -390,7 +444,7 @@
                         };
 
                         // Background summary
-                        clientAI.generateSummary(transcript, apiKey, fileObj.filename).then(summary => {
+                        fetchAISummary(transcript, fileObj.filename).then(summary => {
                             fileObj.summary = summary;
                             clientDB.saveLibraryItem(userId, fileObj);
                         }).catch(() => { });
@@ -410,9 +464,6 @@
             const genMoreMatch = path.match(/^\/api\/generate-more\/(.+)$/);
             if (genMoreMatch && method === 'POST') {
                 const fileId = genMoreMatch[1];
-                const apiKey = getApiKey();
-                if (!apiKey) return jsonResponse({ error: 'Please set your Gemini API key in Settings.' }, 400);
-
                 const userId = getUserId();
                 const items = await clientDB.getAllLibrary(userId);
                 const file = (items || []).find(f => f.id === fileId);
@@ -423,9 +474,8 @@
                 const existingQs = (file.questions || []).map(q => q.question);
 
                 try {
-                    const data = await clientAI.generateQuestions(
-                        text, apiKey, 3, file.filename, '', null,
-                        body.mode || 'standard', existingQs
+                    const data = await fetchAIQuestions(
+                        text, file.filename, 3, '', body.mode || 'standard', existingQs
                     );
 
                     const newQuestions = data.questions || [];
@@ -442,20 +492,17 @@
 
             // ── REELS SPAWN (Similar Questions) ──────────────
             if (path === '/api/reels/spawn' && method === 'POST') {
-                const apiKey = getApiKey();
-                if (!apiKey) return jsonResponse({ questions: [] });
-
                 try {
-                    const result = await clientAI.generateSimilarQuestions(
+                    const result = await fetchAISimilar(
                         body.seedQuestion || '',
                         body.context || '',
                         body.type || 2,
-                        apiKey,
                         body.existingQuestions || [],
                         body.sourceTitle || 'this material'
                     );
                     return jsonResponse({ questions: result });
                 } catch (e) {
+                    console.error('[Bridge] Spawn failed:', e);
                     return jsonResponse({ questions: [] });
                 }
             }
@@ -468,9 +515,6 @@
 
             // ── REELS GENERATE-MORE ──────────────────────────
             if (path === '/api/reels/generate-more' && method === 'POST') {
-                const apiKey = getApiKey();
-                if (!apiKey) return jsonResponse({ questions: [] });
-
                 const userId = getUserId();
                 const items = await clientDB.getAllLibrary(userId);
                 const eligibleFiles = (items || []).filter(f =>
@@ -483,9 +527,8 @@
                 const existingQs = (randomFile.questions || []).map(q => q.question);
 
                 try {
-                    const data = await clientAI.generateQuestions(
-                        randomFile.transcript || '', apiKey, 3,
-                        randomFile.filename, '', null, 'standard', existingQs
+                    const data = await fetchAIQuestions(
+                        randomFile.transcript || '', randomFile.filename, 3, '', 'standard', existingQs
                     );
 
                     const newQuestions = (data.questions || []).map(q => ({
@@ -511,7 +554,6 @@
             const summaryGetMatch = path.match(/^\/api\/summary\/([^/]+)$/);
             if (summaryGetMatch && method === 'POST') {
                 const fileId = summaryGetMatch[1];
-                const apiKey = getApiKey();
                 const userId = getUserId();
                 const items = await clientDB.getAllLibrary(userId);
                 const file = (items || []).find(f => f.id === fileId);
@@ -521,9 +563,9 @@
                 if (file.summary) return jsonResponse({ summary: file.summary });
 
                 // Generate on the fly
-                if (file.transcript && apiKey) {
+                if (file.transcript) {
                     try {
-                        const summary = await clientAI.generateSummary(file.transcript, apiKey, file.filename);
+                        const summary = await fetchAISummary(file.transcript, file.filename);
                         file.summary = summary;
                         await clientDB.saveLibraryItem(userId, file);
                         return jsonResponse({ summary });
