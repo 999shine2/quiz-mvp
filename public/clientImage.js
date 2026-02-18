@@ -39,12 +39,28 @@ const clientImage = (() => {
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), 60000);
 
-            const response = await fetch(imageUrl, {
-                signal: controller.signal,
-                credentials: 'omit',
-                mode: 'cors',
-                referrerPolicy: 'no-referrer'
-            });
+            let response;
+            try {
+                // 1. Try direct fetch first (fastest)
+                response = await fetch(imageUrl, {
+                    signal: controller.signal,
+                    credentials: 'omit',
+                    mode: 'cors',
+                    referrerPolicy: 'no-referrer'
+                });
+
+                // 2. Fallback to proxy if 403 (Forbidden) or 530 (Cloudflare/Origin block)
+                if (response.status === 403 || response.status === 530) {
+                    console.warn(`[ClientImage] Direct access blocked (${response.status}). Falling back to proxy...`);
+                    const proxyUrl = `/api/proxy/image?prompt=${encodedPrompt}&seed=${seed}`;
+                    response = await fetch(proxyUrl, { signal: controller.signal });
+                }
+            } catch (fetchErr) {
+                console.warn('[ClientImage] Direct fetch failed, trying proxy...', fetchErr);
+                const proxyUrl = `/api/proxy/image?prompt=${encodedPrompt}&seed=${seed}`;
+                // This uses the internal route which works even if external is blocked
+                response = await fetch(proxyUrl, { signal: controller.signal });
+            }
 
             clearTimeout(timeout);
 

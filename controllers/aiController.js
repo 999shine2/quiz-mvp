@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { generateQuestions, generateSummary, generateQuestionsForCreativeWork, generateSimilarQuestions } from '../aiService.js';
+import fetch from 'node-fetch';
 
 /**
  * AI Proxy Endpoints
@@ -64,6 +65,30 @@ export const generateSimilarQuestionsProxy = async (req, res) => {
     } catch (error) {
         console.error('[Proxy] Similar Failed:', error);
         res.status(500).json({ error: error.message });
+    }
+};
+
+export const proxyImage = async (req, res) => {
+    try {
+        const { prompt, seed, width = 800, height = 600 } = req.query;
+        if (!prompt) return res.status(400).send('Prompt is required');
+
+        const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${width}&height=${height}&seed=${seed || 123}&nologo=true`;
+
+        console.log(`[Proxy Image] Fetching for client: ${prompt.substring(0, 40)}...`);
+
+        const response = await fetch(imageUrl);
+        if (!response.ok) throw new Error(`Pollinations failed with status ${response.status}`);
+
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+
+        res.set('Content-Type', response.headers.get('content-type') || 'image/jpeg');
+        res.set('Cache-Control', 'public, max-age=86400'); // Cache for 1 day
+        res.send(buffer);
+    } catch (error) {
+        console.error('[Proxy Image] Error:', error.message);
+        res.status(500).send('Failed to proxy image');
     }
 };
 
