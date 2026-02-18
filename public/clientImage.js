@@ -40,7 +40,10 @@ const clientImage = (() => {
             const timeout = setTimeout(() => controller.abort(), 60000);
 
             const response = await fetch(imageUrl, {
-                signal: controller.signal
+                signal: controller.signal,
+                credentials: 'omit',
+                mode: 'cors',
+                referrerPolicy: 'no-referrer'
             });
 
             clearTimeout(timeout);

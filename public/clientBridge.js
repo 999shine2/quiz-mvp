@@ -108,6 +108,13 @@
 
     // ── MAIN FETCH INTERCEPT ──────────────────────────────────
     window.fetch = async function (url, options = {}) {
+        const urlStr = typeof url === 'string' ? url : (url instanceof URL ? url.href : url.toString());
+        const isInternal = urlStr.startsWith('/') || urlStr.startsWith(window.location.origin);
+
+        if (!isInternal) {
+            return _originalFetch(url, options);
+        }
+
         const path = matchRoute(url);
         const method = (options.method || 'GET').toUpperCase();
 
