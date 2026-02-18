@@ -217,13 +217,18 @@ document.addEventListener('DOMContentLoaded', () => {
     window.fetch = async function (url, options) {
         options = options || {};
         options.headers = options.headers || {};
-        if (currentUser) {
+
+        // Only add headers for internal API calls or current origin to avoid CORS issues
+        const urlStr = typeof url === 'string' ? url : url.toString();
+        const isInternal = urlStr.startsWith('/') || urlStr.startsWith(window.location.origin);
+
+        if (isInternal && currentUser) {
             options.headers['x-user-id'] = encodeURIComponent(currentUser);
         }
 
         // Add Interests Header
         const interests = localStorage.getItem('user_interests');
-        if (interests) {
+        if (isInternal && interests) {
             options.headers['x-user-interests'] = encodeURIComponent(interests);
         }
 
