@@ -170,7 +170,18 @@
                 const userId = getUserId();
                 const items = await clientDB.getAllLibrary(userId);
                 const file = (items || []).find(f => f.id === fileId);
-                if (file) return jsonResponse(file);
+                if (file) {
+                    // Check for missing images and trigger background gen if needed
+                    const missingImages = (file.questions || []).filter(q => !q.imageUrl);
+                    if (missingImages.length > 0) {
+                        console.log(`[Bridge] ${missingImages.length} images missing for ${fileId}. Triggering background generation...`);
+                        clientImage.generateForQuestions(file.questions, userId).then(async () => {
+                            await clientDB.saveLibraryItem(userId, file);
+                            console.log(`[Bridge] Background generation complete for ${fileId}`);
+                        }).catch(err => console.error('[Bridge] Background generation failed:', err));
+                    }
+                    return jsonResponse(file);
+                }
                 return jsonResponse({ error: 'Not found' }, 404);
             }
 
