@@ -1273,8 +1273,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Load pre-generated image from backend (if available)
             if (q.imageUrl) {
-                image.src = q.imageUrl;
-                console.log("[Standard Quiz] Loaded Image:", q.imageUrl);
+                // FAIL-SAFE: If the imageUrl is an ephemeral blob or was an error, replace it with a persistent proxy URL
+                // Note: blob: URLs become invalid on refresh.
+                if (q.imageUrl.startsWith('blob:') || q.imageUrl.includes('Pollinations Error') || !q.imageUrl) {
+                    const encodedPrompt = encodeURIComponent(q.question);
+                    // Use a consistent seed based on the question text for reliability
+                    const seed = q.seed || Math.abs(q.question.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a }, 0)) % 1000000;
+                    const persistentUrl = `/api/proxy/image?prompt=${encodedPrompt}&seed=${seed}`;
+                    q.imageUrl = persistentUrl;
+                    image.src = persistentUrl;
+                    console.log("[Standard Quiz] Replaced volatile URL with persistent proxy:", persistentUrl);
+                } else {
+                    image.src = q.imageUrl;
+                    console.log("[Standard Quiz] Loaded Persistent Image:", q.imageUrl);
+                }
                 image.style.opacity = '1';
 
                 // Retry on error (e.g. 404 if generated but not synced yet)

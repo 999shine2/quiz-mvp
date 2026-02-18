@@ -566,10 +566,12 @@ body.reels-mode .nav-item.active {
     height: 100vh;
     display: none;
     flex-direction: column;
-    overflow: hidden;
-    padding-bottom: 200px;
-    /* Maximum safety for floating nav */
-    /* Initial padding, flex will handle rest */
+    min-height: 100vh;
+    padding: 1.5rem;
+    padding-bottom: 220px;
+    /* Safe distance for floating nav */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 #quiz-section.active-view {
