@@ -215,20 +215,25 @@ document.addEventListener('DOMContentLoaded', () => {
     // Intercept Fetch to add Header
     const originalFetch = window.fetch;
     window.fetch = async function (url, options) {
+        const urlStr = typeof url === 'string' ? url : (url instanceof URL ? url.href : url.toString());
+
+        // Only add headers for internal API calls or current origin to avoid CORS issues
+        const isInternal = urlStr.startsWith('/') || urlStr.startsWith(window.location.origin);
+
+        if (!isInternal) {
+            return originalFetch(url, options);
+        }
+
         options = options || {};
         options.headers = options.headers || {};
 
-        // Only add headers for internal API calls or current origin to avoid CORS issues
-        const urlStr = typeof url === 'string' ? url : url.toString();
-        const isInternal = urlStr.startsWith('/') || urlStr.startsWith(window.location.origin);
-
-        if (isInternal && currentUser) {
+        if (currentUser) {
             options.headers['x-user-id'] = encodeURIComponent(currentUser);
         }
 
         // Add Interests Header
         const interests = localStorage.getItem('user_interests');
-        if (isInternal && interests) {
+        if (interests) {
             options.headers['x-user-interests'] = encodeURIComponent(interests);
         }
 

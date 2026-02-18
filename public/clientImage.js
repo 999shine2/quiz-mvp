@@ -26,11 +26,12 @@ const clientImage = (() => {
             .replace(/\?|-\s*T\d+/g, '')
             .replace(/What|How|Why|When|Where|Which|Is|Does|Do|Can|Will|Should|Could|Would/gi, '')
             .trim()
-            .substring(0, 200);
+            .substring(0, 150);
 
         const encodedPrompt = encodeURIComponent(cleanPrompt);
         const seed = Math.floor(Math.random() * 1000000);
-        const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=800&height=600&seed=${seed}&nologo=true&model=flux`;
+        // Using default model instead of flux to resolve 403 issues
+        const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=800&height=600&seed=${seed}&nologo=true`;
 
         console.log(`[ClientImage] Fetching: "${cleanPrompt.substring(0, 40)}..."`);
 
