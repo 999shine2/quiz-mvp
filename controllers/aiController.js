@@ -74,36 +74,50 @@ export const proxyImage = async (req, res) => {
         if (!prompt) return res.status(400).send('Prompt is required');
 
         const encodedPrompt = encodeURIComponent(prompt);
-        // Using flux from server as it's often more stable for server-side fetches
-        const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${seed || 123}&nologo=true&model=flux`;
 
-        console.log(`[Proxy Image] Fetching for client: ${prompt.substring(0, 40)}...`);
+        // Define fallback strategies
+        const strategies = [
+            // Strategy 1: Primary Pollinations Image API
+            `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${seed || 123}&nologo=true&model=flux`,
+            // Strategy 2: v1 Pollinations
+            `https://v1.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${seed || 123}&nologo=true`,
+            // Strategy 3: Alternative Path
+            `https://pollinations.ai/p/${encodedPrompt}?width=${width}&height=${height}&seed=${seed || 123}&nologo=true`,
+            // Strategy 4: LoremFlickr (Non-AI fallback)
+            `https://loremflickr.com/${width}/${height}/${encodeURIComponent(prompt.split(' ').slice(0, 3).join(','))}`
+        ];
 
-        const response = await fetch(imageUrl, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
-            },
-            timeout: 30000 // 30s timeout
-        });
+        let lastError = null;
+        for (const imageUrl of strategies) {
+            try {
+                console.log(`[Proxy Image] Attempting strategy: ${imageUrl.substring(0, 60)}...`);
+                const response = await fetch(imageUrl, {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'Accept': 'image/*'
+                    },
+                    timeout: 10000 // 10s per attempt
+                });
 
-        if (!response.ok) {
-            const errorBody = await response.text().catch(() => 'No error body');
-            throw new Error(`Pollinations status ${response.status}: ${errorBody.substring(0, 100)}`);
+                if (response.ok) {
+                    const arrayBuffer = await response.arrayBuffer();
+                    if (arrayBuffer && arrayBuffer.byteLength > 0) {
+                        const buffer = Buffer.from(arrayBuffer);
+                        res.set('Content-Type', response.headers.get('content-type') || 'image/jpeg');
+                        res.set('Cache-Control', 'public, max-age=86400');
+                        return res.send(buffer);
+                    }
+                }
+                console.warn(`[Proxy Image] Strategy failed with status ${response.status}`);
+            } catch (err) {
+                console.error(`[Proxy Image] Strategy error:`, err.message);
+                lastError = err;
+            }
         }
 
-        const arrayBuffer = await response.arrayBuffer();
-        if (!arrayBuffer || arrayBuffer.byteLength === 0) {
-            throw new Error('Received empty image from Pollinations');
-        }
-
-        const buffer = Buffer.from(arrayBuffer);
-
-        res.set('Content-Type', response.headers.get('content-type') || 'image/jpeg');
-        res.set('Cache-Control', 'public, max-age=86400'); // Cache for 1 day
-        res.send(buffer);
+        throw new Error(`All strategies failed. Last error: ${lastError ? lastError.message : 'Unknown'}`);
     } catch (error) {
-        console.error('[Proxy Image] Error:', error.message);
+        console.error('[Proxy Image] Final Error:', error.message);
         res.status(500).send(`Failed to proxy image: ${error.message}`);
     }
 };
