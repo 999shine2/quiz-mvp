@@ -567,8 +567,8 @@ body.reels-mode .nav-item.active {
     display: none;
     flex-direction: column;
     overflow: hidden;
-    padding-bottom: 140px;
-    /* Safe zone for bottom nav + breathing room */
+    padding-bottom: 200px;
+    /* Maximum safety for floating nav */
     /* Initial padding, flex will handle rest */
 }
 

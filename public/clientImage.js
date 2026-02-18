@@ -79,7 +79,9 @@ const clientImage = (() => {
             await clientDB.saveCachedImage(hash, blob, cleanPrompt);
             console.log(`[ClientImage] ✅ Cached: ${hash} (${blob.size} bytes)`);
 
-            return URL.createObjectURL(blob);
+            // Returns a persistent proxy URL instead of a temporary blob URL
+            // This ensures the URL remains valid even after a page refresh.
+            return `/api/proxy/image?prompt=${encodedPrompt}&seed=${seed}`;
 
         } catch (err) {
             console.error('[ClientImage] Generation failed:', err.message);
@@ -100,7 +102,7 @@ const clientImage = (() => {
             batchResults.forEach((url, idx) => {
                 if (url) {
                     questions[i + idx].imageUrl = url;
-                    questions[i + idx].imageBlobUrl = true; // Mark as blob URL
+                    // questions[i + idx].imageBlobUrl = true; // No longer just a blob URL
                 }
             });
 
