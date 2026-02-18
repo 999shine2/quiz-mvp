@@ -1,5 +1,5 @@
 import express from 'express';
-import { generateImagePromptEndpoint, translateText, generateQuestionsProxy, generateSummaryProxy, generateCreativeProxy } from '../controllers/aiController.js';
+import { generateImagePromptEndpoint, translateText, generateQuestionsProxy, generateSummaryProxy, generateCreativeProxy, generateSimilarQuestionsProxy } from '../controllers/aiController.js';
 
 const router = express.Router();
 
