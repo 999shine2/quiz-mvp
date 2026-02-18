@@ -1,6 +1,6 @@
 {
     "appId": "com.insighttube.app",
-    "appName": "InsightTube",
+    "appName": "insighter",
     "webDir": "public",
     "server": {
         "androidScheme": "https",

@@ -896,7 +896,8 @@ async function generateSimilarQuestions(seedQuestion, context, type, apiKey, exi
             "options": ["Insightful Option A", "B", "C", "D"], // MCQ only
             "correctAnswer": 0, // MCQ only
             "answer": "Answer explaining the wisdom...", // SAQ only
-            "explanation": "Explanation of how this insight applies to real life or broader understanding."
+            "explanation": "Explanation of how this insight applies to real life or broader understanding.",
+            "imagePrompt": "A concise English description (10-15 words max) for an image that visually represents the core concept of this question. Focus on the main subject/scene, NOT text or abstract ideas."
         }
     ]
     `;

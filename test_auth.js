@@ -15,7 +15,7 @@ async function testPollinations() {
     if (apiKey) pUrl += `&key=${apiKey}`;
 
     const headers = {
-        'User-Agent': 'InsightTube-Client/1.0'
+        'User-Agent': 'insighter-Client/1.0'
     };
     if (apiKey) {
         headers['Authorization'] = `Bearer ${apiKey}`;

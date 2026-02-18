@@ -76,7 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'x-user-id': localStorage.getItem('user_name') || 'guest'
+                    'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest')
                 },
                 body: JSON.stringify({ fileId, questionIndex: index })
             });
@@ -586,7 +586,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'x-user-id': localStorage.getItem('user_name') || 'guest'
+                        'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest')
                     },
                     body: JSON.stringify({ fileId, questionIndex: idx })
                 });
@@ -623,7 +623,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'x-user-id': localStorage.getItem('user_name') || 'guest'
+                    'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest')
                 },
                 body: JSON.stringify({ count, subject: subjectEmoji })
             });
@@ -902,7 +902,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 // Call API
-                const response = await fetch(apiUrl('/api/creative'), {
+                const response = await fetch(apiUrl('/api/creative/generate'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1014,7 +1014,7 @@ document.addEventListener('DOMContentLoaded', () => {
         e.stopPropagation();
         if (!currentFile) return;
 
-        const success = await handleGeneration('/api/upload', (formData) => {
+        const success = await handleGeneration('/api/files', (formData) => {
             formData.append('file', currentFile);
         }, generateBtn);
 
@@ -1045,7 +1045,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const success = await handleGeneration('/api/youtube', null, generateYtBtn, { url });
+        const success = await handleGeneration('/api/youtube/generate', null, generateYtBtn, { url });
 
         if (success) {
             // Auto-Clear URL
@@ -1068,7 +1068,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // INJECT USER ID HEADER
             const headers = {
-                'x-user-id': localStorage.getItem('user_name') || 'guest'
+                'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest')
             };
 
             if (jsonBody) {
@@ -1265,24 +1265,164 @@ document.addEventListener('DOMContentLoaded', () => {
             if (q.imageUrl) {
                 image.src = q.imageUrl;
                 console.log("[Standard Quiz] Loaded Image:", q.imageUrl);
+                image.style.opacity = '1';
 
                 // Retry on error (e.g. 404 if generated but not synced yet)
                 image.onerror = function () {
                     console.warn("Image load failed, retrying with cache buster...");
-                    this.onerror = null; // Prevent infinite loop
+                    this.onerror = null;
                     setTimeout(() => {
                         this.src = q.imageUrl + '?t=' + new Date().getTime();
                     }, 1000);
                 };
             } else {
-                // Image is generating in background - show placeholder
-                console.log("[Standard Quiz] Image not ready yet, showing placeholder");
+                // No image yet - show placeholder and poll
+                console.log("[Standard Quiz] Image not ready yet, polling...");
                 image.style.opacity = '0.5';
 
-                // Poll for image availability? (User Request: "Lazy Load" is handled by buffer, but standard quiz needs this)
-                // For now, let's just leave placeholder.
+                // POLLING LOGIC (Optimized: Single Poller per File)
+                const fileId = q.originId || (activeFile ? activeFile.id : null);
+
+                // CHECK: Is this a "Generated" question? (ID starts with gen- or is 'spawned' or missing)
+                const isGenerated = !fileId || fileId.startsWith('gen-') || fileId === 'spawned';
+
+                if (isGenerated) {
+                    // Poll Global Buffer for Generated Questions
+                    if (!window.BufferPollerManager) setupBufferPoller(); // Ensure initiated
+
+                    window.BufferPollerManager.subscribe(q.question, (bufferData) => {
+                        // Find question in buffer
+                        // Buffer structure: { question: {type, question, options...}, imageUrl, ... }
+                        const updatedQ = bufferData.find(bq => {
+                            const bufferQuestionText = typeof bq.question === 'string' ? bq.question : bq.question?.question;
+                            return bufferQuestionText === q.question;
+                        });
+
+                        // Check for image
+                        const newUrl = updatedQ ? (updatedQ.imageUrl || updatedQ.forcedImageUrl) : null;
+
+                        if (newUrl) {
+                            q.imageUrl = newUrl;
+                            image.src = newUrl;
+                            image.style.opacity = '1';
+                            console.log("[BufferPoller] Image found and applied:", newUrl);
+                            return true; // Done
+                        }
+                        return false;
+                    });
+
+                } else if (fileId) {
+                    // Register callback with the global poller
+                    window.FilePollerManager.subscribe(fileId, (fileData) => {
+                        // Check if this specific question has an image now
+                        const updatedQ = fileData.questions.find(fq => fq.question === q.question);
+                        if (updatedQ && updatedQ.imageUrl) {
+                            q.imageUrl = updatedQ.imageUrl;
+                            image.src = updatedQ.imageUrl;
+                            image.style.opacity = '1';
+                            return true; // Unsubscribe/Done
+                        }
+                        return false; // Keep polling
+                    });
+                }
             }
         };
+
+        // --- Poller Setup Functions ---
+        function setupBufferPoller() {
+            if (window.BufferPollerManager) return;
+            window.BufferPollerManager = {
+                callbacks: [], // Array of { questionText, callback }
+                interval: null,
+
+                subscribe(questionText, callback) {
+                    if (!this.interval) this.startPolling();
+                    this.callbacks.push({ questionText, callback });
+                },
+
+                startPolling() {
+                    console.log("[BufferPoller] Starting poll for Generated Content...");
+                    this.interval = setInterval(async () => {
+                        try {
+                            const res = await fetch(apiUrl('/api/reels/pregenerated'));
+                            if (!res.ok) return;
+                            const data = await res.json(); // Array of questions
+
+                            // Run callbacks
+                            this.callbacks = this.callbacks.filter(item => {
+                                // callback returns true if done
+                                return !item.callback(data);
+                            });
+
+                            if (this.callbacks.length === 0) this.stopPolling();
+
+                        } catch (e) { console.warn("[BufferPoller] Error", e); }
+                    }, 3000);
+                },
+
+                stopPolling() {
+                    console.log("[BufferPoller] Stopping poll.");
+                    clearInterval(this.interval);
+                    this.interval = null;
+                }
+            };
+        }
+
+        // --- Poller Manager (Singleton) ---
+        if (!window.FilePollerManager) {
+            window.FilePollerManager = {
+                pollers: {}, // { fileId: { interval, callbacks: [] } }
+
+                subscribe(fileId, callback) {
+                    if (!this.pollers[fileId]) {
+                        this.startPolling(fileId);
+                    }
+                    this.pollers[fileId].callbacks.push(callback);
+                },
+
+                startPolling(fileId) {
+                    console.log(`[Poller] Starting poll for file ${fileId}`);
+                    const interval = setInterval(async () => {
+                        try {
+                            const res = await fetch(apiUrl(`/api/materials/${fileId}`));
+                            if (!res.ok) return;
+                            const fileData = await res.json();
+
+                            const entry = this.pollers[fileId];
+                            if (!entry) return;
+
+                            // Run all callbacks
+                            // Filter out callbacks that return true (meaning they are done)
+                            entry.callbacks = entry.callbacks.filter(cb => !cb(fileData));
+
+                            // If no callbacks left, stop polling
+                            if (entry.callbacks.length === 0) {
+                                this.stopPolling(fileId);
+                            }
+
+                        } catch (e) {
+                            console.warn(`[Poller] Error fetching ${fileId}`, e);
+                        }
+                    }, 3000);
+
+                    this.pollers[fileId] = {
+                        interval,
+                        callbacks: []
+                    };
+
+                    // Auto-stop after 2 minutes to prevent leaks
+                    setTimeout(() => this.stopPolling(fileId), 120000);
+                },
+
+                stopPolling(fileId) {
+                    if (this.pollers[fileId]) {
+                        console.log(`[Poller] Stopping poll for file ${fileId}`);
+                        clearInterval(this.pollers[fileId].interval);
+                        delete this.pollers[fileId];
+                    }
+                }
+            };
+        }
 
         loadImage();
 
@@ -1714,7 +1854,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadLibrary() {
         try {
             const response = await fetch(apiUrl('/api/library'), {
-                headers: { 'x-user-id': localStorage.getItem('user_name') || 'guest' }
+                headers: { 'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest') }
             });
             const data = await response.json();
             window.allFiles = data; // Sync global
@@ -1924,7 +2064,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // 1. Try fetching PRE-GENERATED Reels first (for instant start)
             console.log("[Endless] Fetching pre-generated reels...");
             const preRes = await fetch(apiUrl('/api/reels/pregenerated'), {
-                headers: { 'x-user-id': localStorage.getItem('user_name') || 'guest' }
+                headers: { 'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest') }
             });
             let pregenerated = [];
             if (preRes.ok) {
@@ -1946,7 +2086,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // ALWAYS Fetch library to ensure full pool (User Request)
             console.log("[Endless] Fetching full library for random pool...");
             const response = await fetch(apiUrl('/api/library'), {
-                headers: { 'x-user-id': localStorage.getItem('user_name') || 'guest' }
+                headers: { 'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest') }
             });
             const files = await response.json();
 
@@ -1973,15 +2113,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
 
-            // BACKFILL FIX: Patch missing originIds in pregenerated questions using the map
+            // BACKFILL FIX: Patch missing originIds AND images in pregenerated questions using the map
             // This fixes the "Summary Button Missing" issue for stale buffer items.
+            // AND fixes "Missing Images" if buffer is stale but library has the image.
             if (pregeneratedQuestions.length > 0) {
                 pregeneratedQuestions.forEach(pq => {
+                    // 1. Backfill Origin ID
                     if (!pq.originId) {
                         const foundId = questionToOriginIdMap.get(pq.question);
                         if (foundId) {
                             pq.originId = foundId;
-                            console.log("[Endless] Backfilled missing originId for question:", pq.question.substring(0, 20));
+                            // console.log("[Endless] Backfilled missing originId");
+                        }
+                    }
+
+                    // 2. Backfill Image URL (Crucial for Stale Buffer)
+                    if (!pq.imageUrl && !pq.forcedImageUrl) {
+                        // Find the fresh question in libraryQuestions
+                        // (We can use the map to find file, then search file.. or just search libraryQuestions directly)
+                        const freshQ = libraryQuestions.find(lq => lq.question === pq.question);
+                        if (freshQ && freshQ.imageUrl) {
+                            pq.imageUrl = freshQ.imageUrl;
+                            console.log("[Endless] Backfilled missing Image URL from Library for:", pq.question.substring(0, 15));
                         }
                     }
                 });
@@ -2160,7 +2313,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'x-user-id': localStorage.getItem('user_name') || 'guest'
+                        'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest')
                     },
                     body: JSON.stringify({ name, subjectEmoji: emoji })
                 });
@@ -2255,7 +2408,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'x-user-id': localStorage.getItem('user_name') || 'guest'
+                        'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest')
                     },
                     body: JSON.stringify({ fileId, question: newQuestion })
                 });
@@ -2283,7 +2436,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function generateMoreForEndless(existingQuestions) {
         try {
             const response = await fetch(apiUrl('/api/library'), {
-                headers: { 'x-user-id': localStorage.getItem('user_name') || 'guest' }
+                headers: { 'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest') }
             });
             const files = await response.json();
 
@@ -2307,7 +2460,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'x-user-id': localStorage.getItem('user_name') || 'guest'
+                    'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest')
                 }
             });
 
@@ -2463,7 +2616,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 try {
                     const res = await fetch(apiUrl('/api/library'), {
-                        headers: { 'x-user-id': localStorage.getItem('user_name') || 'guest' }
+                        headers: { 'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest') }
                     });
                     const files = await res.json();
                     files.forEach(f => {
@@ -2580,7 +2733,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'x-user-id': localStorage.getItem('user_name') || 'guest'
+                            'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest')
                         },
                         body: JSON.stringify({
                             question: q.question,
@@ -2668,7 +2821,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'x-user-id': localStorage.getItem('user_name') || 'guest'
+                    'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest')
                 },
                 body: JSON.stringify(params)
             });
@@ -2708,7 +2861,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'x-user-id': localStorage.getItem('user_name') || 'guest'
+                    'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest')
                 },
                 body: JSON.stringify({ questionTexts: pregeneratedTexts })
             }).catch(e => console.error("Failed to consume reels", e));
@@ -2790,7 +2943,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // WRAPPER FOR BUTTONS
             const imgWrapper = document.createElement('div');
             imgWrapper.style.position = 'relative';
-            imgWrapper.style.display = 'none'; // USER REQUEST: Hide image completely
+            // imgWrapper.style.display = 'none'; // USER REQUEST: Hide image completely
             imgWrapper.style.width = '100%';
             imgWrapper.style.marginBottom = '20px'; // Move margin from image to wrapper
 
@@ -2805,7 +2958,7 @@ document.addEventListener('DOMContentLoaded', () => {
             image.style.display = 'block'; // Remove bottom space
 
 
-            let existingUrl = q.forcedImageUrl;
+            let existingUrl = q.forcedImageUrl || q.imageUrl; // Check both sources
 
             // Logic fix: News API returns explicit 'null' to trigger client generation
             // But if it's undefined, it might also need generation.
@@ -3019,7 +3172,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
-                                'x-user-id': localStorage.getItem('user_name') || 'guest'
+                                'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest')
                             },
                             body: JSON.stringify(spawnPayload)
                         }).then(r => r.json())
@@ -3124,7 +3277,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
-                                    'x-user-id': localStorage.getItem('user_name') || 'guest'
+                                    'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest')
                                 },
                                 body: JSON.stringify(spawnPayload)
                             }).then(r => r.json())
@@ -3278,7 +3431,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.reviewQuiz = async (fileId) => {
         const response = await fetch(apiUrl('/api/library'), {
-            headers: { 'x-user-id': localStorage.getItem('user_name') || 'guest' }
+            headers: { 'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest') }
         });
         const files = await response.json();
         const file = files.find(f => f.id === fileId);
@@ -3294,7 +3447,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             await fetch(`/api/library/${fileId}`, {
                 method: 'DELETE',
-                headers: { 'x-user-id': localStorage.getItem('user_name') || 'guest' }
+                headers: { 'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest') }
             });
 
             // Remove from local endless buffer if present
@@ -3557,7 +3710,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Fetch Summary Content
         try {
             const res = await fetch(`/api/summary/${fileId}`, {
-                headers: { 'x-user-id': localStorage.getItem('user_name') || 'guest' }
+                headers: { 'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest') }
             });
 
             if (!res.ok) {
@@ -3646,7 +3799,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const streakDescEl = document.getElementById('stat-streak-desc');
 
             const res = await fetch(apiUrl('/api/profile'), {
-                headers: { 'x-user-id': localStorage.getItem('user_name') || 'guest' }
+                headers: { 'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest') }
             });
             const data = await res.json();
 
@@ -3749,7 +3902,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!notionConnectContainer) return;
         try {
             const res = await fetch(apiUrl('/api/notion/status'), {
-                headers: { 'x-user-id': localStorage.getItem('user_name') || 'guest' }
+                headers: { 'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest') }
             });
             const data = await res.json();
 
@@ -3786,7 +3939,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const res = await fetch(apiUrl('/api/sync-notion'), {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'x-user-id': localStorage.getItem('user_name') || 'guest' },
+                    headers: { 'Content-Type': 'application/json', 'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest') },
                     body: JSON.stringify({ apiKey: localStorage.getItem('gemini_api_key') || '' })
                 });
                 const data = await res.json();
@@ -3854,7 +4007,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'x-user-id': localStorage.getItem('user_name') || 'guest'
+                        'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest')
                     },
                     body: JSON.stringify({ apiKey: localStorage.getItem('gemini_api_key') })
                 });
@@ -3913,7 +4066,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: {
                     'Content-Type': 'application/json',
                     'x-api-key': apiKey,
-                    'x-user-id': localStorage.getItem('user_name') || 'guest'
+                    'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest')
                 }
             });
             const data = await res.json();
@@ -3933,7 +4086,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Quick Fetch
             const libRes = await fetch(apiUrl('/api/library'), {
-                headers: { 'x-user-id': localStorage.getItem('user_name') || 'guest' }
+                headers: { 'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest') }
             });
             const files = await libRes.json();
             const file = files.find(f => f.id === fileId);
@@ -3984,7 +4137,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
-                                'x-user-id': localStorage.getItem('user_name') || 'guest'
+                                'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest')
                             },
                             body: JSON.stringify({ summary: newSummary })
                         });
@@ -4789,7 +4942,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Helper: Load library data
 window.loadLibraryData = async () => {
     const res = await fetch(apiUrl('/api/library'), {
-        headers: { 'x-user-id': localStorage.getItem('user_name') || 'guest' }
+        headers: { 'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest') }
     });
     const files = await res.json();
     window.allFiles = files;
@@ -4835,7 +4988,7 @@ window.generateMore = async (fileId) => {
             headers: {
                 'Content-Type': 'application/json',
                 'x-api-key': apiKey,
-                'x-user-id': localStorage.getItem('user_name') || 'guest'
+                'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest')
             }
         });
         const data = await res.json();
@@ -4930,7 +5083,7 @@ async function showCategoryPicker(file, container, editBtn) {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'x-user-id': localStorage.getItem('user_name') || 'guest'
+                        'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest')
                     },
                     body: JSON.stringify({ categories: currentCategories })
                 });
@@ -5049,7 +5202,7 @@ window.openOverview = async (fileId) => {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
-                                    'x-user-id': localStorage.getItem('user_name') || 'guest'
+                                    'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest')
                                 },
                                 body: JSON.stringify({ fileId: file.id, filename: newTitle })
                             });

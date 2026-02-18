@@ -6,6 +6,11 @@ services:
     envVars:
       - key: GOOGLE_API_KEY
         sync: false
+      - key: GEMINI_API_KEY
+        sync: false
       - key: MONGODB_URI
         sync: false
-
+      - key: POLLINATIONS_API_KEY
+        sync: false
+      - key: NOTION_API_KEY
+        sync: false

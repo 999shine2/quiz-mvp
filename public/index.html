@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>InsightTube</title>
+    <title>insighter</title>
 
     <!-- PWA Settings -->
     <link rel="manifest" href="/manifest.json">
@@ -21,6 +21,14 @@
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Client-Side Libraries (PDF.js + mammoth.js) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 </head>
 
 <body>
@@ -30,8 +38,7 @@
         style="position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg-body); z-index:10000; display:flex; align-items:center; justify-content:center;">
         <div class="login-card"
             style="background:var(--card-bg); padding:2rem; border-radius:1rem; box-shadow:var(--shadow-soft); text-align:center; max-width:90%; width:350px;">
-            <h1 class="logo-text" style="font-size:2rem; margin-bottom:0.5rem;">Insight<span
-                    style="color:var(--primary)">Tube</span></h1>
+            <h1 class="logo-text" style="font-size:2rem; margin-bottom:0.5rem;">insighter</h1>
             <p id="auth-title" style="color:var(--text-muted); margin-bottom:1.5rem;">Welcome Back</p>
 
             <div style="display:flex; flex-direction:column; gap:10px;">
@@ -56,7 +63,10 @@
 
     <!-- Mobile Top Bar -->
     <div class="mobile-top-bar" id="mobile-top-bar">
-
+        <div
+            style="position: absolute; top: 1rem; left: 1rem; font-weight: 800; font-size: 1.2rem; color: var(--primary);">
+            insighter
+        </div>
 
         <!-- Language Picker -->
         <div class="language-picker" style="position: absolute; top: 1rem; right: 1rem;">
@@ -410,6 +420,45 @@
                         </div>
                     </div>
                 </div>
+                <!-- Settings Card (API Key) -->
+                <div class="chart-card"
+                    style="background: var(--card-bg); border-radius: 20px; padding: 20px; border: 1px solid var(--border-light); box-shadow: var(--shadow-soft); margin-top: 1rem; text-align: center;">
+                    <h3
+                        style="margin-bottom:0.5rem; color:var(--text-muted); font-size:1rem; font-family:var(--font-heading);">
+                        ⚙️ Settings</h3>
+                    <div style="margin-bottom: 10px;">
+                        <label
+                            style="display:block; text-align:left; font-size:0.8rem; color:var(--text-muted); margin-bottom:5px;">Gemini
+                            API Key</label>
+                        <input type="password" id="settings-gemini-key" placeholder="Enter your Gemini API key"
+                            class="text-input" style="width:100%; margin-bottom:5px;">
+                        <p style="font-size: 0.7rem; color: var(--text-muted); text-align: left;">Get your free key at
+                            <a href="https://aistudio.google.com/app/apikey" target="_blank"
+                                style="color: var(--primary);">Google AI Studio</a></p>
+                    </div>
+                    <button id="save-settings-btn" class="primary-btn"
+                        style="width:100%; font-size:0.9rem; padding:8px;">💾 Save Settings</button>
+                    <p id="settings-status" style="font-size: 0.75rem; color: var(--primary); margin-top: 5px;" hidden>
+                    </p>
+                </div>
+
+                <!-- Data Management Card -->
+                <div class="chart-card"
+                    style="background: var(--card-bg); border-radius: 20px; padding: 20px; border: 1px solid var(--border-light); box-shadow: var(--shadow-soft); margin-top: 1rem; text-align: center;">
+                    <h3
+                        style="margin-bottom:0.5rem; color:var(--text-muted); font-size:1rem; font-family:var(--font-heading);">
+                        💾 Data Management</h3>
+                    <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 10px;">Your data is stored
+                        locally on this device.</p>
+                    <div style="display:flex; gap:10px;">
+                        <button id="export-data-btn" class="secondary-btn"
+                            style="flex:1; font-size:0.85rem; padding:8px;">📥 Export</button>
+                        <button id="import-data-btn" class="secondary-btn"
+                            style="flex:1; font-size:0.85rem; padding:8px;">📤 Import</button>
+                    </div>
+                    <input type="file" id="import-data-input" accept=".json" hidden>
+                </div>
+
                 <div class="logout-container" style="margin-top: 2rem; margin-bottom: 2rem;">
                     <button id="logout-btn" class="logout-btn">Log Out</button>
                 </div>
@@ -458,7 +507,14 @@
 
     <div class="background-blobs"></div>
 
-    <script src="client_app.js?v=force_reload_001"></script>
+    <!-- Client-Side Modules (load BEFORE client_app.js) -->
+    <script src="clientDB.js"></script>
+    <script src="clientAuth.js"></script>
+    <script src="clientAI.js"></script>
+    <script src="clientImage.js"></script>
+    <script src="clientParser.js"></script>
+    <script src="clientBridge.js"></script>
+    <script src="client_app.js?v=client_side_003"></script>
 
     <!-- Just checking if we need the modal logic from before, probably yes, keeping it minimal -->
     <div id="summary-modal" class="modal-overlay" hidden

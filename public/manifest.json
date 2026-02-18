@@ -1,6 +1,6 @@
 {
-    "name": "Insight Quiz",
-    "short_name": "Insight",
+    "name": "insighter",
+    "short_name": "insighter",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#F2F7E6",
