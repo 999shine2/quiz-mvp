@@ -81,7 +81,7 @@ const clientImage = (() => {
 
             // Returns a persistent proxy URL instead of a temporary blob URL
             // This ensures the URL remains valid even after a page refresh.
-            return `/api/proxy/image?prompt=${encodedPrompt}&seed=${seed}`;
+            return `/api/ai/image-proxy?prompt=${encodedPrompt}&seed=${seed}`;
 
         } catch (err) {
             console.error('[ClientImage] Generation failed:', err.message);

@@ -108,9 +108,9 @@ export const proxyImage = async (req, res) => {
                         return res.send(buffer);
                     }
                 }
-                console.warn(`[Proxy Image] Strategy failed with status ${response.status}`);
+                console.warn(`[Proxy Image] Strategy failed with status ${response.status} for URL: ${imageUrl.substring(0, 40)}...`);
             } catch (err) {
-                console.error(`[Proxy Image] Strategy error:`, err.message);
+                console.error(`[Proxy Image] Strategy EXCEPTION for ${imageUrl.substring(0, 40)}...:`, err.message);
                 lastError = err;
             }
         }

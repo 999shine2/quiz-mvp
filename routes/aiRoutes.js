@@ -11,6 +11,7 @@ router.post('/proxy/generate-questions', generateQuestionsProxy);
 router.post('/proxy/generate-summary', generateSummaryProxy);
 router.post('/proxy/generate-creative', generateCreativeProxy);
 router.post('/proxy/generate-similar', generateSimilarQuestionsProxy);
-router.get('/proxy/image', proxyImage);
+router.get('/ping', (req, res) => res.send('AI Router Operational'));
+router.get('/ai/image-proxy', proxyImage);
 
 export default router;

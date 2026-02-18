@@ -1279,7 +1279,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const encodedPrompt = encodeURIComponent(q.question);
                     // Use a consistent seed based on the question text for reliability
                     const seed = q.seed || Math.abs(q.question.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a }, 0)) % 1000000;
-                    const persistentUrl = `/api/proxy/image?prompt=${encodedPrompt}&seed=${seed}`;
+                    const persistentUrl = `/api/ai/image-proxy?prompt=${encodedPrompt}&seed=${seed}`;
                     q.imageUrl = persistentUrl;
                     image.src = persistentUrl;
                     console.log("[Standard Quiz] Replaced volatile URL with persistent proxy:", persistentUrl);
