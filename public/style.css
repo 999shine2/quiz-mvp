@@ -567,7 +567,8 @@ body.reels-mode .nav-item.active {
     display: none;
     flex-direction: column;
     overflow: hidden;
-    padding-bottom: 1.5rem;
+    padding-bottom: 140px;
+    /* Safe zone for bottom nav + breathing room */
     /* Initial padding, flex will handle rest */
 }
 
@@ -635,8 +636,8 @@ body.reels-mode .nav-item.active {
     gap: 1rem;
     /* Added Gap */
 
-    /* Safe Zone above bottom nav (approx 80px nav + padding) */
-    margin-bottom: 110px;
+    /* Fixed padding on container handles safety now */
+    margin-bottom: 0;
 
     width: 100%;
     z-index: 50;
