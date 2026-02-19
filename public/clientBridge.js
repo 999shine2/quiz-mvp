@@ -331,13 +331,9 @@
 
             // ── GENERATE IMAGE PROMPT ────────────────────────
             if (path === '/api/generate-image-prompt' && method === 'POST') {
-                const apiKey = getApiKey();
-                try {
-                    const prompt = await clientAI.generateImagePrompt(body.question || '', apiKey);
-                    return jsonResponse({ prompt });
-                } catch (e) {
-                    return jsonResponse({ prompt: 'educational concept illustration' });
-                }
+                // Return the question text directly as the prompt (literal approach)
+                const literalPrompt = body.question || 'educational concept illustration';
+                return jsonResponse({ prompt: literalPrompt });
             }
 
             // ── GENERATE IMAGE ───────────────────────────────

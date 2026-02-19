@@ -6,11 +6,12 @@ import fetch from 'node-fetch';
 import { Innertube, UniversalCache } from 'youtubei.js';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { fileURLToPath } from 'url';
+import { log } from '../utils/log.js';
 
 const execAsync = promisify(exec);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const PROJECT_ROOT = path.join(__dirname, '..'); // Up one level from services/
+const PROJECT_ROOT = path.join(__dirname, '..');
 
 let yt = null;
 
@@ -18,12 +19,9 @@ let yt = null;
 (async () => {
     try {
         const proxyUrl = process.env.YOUTUBE_PROXY_URL;
-
-        // CRITICAL FIX: Don't use HttpsProxyAgent with undici dispatcher
-        // node-fetch handles agents differently than undici
         const agent = proxyUrl ? new HttpsProxyAgent(proxyUrl) : undefined;
 
-        if (proxyUrl) console.log(`[YouTube] Using Proxy: ${proxyUrl.replace(/:([^:]*@)/, ':****@')}`);
+        if (proxyUrl) log.info(`[YouTube] Using Proxy: ${proxyUrl.replace(/:([^:]*@)/, ':****@')}`);
 
         yt = await Innertube.create({
             cache: new UniversalCache(false),
@@ -31,24 +29,20 @@ let yt = null;
             lang: 'en',
             location: 'US',
             fetch: (input, init) => {
-                // FIXED: Use agent property for node-fetch, not dispatcher for undici
                 if (agent) {
                     init = init || {};
-                    init.agent = agent; // ✅ Correct for node-fetch
-                    // init.dispatcher = agent; ❌ REMOVED - causes OOM crash with undici
+                    init.agent = agent;
                 }
                 return fetch(input, init);
             }
         });
-        console.log('[YouTube] Innertube Client Initialized');
+        log.info('[YouTube] Innertube Client Initialized');
     } catch (e) {
-        console.error('[YouTube] Innertube Init Failed:', e);
+        log.error('[YouTube] Innertube Init Failed:', e);
     }
 })();
 
 export async function fetchYouTubeTranscript(videoId) {
-    // 1. Try Python Script (youtube-transcript-api) - Legacy/Official
-    // Note: scripts are in root, so adjust path
     const pythonScript = path.join(PROJECT_ROOT, 'fetch_transcript.py');
     const command = `python3 "${pythonScript}" "${videoId}"`;
 
@@ -63,11 +57,9 @@ export async function fetchYouTubeTranscript(videoId) {
         return { text: result.text, segments: result.segments, language: result.language, isGenerated: result.is_generated };
 
     } catch (pythonError) {
-        console.warn(`[YouTube] Python Transcript failed (${pythonError.message}). Switch to Innertube...`);
+        log.warn(`[YouTube] Python Transcript failed (${pythonError.message}). Switch to Innertube...`);
 
-        // 2. Fallback to Innertube
         if (!yt) {
-            // Re-init fallback if global failed (simplified here)
             try {
                 yt = await Innertube.create({ cache: new UniversalCache(false) });
             } catch (e) { }
@@ -88,7 +80,7 @@ export async function fetchYouTubeTranscript(videoId) {
             }));
 
             const fullText = segments.map(s => s.text).join(' ');
-            console.log(`[YouTube] Innertube Success! Length: ${fullText.length}`);
+            log.info(`[YouTube] Innertube Success! Length: ${fullText.length}`);
 
             return {
                 text: fullText,
@@ -97,14 +89,13 @@ export async function fetchYouTubeTranscript(videoId) {
                 isGenerated: false
             };
         } catch (innerError) {
-            console.error('[YouTube] Innertube also failed:', innerError.message);
+            log.error('[YouTube] Innertube also failed:', innerError.message);
             return { text: "", segments: [], language: 'en', isGenerated: false };
         }
     }
 }
 
 export async function fetchVideoMetadata(videoId) {
-    // 1. Try Google API
     const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
     if (YOUTUBE_API_KEY) {
         try {
@@ -120,7 +111,6 @@ export async function fetchVideoMetadata(videoId) {
         } catch (e) { }
     }
 
-    // 2. Fallback: NoEmbed
     try {
         const res = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`);
         const data = await res.json();
@@ -129,7 +119,6 @@ export async function fetchVideoMetadata(videoId) {
         }
     } catch (e) { }
 
-    // 3. Innertube
     if (yt) {
         try {
             const info = await yt.getBasicInfo(videoId);

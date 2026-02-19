@@ -251,10 +251,15 @@ const clientAI = (() => {
       Part 3: Generate an EXTREMELY CONCISE title (max 5 words).
       Part 4: Select 1-2 categories STRICTLY from this list: ${VALID_CATEGORIES.join(", ")}.
 
-      **CRITICAL: IMAGE PROMPT INSTRUCTION**
-      - For each question, generate an "imagePrompt".
-      - **INSTRUCTION:** Generate a detailed image prompt that specifically visualizes the content of this specific question.
-      - **LANGUAGE:** MUST BE IN ENGLISH.
+      **CRITICAL: IMAGE PROMPT INSTRUCTION (VISUAL-FIRST)**
+      - For each question, generate a "imagePrompt".
+      - **TRANSFORMATION RULE**: Do NOT just copy the question. Convert the concept into a CONCRETE VISUAL SCENE.
+      - **METAPHOR GUIDE**: 
+        - If abstract (e.g., "social influence", "inequality"): Visualize people interacting, symbolic objects (scales, locked gates), or expressive faces.
+        - If technical: Visualize a specific high-tech component or a person using the technology.
+      - **AESTHETIC**: Always append "Cinematic photography, high resolution, photorealistic, 8k, detailed".
+      - **STRICT**: NO TEXT, NO LABELS, NO FLOATING NUMBERS in the image.
+      - **LANGUAGE**: MUST BE IN ENGLISH.
 
       Output the result as a strictly valid JSON object with this structure:
       {
@@ -393,9 +398,11 @@ const clientAI = (() => {
       2. **ALWAYS NAMEDROP:** You MUST use the actual Title in the question text.
       3. **CORE SUBJECT ONLY:** Use a short, recognizable tag.
 
-      **CRITICAL: LANGUAGE CONSTRAINT**
-      - Questions/options MUST match the user's input language.
-      - **EXCEPTION:** The 'imagePrompt' AND 'categories' fields MUST ALWAYS be in English.
+      **CRITICAL: IMAGE PROMPT INSTRUCTION (VISUAL-FIRST)**
+      - **RULE**: Convert the work's theme/scene into a CONCRETE VISUAL description.
+      - **AESTHETIC**: Cinematic lighting, wide angle, high resolution, 8k, photorealistic.
+      - **STRICT**: NO TEXT, NO LOGOS, NO CREDITS.
+      - **LANGUAGE**: MUST BE IN ENGLISH.
 
       **STRICT QUESTION DISTRIBUTION (Target: ${count} Questions):**
       
@@ -525,7 +532,7 @@ const clientAI = (() => {
             "correctAnswer": 0,
             "answer": "Answer...",
             "explanation": "Explanation...",
-            "imagePrompt": "A concise English description (10-15 words max)..."
+            "imagePrompt": "Convert the question's core subject into a vivid, cinematic visual scene. English, no text. Max 20 words."
         }
     ]
     `;
@@ -570,15 +577,17 @@ const clientAI = (() => {
         }
 
         try {
-            const prompt = `Convert this question into a SHORT, VISUAL description for image generation (max 10 words).
-Focus on the main subject/concept, not the question structure.
-Output ONLY the visual description in English, nothing else.
+            const prompt = `Convert this question into a SHORT, VIVID visual scene description for image generation.
+INSTRUCTIONS:
+1. Translate abstract concepts into concrete objects/scenarios (e.g., 'friendship' -> 'two people walking', 'law' -> 'a wooden gavel on a desk').
+2. Add cinematic keywords: "Cinematic photography, photorealistic, 8k, high detail".
+3. NO TEXT in the output.
+4. Output ONLY the visual description in English.
 
-Question: ${questionText}
+Question: ${questionText}`;
 
-Output:`;
-            const result = await callGemini(apiKey, prompt);
-            return result.trim().replace(/^["']|["']$/g, '').substring(0, 200);
+            const result = await callGemini(apiKey, prompt, 3, { temperature: 0.5 });
+            return result.trim().replace(/^["']|["']$/g, '').substring(0, 300);
         } catch (error) {
             return extractVisualConcepts(questionText);
         }

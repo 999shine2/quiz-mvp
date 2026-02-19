@@ -8,64 +8,45 @@ const clientImage = (() => {
     // ── Generate image for a question ─────────────────────────
     async function generateForQuestion(question, userId) {
         const questionText = question.question || '';
-        const context = question.questionContext || '';
+        // Use the AI-generated imagePrompt (a vivid visual description) as the image prompt.
+        // Fall back to the raw question text only if imagePrompt is missing.
+        const imagePrompt = question.imagePrompt || questionText;
 
         if (!questionText) return null;
 
-        // 1. Check cache
-        const hash = hashQuestion(questionText);
+        // Build prompt from imagePrompt, not the raw question text
+        let optimizedPrompt = imagePrompt;
+
+        // Check cache
+        const hash = hashQuestion(optimizedPrompt);
         const cached = await clientDB.getCachedImage(hash);
         if (cached && cached.blob) {
             console.log(`[ClientImage] Cache HIT: ${hash}`);
             return URL.createObjectURL(cached.blob);
         }
 
-        // 2. Build prompt
-        const rawPrompt = context ? `${context}: ${questionText}` : questionText;
-        const cleanPrompt = rawPrompt
+        const cleanPrompt = optimizedPrompt
             .replace(/\?|-\s*T\d+/g, '')
-            .replace(/What|How|Why|When|Where|Which|Is|Does|Do|Can|Will|Should|Could|Would/gi, '')
-            .trim()
             .substring(0, 150);
 
         const encodedPrompt = encodeURIComponent(cleanPrompt);
         const seed = Math.floor(Math.random() * 1000000);
-        // Using default model instead of flux to resolve 403 issues
-        const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=800&height=600&seed=${seed}&nologo=true`;
 
-        console.log(`[ClientImage] Fetching: "${cleanPrompt.substring(0, 40)}..."`);
+        console.log(`[ClientImage] Fetching image for prompt: "${cleanPrompt.substring(0, 60)}..."`);
 
         try {
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), 60000);
 
-            let response;
-            try {
-                // 1. Try direct fetch first (fastest)
-                response = await fetch(imageUrl, {
-                    signal: controller.signal,
-                    credentials: 'omit',
-                    mode: 'cors',
-                    referrerPolicy: 'no-referrer'
-                });
-
-                // 2. Fallback to proxy if not OK (e.g. 403, 530, 404, etc.)
-                if (!response.ok) {
-                    console.warn(`[ClientImage] Direct access failed (${response.status}). Falling back to proxy...`);
-                    const proxyUrl = `/api/proxy/image?prompt=${encodedPrompt}&seed=${seed}`;
-                    response = await fetch(proxyUrl, { signal: controller.signal });
-                }
-            } catch (fetchErr) {
-                console.warn('[ClientImage] Direct fetch failed, trying proxy...', fetchErr);
-                const proxyUrl = `/api/proxy/image?prompt=${encodedPrompt}&seed=${seed}`;
-                // This uses the internal route which works even if external is blocked
-                response = await fetch(proxyUrl, { signal: controller.signal });
-            }
+            // Always route through server proxy so the pollen-tier API key
+            // and model=flux are applied server-side (avoids CORS auth issues).
+            const proxyUrl = `/api/proxy/image?prompt=${encodedPrompt}&seed=${seed}&model=flux`;
+            const response = await fetch(proxyUrl, { signal: controller.signal });
 
             clearTimeout(timeout);
 
             if (!response.ok) {
-                throw new Error(`Pollinations Error: ${response.status}`);
+                throw new Error(`Proxy Error: ${response.status}`);
             }
 
             const blob = await response.blob();
@@ -75,13 +56,12 @@ const clientImage = (() => {
                 return null;
             }
 
-            // 3. Save to cache
+            // Save to cache
             await clientDB.saveCachedImage(hash, blob, cleanPrompt);
             console.log(`[ClientImage] ✅ Cached: ${hash} (${blob.size} bytes)`);
 
-            // Returns a persistent proxy URL instead of a temporary blob URL
-            // This ensures the URL remains valid even after a page refresh.
-            return `/api/proxy/image?prompt=${encodedPrompt}&seed=${seed}`;
+            // Return a persistent proxy URL so it survives page refreshes
+            return `/api/proxy/image?prompt=${encodedPrompt}&seed=${seed}&model=flux`;
 
         } catch (err) {
             console.error('[ClientImage] Generation failed:', err.message);
@@ -108,9 +88,10 @@ const clientImage = (() => {
 
             results.push(...batchResults);
 
-            // Brief pause between batches
+            // Brief pause between batches with jitter to avoid simultaneous rate limits
             if (i + concurrency < questions.length) {
-                await new Promise(r => setTimeout(r, 1000));
+                const jitter = Math.random() * 500;
+                await new Promise(r => setTimeout(r, 1000 + jitter));
             }
         }
 
@@ -129,16 +110,19 @@ const clientImage = (() => {
 
     // ── Hash helper ───────────────────────────────────────────
     function hashQuestion(text) {
-        // Simple hash using btoa (base64) truncated
+        // Cache Versioning: Increment to force re-cache (e.g., when fixing prompt logic)
+        const CACHE_VERSION = 'v2145_';
+        const versionedText = CACHE_VERSION + text;
+
         try {
-            return btoa(unescape(encodeURIComponent(text.trim())))
+            return btoa(unescape(encodeURIComponent(versionedText.trim())))
                 .replace(/[/+=]/g, '_')
                 .substring(0, 32);
         } catch (e) {
             // Fallback: simple string hash
             let hash = 0;
-            for (let i = 0; i < text.length; i++) {
-                const char = text.charCodeAt(i);
+            for (let i = 0; i < versionedText.length; i++) {
+                const char = versionedText.charCodeAt(i);
                 hash = ((hash << 5) - hash) + char;
                 hash = hash & hash; // Convert to 32-bit int
             }

@@ -12,12 +12,13 @@ import { extractVideoId, fetchYouTubeTranscript } from '../services/youtubeServi
 import { getDB, saveDB } from '../utils/dbShim.js';
 import { getUserID } from '../utils/user.js';
 import { logActivity } from '../utils/logger.js';
+import { log } from '../utils/log.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PROJECT_ROOT = path.join(__dirname, '..');
 
-import { fileActivityLog } from '../utils/fileStore.js'; // Fallback
+import { fileActivityLog } from '../utils/fileStore.js';
 
 // Get Library with Stats
 export const getLibrary = async (req, res) => {
@@ -25,16 +26,14 @@ export const getLibrary = async (req, res) => {
         const userId = getUserID(req);
         const db = await getDB(req);
 
-        // 1. Fetch Logs (Optimized: Skip Mongo if not connected)
         let logs = [];
         if (db.isMongo) {
             try {
                 logs = await ActivityLog.find({ userId });
             } catch (e) {
-                console.warn("[Library] Mongo ActivityLog fetch failed, ignoring.");
+                log.warn("[Library] Mongo ActivityLog fetch failed, ignoring.");
             }
         } else {
-            // File Store Logic (if applicable)
             try {
                 logs = await fileActivityLog.find({ userId });
             } catch (e) { }
@@ -48,7 +47,6 @@ export const getLibrary = async (req, res) => {
 
             const solvedCount = fileLogs.reduce((acc, curr) => acc + (curr.details?.count || 0), 0);
 
-            // Plain object conversion
             const fileObj = file.toObject ? file.toObject() : file;
 
             return {
@@ -58,20 +56,14 @@ export const getLibrary = async (req, res) => {
             };
         });
 
-        // Prevent browser caching of library data (to ensure fresh imageUrls)
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
 
         res.json(filesWithStats);
 
-        // Background Image Gen (Optimized for Persistence)
-        // Only run if we actually have files
+        // Background Image Gen
         if (filesWithStats.length > 0) {
-            console.log(`[Library] Checking image generation for ${filesWithStats.length} files...`);
-
-            // We use 'db' reference which contains the Source of Truth (Mongo Doc or File Object)
-            // Iterate DB directly to ensure we update the source
             let updatesMade = false;
 
             for (const file of db.files) {
@@ -81,19 +73,15 @@ export const getLibrary = async (req, res) => {
                             try {
                                 const imageUrl = await generateQuestionImage(q, userId, process.env.GEMINI_API_KEY);
                                 if (imageUrl) {
-                                    q.imageUrl = imageUrl; // Update in memory
+                                    q.imageUrl = imageUrl;
 
-                                    // PERSISTENCE FIX
                                     if (db.isMongo) {
                                         await Material.findOneAndUpdate(
                                             { id: file.id, userId, 'questions.question': q.question },
                                             { $set: { 'questions.$.imageUrl': imageUrl } }
                                         );
                                     } else {
-                                        // File Store: Mark for save
-                                        // We can't save on every image (too slow), so we flag it
                                         updatesMade = true;
-                                        // For File Store, updating 'file' object (reference) updates 'db.files'
                                     }
                                 }
                             } catch (err) { }
@@ -102,15 +90,14 @@ export const getLibrary = async (req, res) => {
                 }
             }
 
-            // Batch Save for File Store
             if (updatesMade && !db.isMongo) {
-                console.log("[Library] Saving generated images to File Store...");
-                await saveDB({ user: { id: userId } }, db); // Pass context or mock req
+                log.info("[Library] Saving generated images to File Store...");
+                await saveDB({ user: { id: userId } }, db);
             }
         }
 
     } catch (error) {
-        console.error("Library Error:", error);
+        log.error("Library Error:", error);
         res.status(500).json({ error: 'Failed to fetch library' });
     }
 };
@@ -130,44 +117,30 @@ export const getMaterial = async (req, res) => {
 
 export const deleteFile = async (req, res) => {
     const fileId = req.params.id;
-    console.log(`[Delete] Request received for file ID: ${fileId}`);
 
     try {
         const userId = getUserID(req);
-        // Use Abstraction Layer
         const db = await getDB(req);
-
-        console.log(`[Delete] DB Mode: ${db.isMongo ? 'Mongo' : 'File Store'}`);
 
         let fileToDelete = null;
 
         if (!db.isMongo) {
-            // --- FILE STORE DELETION ---
             const fileIndex = db.files.findIndex(f => f.id === fileId);
 
             if (fileIndex === -1) {
-                console.warn(`[Delete] File ${fileId} not found in File Store.`);
                 return res.status(404).json({ error: 'File not found' });
             }
 
             fileToDelete = db.files[fileIndex];
-
-            // Remove from array
             db.files.splice(fileIndex, 1);
 
-            // Cleanup Buffer
             if (db.reelsBuffer && Array.isArray(db.reelsBuffer)) {
-                const initialLen = db.reelsBuffer.length;
                 db.reelsBuffer = db.reelsBuffer.filter(q => q.originId !== fileId);
-                console.log(`[Delete] Removed ${initialLen - db.reelsBuffer.length} items from Reels Buffer.`);
             }
 
-            // Save Changes
             await saveDB(req, db);
-            console.log(`[Delete] File Store updated successfully.`);
 
         } else {
-            // --- MONGO DELETION ---
             const file = await Material.findOne({ id: fileId, userId });
             if (!file) return res.status(404).json({ error: 'File not found' });
 
@@ -180,23 +153,21 @@ export const deleteFile = async (req, res) => {
                     { userId },
                     { $pull: { questions: { originId: fileId } } }
                 );
-            } catch (e) { console.error("Buffer cleanup error", e); }
+            } catch (e) { log.error("Buffer cleanup error", e); }
         }
 
-        // --- PHYSICAL FILE CLEANUP (Common) ---
         if (fileToDelete && fileToDelete.path) {
             try {
                 const p = path.isAbsolute(fileToDelete.path) ? fileToDelete.path : path.join(PROJECT_ROOT, fileToDelete.path);
                 await fs.unlink(p);
-                console.log(`[Delete] Physical file unlinked: ${p}`);
             } catch (e) {
-                console.warn('Could not delete physical file:', e.message);
+                log.warn('Could not delete physical file:', e.message);
             }
         }
 
         res.json({ message: 'File deleted successfully' });
     } catch (error) {
-        console.error("[Delete] Critical Error:", error);
+        log.error("[Delete] Critical Error:", error);
         res.status(500).json({ error: 'Failed to delete file' });
     }
 };
@@ -220,7 +191,7 @@ export const updateCategories = async (req, res) => {
 
         res.json({ message: 'Categories updated successfully', categories });
     } catch (error) {
-        console.error('Update categories error:', error);
+        log.error('Update categories error:', error);
         res.status(500).json({ error: 'Failed to update categories' });
     }
 };
@@ -233,14 +204,12 @@ export const getSummary = async (req, res) => {
         if (!file) return res.status(404).json({ error: 'File not found' });
         if (file.summary) return res.json({ summary: file.summary });
 
-        // Generate logic
         let textToSummarize = '';
         if (file.type === 'youtube' && file.originalUrl) {
             const videoId = extractVideoId(file.originalUrl);
             const tData = await fetchYouTubeTranscript(videoId);
             textToSummarize = tData.text;
         } else if (file.path) {
-            // Need to resolve path
             const p = path.isAbsolute(file.path) ? file.path : path.join(PROJECT_ROOT, file.path);
             textToSummarize = await parseDocument(p, file.mimetype || 'application/pdf');
         } else if (file.type === 'custom') {
@@ -253,7 +222,7 @@ export const getSummary = async (req, res) => {
 
         res.json({ summary });
     } catch (error) {
-        console.error('Summary error:', error);
+        log.error('Summary error:', error);
         res.status(500).json({ error: 'Failed to generate summary' });
     }
 };
@@ -374,7 +343,7 @@ export const generateMoreQuestions = async (req, res) => {
         })();
 
     } catch (err) {
-        console.error('Generate More Error:', err);
+        log.error('Generate More Error:', err);
         res.status(500).json({ error: err.message });
     }
 };
@@ -384,16 +353,13 @@ export const toggleLike = async (req, res) => {
         const { fileId, questionIndex } = req.body;
         const userData = await getDB(req);
 
-        // Find file
         const file = userData.files.find(f => f.id === fileId);
         if (!file) return res.status(404).json({ error: 'File not found' });
 
-        // Find question
         if (questionIndex < 0 || questionIndex >= file.questions.length) {
             return res.status(404).json({ error: 'Question not found' });
         }
 
-        // Toggle Like
         const question = file.questions[questionIndex];
         question.isLiked = !question.isLiked;
 
@@ -401,7 +367,7 @@ export const toggleLike = async (req, res) => {
 
         res.json({ success: true, isLiked: question.isLiked });
     } catch (error) {
-        console.error('Toggle Like Error:', error);
+        log.error('Toggle Like Error:', error);
         res.status(500).json({ error: 'Failed to toggle like' });
     }
 };

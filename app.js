@@ -28,7 +28,10 @@ const app = express();
 connectDB();
 
 // 2. Middleware
-app.use(cors());
+const corsOptions = process.env.NODE_ENV === 'production'
+    ? { origin: [/\.onrender\.com$/, /^capacitor:\/\//, /^http:\/\/localhost/], credentials: true }
+    : {};
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

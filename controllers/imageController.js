@@ -51,14 +51,15 @@ export const generateImageEndpoint = async (req, res) => {
             }
         } catch (e) { }
 
-        // 2. Generate with Pollinations API ONLY (No Gemini prompt generation)
+        // 2. Generate with gen.pollinations.ai pollen-tier endpoint
         const rawPrompt = context ? `${context}: ${question}` : question;
         const encodedPrompt = encodeURIComponent(rawPrompt);
         const seed = Math.floor(Math.random() * 1000000);
+        const keyParam = API_KEY ? `&key=${API_KEY}` : '';
 
-        const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=800&height=600&seed=${seed}&nologo=true&model=flux`;
+        const imageUrl = `https://gen.pollinations.ai/image/${encodedPrompt}?width=800&height=600&seed=${seed}&nologo=true&model=flux${keyParam}`;
 
-        console.log(`[V10] 📡 Calling Pollinations API for: "${rawPrompt.substring(0, 40)}..."`);
+        console.log(`[V10] 📡 Calling gen.pollinations.ai for: "${rawPrompt.substring(0, 40)}..."`);
 
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 60000); // 60s timeout

@@ -7,7 +7,14 @@ ngrok
 ngrok-v3-stable-darwin-amd64.zip
 data/
 *.bak
+*.log
 public/cache/
 public/images/questions/
 test_*.jpg
+test_*.js
 screenshot.jpg
+ai_debug.log
+known_cat.jpg
+list_models.js
+ios/
+android/

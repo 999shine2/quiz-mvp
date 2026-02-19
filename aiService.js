@@ -956,10 +956,10 @@ export async function generateImageWithSiliconFlow(prompt, apiKey) {
     console.log(`[Pollinations] 🔑 Using Key: ${maskedKey}`);
 
     try {
-        // Pollinations API endpoint
-        const apiUrl = "https://image.pollinations.ai/prompt/" + encodeURIComponent(prompt);
+        // Pollinations pollen-tier endpoint (gen.pollinations.ai for sk_ keys)
+        const encodedPrompt = encodeURIComponent(prompt);
         const randomSeed = Math.floor(Math.random() * 1000000);
-        const fullUrl = `${apiUrl}?width=1024&height=1024&seed=${randomSeed}&nologo=true&model=flux`;
+        const fullUrl = `https://gen.pollinations.ai/image/${encodedPrompt}?width=1024&height=1024&seed=${randomSeed}&nologo=true&model=flux&key=${pollinationsKey}`;
 
         console.log(`[Pollinations] 🌐 API URL: ${fullUrl.substring(0, 100)}...`);
 

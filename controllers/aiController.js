@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { generateQuestions, generateSummary, generateQuestionsForCreativeWork, generateSimilarQuestions } from '../aiService.js';
 import fetch from 'node-fetch';
+import { log } from '../utils/log.js';
 
 /**
  * AI Proxy Endpoints
@@ -18,7 +19,7 @@ export const generateQuestionsProxy = async (req, res) => {
         const result = await generateQuestions(text, apiKey, count, title, context, null, distribution, avoidQuestions);
         res.json(result);
     } catch (error) {
-        console.error('[Proxy] Questions Failed:', error);
+        log.error('[Proxy] Questions Failed:', error);
         res.status(500).json({ error: error.message });
     }
 };
@@ -33,7 +34,7 @@ export const generateSummaryProxy = async (req, res) => {
         const summary = await generateSummary(text, apiKey, title);
         res.json({ summary });
     } catch (error) {
-        console.error('[Proxy] Summary Failed:', error);
+        log.error('[Proxy] Summary Failed:', error);
         res.status(500).json({ error: error.message });
     }
 };
@@ -48,7 +49,7 @@ export const generateCreativeProxy = async (req, res) => {
         const result = await generateQuestionsForCreativeWork(title, author, type, apiKey, count);
         res.json(result);
     } catch (error) {
-        console.error('[Proxy] Creative Failed:', error);
+        log.error('[Proxy] Creative Failed:', error);
         res.status(500).json({ error: error.message });
     }
 };
@@ -63,80 +64,108 @@ export const generateSimilarQuestionsProxy = async (req, res) => {
         const result = await generateSimilarQuestions(seedQuestion, context, type, apiKey, existingQuestions, sourceTitle);
         res.json(result);
     } catch (error) {
-        console.error('[Proxy] Similar Failed:', error);
+        log.error('[Proxy] Similar Failed:', error);
         res.status(500).json({ error: error.message });
     }
 };
 
 export const proxyImage = async (req, res) => {
     try {
-        const { prompt, seed, width = 800, height = 600 } = req.query;
+        const { prompt, seed, width = 800, height = 600, model = 'flux' } = req.query;
         if (!prompt) return res.status(400).send('Prompt is required');
 
-        const encodedPrompt = encodeURIComponent(prompt);
+        const pollinationsKey = process.env.POLLINATIONS_API_KEY;
+        log.info(`[Proxy Image] Incoming prompt: "${prompt.substring(0, 50)}"`);
 
-        // Define fallback strategies
+        const optimizedPrompt = prompt;
+        const encodedPrompt = encodeURIComponent(optimizedPrompt);
+
+        const keyParam = pollinationsKey ? `&key=${pollinationsKey}` : '';
         const strategies = [
-            // Strategy 1: Standard Pollinations (Dynamic selection, usually stable)
-            `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${seed || 123}&nologo=true`,
-            // Strategy 2: Text prompt path
-            `https://pollinations.ai/p/${encodedPrompt}?width=${width}&height=${height}&seed=${seed || 123}&nologo=true`,
-            // Strategy 3: Alternative subdomain if any
-            `https://pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${seed || 123}&nologo=true`,
-            // Strategy 4: LoremFlickr (Non-AI fallback)
-            `https://loremflickr.com/${width}/${height}/${encodeURIComponent(prompt.split(' ').slice(0, 3).join(','))}`
+            {
+                url: `https://gen.pollinations.ai/image/${encodedPrompt}?width=${width}&height=${height}&seed=${seed || 123}&nologo=true&model=${model}${keyParam}`,
+                headers: {
+                    ...(pollinationsKey ? { 'Authorization': `Bearer ${pollinationsKey}` } : {}),
+                    'User-Agent': 'Nodejs-Render-Client',
+                    'Accept': 'image/*'
+                }
+            },
+            {
+                url: `https://gen.pollinations.ai/image/${encodedPrompt}?width=${width}&height=${height}&seed=${seed || 123}&nologo=true&model=flux`,
+                headers: { 'User-Agent': 'Nodejs-Render-Client', 'Accept': 'image/*' }
+            },
+            {
+                url: `https://loremflickr.com/${width}/${height}/${encodeURIComponent(optimizedPrompt.replace(/[^a-zA-Z0-9 ]/g, '').split(' ').slice(0, 3).join(','))}`,
+                headers: { 'User-Agent': 'Nodejs-Render-Client', 'Accept': 'image/*' }
+            },
+            {
+                url: `https://picsum.photos/${width}/${height}?random=${seed || Date.now()}`,
+                headers: { 'Accept': 'image/*' }
+            }
         ];
 
         let lastError = null;
-        for (const imageUrl of strategies) {
+        for (const strategy of strategies) {
             try {
-                console.log(`[Proxy Image] Attempting strategy: ${imageUrl.substring(0, 60)}...`);
-                const response = await fetch(imageUrl, {
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                        'Accept': 'image/*'
-                    },
-                    timeout: 15000 // 15s per attempt
+                log.info(`[Proxy Image] Attempting: ${strategy.url.substring(0, 80)}...`);
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 90000);
+
+                const response = await fetch(strategy.url, {
+                    headers: strategy.headers,
+                    signal: controller.signal
                 });
+                clearTimeout(timeoutId);
 
                 if (response.ok) {
                     const contentType = response.headers.get('content-type') || '';
                     if (!contentType.startsWith('image/')) {
-                        console.warn(`[Proxy Image] Strategy ${imageUrl.substring(0, 30)} returned non-image content: ${contentType}`);
+                        log.warn(`[Proxy Image] Non-image content-type: ${contentType}. Skipping...`);
                         continue;
                     }
 
                     const arrayBuffer = await response.arrayBuffer();
-                    if (arrayBuffer && arrayBuffer.byteLength > 100) { // Safety check minimum size
+                    const byteLength = arrayBuffer.byteLength;
+
+                    if (byteLength > 1000) {
+                        if (byteLength === 16 && Buffer.from(arrayBuffer).toString().includes('error code: 1033')) {
+                            log.warn(`[Proxy Image] Cloudflare 1033 detected. Skipping...`);
+                            continue;
+                        }
+                        if (byteLength === 126099) {
+                            log.warn(`[Proxy Image] Cat Statue fallback detected. Skipping...`);
+                            continue;
+                        }
+
                         const buffer = Buffer.from(arrayBuffer);
                         res.set('Content-Type', contentType);
                         res.set('Cache-Control', 'public, max-age=86400');
+                        log.info(`[Proxy Image] Success (${byteLength} bytes, model=${model})`);
                         return res.send(buffer);
                     }
                 }
-                console.warn(`[Proxy Image] Strategy failed with status ${response.status} for URL: ${imageUrl.substring(0, 40)}...`);
+                log.warn(`[Proxy Image] Strategy failed with status ${response.status}`);
             } catch (err) {
-                console.error(`[Proxy Image] Strategy EXCEPTION for ${imageUrl.substring(0, 40)}...:`, err.message);
+                log.error(`[Proxy Image] Strategy EXCEPTION: ${err.message}`);
                 lastError = err;
             }
         }
 
         throw new Error(`All strategies failed. Last error: ${lastError ? lastError.message : 'Unknown'}`);
     } catch (error) {
-        console.error('[Proxy Image] Final Error:', error.message);
+        log.error('[Proxy Image] Final Error:', error.message);
         res.status(500).send(`Failed to proxy image: ${error.message}`);
     }
 };
 
 /**
  * Generate Image Prompt Endpoint - V10
- * NO GEMINI - Returns cleaned question text directly for Pollinations API
+ * Returns cleaned question text directly for Pollinations API
  */
 export const generateImagePromptEndpoint = async (req, res) => {
     try {
         let { question, explanation, fullQuestion, context } = req.body;
 
-        // Robustness: If fullQuestion object is passed instead of flat fields
         if (fullQuestion && typeof fullQuestion === 'object') {
             question = question || fullQuestion.question;
             explanation = explanation || fullQuestion.explanation;
@@ -146,26 +175,21 @@ export const generateImagePromptEndpoint = async (req, res) => {
             return res.status(400).json({ error: 'Question required' });
         }
 
-        // V10: No Gemini - Use question text directly as visual prompt
-        // Clean the question text for image generation
         let prompt = question
-            .replace(/\?|-\s*T\d+/g, '') // Remove ? and T1/T2 markers
+            .replace(/\?|-\s*T\d+/g, '')
             .replace(/What|How|Why|When|Where|Which|Is|Does|Do|Can|Will|Should|Could|Would/gi, '')
             .trim();
 
-        // Add context if available
         if (context) {
             prompt = `${context}: ${prompt}`;
         }
 
-        // Limit length
         prompt = prompt.substring(0, 200);
 
-        console.log(`[V10 Prompt] Question → "${prompt}"`);
-
+        log.info(`[V10 Prompt] Question -> "${prompt}"`);
         res.json({ prompt });
     } catch (error) {
-        console.error('[V10 Prompt] Failed:', error);
+        log.error('[V10 Prompt] Failed:', error);
         res.status(500).json({ error: 'Failed to generate prompt' });
     }
 };
@@ -174,7 +198,6 @@ export const translateText = async (req, res) => {
     try {
         const { text, targetLang } = req.body;
 
-        // Robust API Key Extraction
         let apiKey = req.headers['x-api-key'];
         if (!apiKey || apiKey === 'null' || apiKey === 'undefined' || apiKey === '') {
             apiKey = process.env.GEMINI_API_KEY;
@@ -185,7 +208,6 @@ export const translateText = async (req, res) => {
             return res.status(400).json({ error: 'Missing text or targetLang' });
         }
 
-        // Map language codes
         const langMap = {
             'en': 'English', 'zh': 'Chinese', 'ko': 'Korean', 'ja': 'Japanese',
             'fr': 'French', 'de': 'German', 'es': 'Spanish', 'pt': 'Portuguese',
@@ -195,17 +217,17 @@ export const translateText = async (req, res) => {
         const targetLanguage = langMap[targetLang] || targetLang;
 
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-        const prompt = `Translate the following text to ${targetLanguage}. Only return the translation, nothing else.\n\nText: ${text}`;
+        const promptText = `Translate the following text to ${targetLanguage}. Only return the translation, nothing else.\n\nText: ${text}`;
 
-        const result = await model.generateContent(prompt);
+        const result = await model.generateContent(promptText);
         const translation = result.response.text().trim();
 
         res.json({ translation });
 
     } catch (error) {
-        console.error('Translation error:', error);
+        log.error('Translation error:', error);
         res.status(500).json({ error: 'Translation failed' });
     }
 };

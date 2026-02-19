@@ -1276,7 +1276,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 // FAIL-SAFE: If the imageUrl is an ephemeral blob or was an error, replace it with a persistent proxy URL
                 // Note: blob: URLs become invalid on refresh.
                 if (q.imageUrl.startsWith('blob:') || q.imageUrl.includes('Pollinations Error') || !q.imageUrl) {
-                    const encodedPrompt = encodeURIComponent(q.question);
+                    const basePrompt = q.question;
+                    const encodedPrompt = encodeURIComponent(basePrompt);
                     // Use a consistent seed based on the question text for reliability
                     const seed = q.seed || Math.abs(q.question.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a }, 0)) % 1000000;
                     const persistentUrl = `/api/proxy/image?prompt=${encodedPrompt}&seed=${seed}`;

@@ -1,14 +1,14 @@
 import { extractVideoId, fetchVideoMetadata, fetchYouTubeTranscript } from '../services/youtubeService.js';
 import { generateQuestions, generateSummary } from '../aiService.js';
 import { generateQuestionImage } from '../services/imageService.js';
-import { getDB, saveDB } from '../utils/dbShim.js'; // Will create this utility
+import { getDB, saveDB } from '../utils/dbShim.js';
 import { getUserID } from '../utils/user.js';
-import { logActivity } from '../utils/logger.js'; // Will create this util
+import { logActivity } from '../utils/logger.js';
+import { log } from '../utils/log.js';
 
 export const generateYouTubeQuiz = async (req, res) => {
     try {
         const { url } = req.body;
-        // Server API Key
         const apiKey = process.env.GEMINI_API_KEY;
 
         if (!url) {
@@ -20,7 +20,7 @@ export const generateYouTubeQuiz = async (req, res) => {
             return res.status(400).json({ error: 'Invalid YouTube URL' });
         }
 
-        console.log(`Processing YouTube URL: ${url}, ID: ${videoId}`);
+        log.info(`Processing YouTube URL: ${url}, ID: ${videoId}`);
 
         let fetchedTitle = null;
         let fetchedDescription = "";
@@ -31,14 +31,14 @@ export const generateYouTubeQuiz = async (req, res) => {
             fetchedTitle = metadata.title;
             fetchedDescription = metadata.description;
         } catch (e) {
-            console.warn('[YouTube] Metadata fetch failed:', e);
+            log.warn('[YouTube] Metadata fetch failed:', e);
         }
 
         let transcriptError = null;
         try {
             transcriptData = await fetchYouTubeTranscript(videoId);
         } catch (e) {
-            console.warn('[YouTube] Transcript fetch failed:', e.message);
+            log.warn('[YouTube] Transcript fetch failed:', e.message);
             transcriptError = e.message;
             transcriptData = { text: "" };
         }
@@ -62,8 +62,7 @@ export const generateYouTubeQuiz = async (req, res) => {
             ).join("\n\n---\n\n");
         }
 
-        const startAI = Date.now();
-        console.log('Generating questions with AI...');
+        log.info('Generating questions with AI...');
 
         let textToAnalyze = "";
         let qualitySource = "UNKNOWN";
@@ -78,7 +77,6 @@ export const generateYouTubeQuiz = async (req, res) => {
 
         const aiResult = await generateQuestions(textToAnalyze, apiKey, 5, fetchedTitle, relatedContext);
         const autoSummary = await generateSummary(textToAnalyze, apiKey, fetchedTitle);
-        console.log(`Generated in ${Date.now() - startAI}ms`);
 
         let finalTitle = aiResult.suggestedTitle || fetchedTitle;
         if (!finalTitle) finalTitle = `YouTube Video (${videoId})`;
@@ -121,25 +119,22 @@ export const generateYouTubeQuiz = async (req, res) => {
                         if (imageUrl) {
                             question.imageUrl = imageUrl;
 
-                            // Throttle Saves: Only save every 2 seconds or if it's the last one
                             if (Date.now() - lastSave > 2000) {
                                 await saveDB(req, db);
                                 lastSave = Date.now();
-                                console.log('[YouTube] Incremental Save triggered');
                             }
                         }
                     }
                 }
-                // Final Save
                 await saveDB(req, db);
-                console.log(`[YouTube] All images generated and saved`);
+                log.info(`[YouTube] All images generated and saved`);
             } catch (err) {
-                console.error('[YouTube] Image generation error:', err);
+                log.error('[YouTube] Image generation error:', err);
             }
         })();
 
     } catch (error) {
-        console.error('Error processing YouTube:', error);
+        log.error('Error processing YouTube:', error);
         res.status(500).json({ error: error.message || 'Failed to process video' });
     }
 };
@@ -161,8 +156,7 @@ export const getYouTubeTranscript = async (req, res) => {
             language: transcriptData.language
         });
     } catch (error) {
-        console.error('Error fetching transcript:', error);
+        log.error('Error fetching transcript:', error);
         res.status(500).json({ error: error.message });
     }
 };
-
