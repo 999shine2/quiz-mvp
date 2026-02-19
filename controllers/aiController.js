@@ -77,12 +77,12 @@ export const proxyImage = async (req, res) => {
 
         // Define fallback strategies
         const strategies = [
-            // Strategy 1: Primary Pollinations Image API
-            `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${seed || 123}&nologo=true&model=flux`,
-            // Strategy 2: v1 Pollinations
-            `https://v1.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${seed || 123}&nologo=true`,
-            // Strategy 3: Alternative Path
+            // Strategy 1: Standard Pollinations (Dynamic selection, usually stable)
+            `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${seed || 123}&nologo=true`,
+            // Strategy 2: Text prompt path
             `https://pollinations.ai/p/${encodedPrompt}?width=${width}&height=${height}&seed=${seed || 123}&nologo=true`,
+            // Strategy 3: Alternative subdomain if any
+            `https://pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${seed || 123}&nologo=true`,
             // Strategy 4: LoremFlickr (Non-AI fallback)
             `https://loremflickr.com/${width}/${height}/${encodeURIComponent(prompt.split(' ').slice(0, 3).join(','))}`
         ];
@@ -96,14 +96,20 @@ export const proxyImage = async (req, res) => {
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                         'Accept': 'image/*'
                     },
-                    timeout: 10000 // 10s per attempt
+                    timeout: 15000 // 15s per attempt
                 });
 
                 if (response.ok) {
+                    const contentType = response.headers.get('content-type') || '';
+                    if (!contentType.startsWith('image/')) {
+                        console.warn(`[Proxy Image] Strategy ${imageUrl.substring(0, 30)} returned non-image content: ${contentType}`);
+                        continue;
+                    }
+
                     const arrayBuffer = await response.arrayBuffer();
-                    if (arrayBuffer && arrayBuffer.byteLength > 0) {
+                    if (arrayBuffer && arrayBuffer.byteLength > 100) { // Safety check minimum size
                         const buffer = Buffer.from(arrayBuffer);
-                        res.set('Content-Type', response.headers.get('content-type') || 'image/jpeg');
+                        res.set('Content-Type', contentType);
                         res.set('Cache-Control', 'public, max-age=86400');
                         return res.send(buffer);
                     }
