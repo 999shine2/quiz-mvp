@@ -147,18 +147,19 @@ export async function generateQuestionImage(question, userId, apiKey) {
  * Generate images for multiple questions sequentially
  */
 export async function generateImagesForQuestions(questions) {
-    log.info(`[ImageService] Starting batch generation for ${questions.length} questions`);
+    log.info(`[ImageService] Starting parallel generation for ${questions.length} questions`);
 
-    for (let i = 0; i < questions.length; i++) {
-        const q = questions[i];
+    const imageDir = path.join(PROJECT_ROOT, 'public', 'images', 'questions');
+    await fs.mkdir(imageDir, { recursive: true });
 
+    await Promise.all(questions.map(async (q, i) => {
         try {
             const encodedPrompt = encodeURIComponent(q.imagePrompt || q.question);
             const seed = Math.floor(Math.random() * 1000000);
             const keyParam = API_KEY ? `&key=${API_KEY}` : '';
             const imageUrl = `https://gen.pollinations.ai/image/${encodedPrompt}?width=800&height=600&seed=${seed}&nologo=true&model=flux${keyParam}`;
 
-            log.info(`[ImageService] Batch Q${i + 1}: calling gen.pollinations.ai...`);
+            log.info(`[ImageService] Q${i + 1}: calling gen.pollinations.ai...`);
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), 60000);
 
@@ -185,25 +186,19 @@ export async function generateImagesForQuestions(questions) {
 
             const buffer = await response.arrayBuffer();
             const filename = `poll_${Date.now()}_${i}.png`;
-            const imageDir = path.join(PROJECT_ROOT, 'public', 'images', 'questions');
-            await fs.mkdir(imageDir, { recursive: true });
             const outputPath = path.join(imageDir, filename);
 
             await fs.writeFile(outputPath, Buffer.from(buffer));
             q.imageUrl = `/images/questions/${filename}`;
 
-            log.info(`[ImageService] Batch Q${i + 1} success (${buffer.byteLength} bytes)`);
+            log.info(`[ImageService] Q${i + 1} success (${buffer.byteLength} bytes)`);
 
         } catch (err) {
-            log.error(`[ImageService] Batch Q${i + 1} failed:`, err.message);
+            log.error(`[ImageService] Q${i + 1} failed:`, err.message);
             q.imageUrl = `https://picsum.photos/seed/${Math.floor(Math.random() * 1000)}/800/600`;
         }
+    }));
 
-        if (i < questions.length - 1) {
-            await new Promise(r => setTimeout(r, 3000));
-        }
-    }
-
-    log.info("[ImageService] Batch generation complete");
+    log.info("[ImageService] Parallel generation complete");
     return questions;
 }

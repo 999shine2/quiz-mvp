@@ -70,30 +70,16 @@ const clientImage = (() => {
     }
 
     // ── Generate images for multiple questions ────────────────
-    async function generateForQuestions(questions, userId, concurrency = 2) {
-        const results = [];
+    async function generateForQuestions(questions, userId, concurrency = 5) {
+        const results = await Promise.all(
+            questions.map(q => generateForQuestion(q, userId))
+        );
 
-        for (let i = 0; i < questions.length; i += concurrency) {
-            const batch = questions.slice(i, i + concurrency);
-            const batchResults = await Promise.all(
-                batch.map(q => generateForQuestion(q, userId))
-            );
-
-            batchResults.forEach((url, idx) => {
-                if (url) {
-                    questions[i + idx].imageUrl = url;
-                    // questions[i + idx].imageBlobUrl = true; // No longer just a blob URL
-                }
-            });
-
-            results.push(...batchResults);
-
-            // Brief pause between batches with jitter to avoid simultaneous rate limits
-            if (i + concurrency < questions.length) {
-                const jitter = Math.random() * 500;
-                await new Promise(r => setTimeout(r, 1000 + jitter));
+        results.forEach((url, idx) => {
+            if (url) {
+                questions[idx].imageUrl = url;
             }
-        }
+        });
 
         return results;
     }

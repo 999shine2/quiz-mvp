@@ -1201,6 +1201,15 @@ document.addEventListener('DOMContentLoaded', () => {
         currentQuestionIndex = 0;
         userAnswers = {};
 
+        // Preload all question images in the background so they're cached
+        // by the time the user navigates to them
+        questions.forEach(q => {
+            if (q.imageUrl && !q.imageUrl.startsWith('blob:')) {
+                const preload = new Image();
+                preload.src = q.imageUrl;
+            }
+        });
+
         totalNum.textContent = questions.length;
         renderQuestion();
         switchView('quiz');
@@ -2190,7 +2199,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // SMART SHUFFLE: Ensure neighbors are from different materials
+            // SMART SHUFFLE: Max diversity — avoid same material within last 2 questions
             // 1. Group by originId
             const groups = {};
             rawUnique.forEach(q => {
@@ -2202,38 +2211,43 @@ document.addEventListener('DOMContentLoaded', () => {
             // 2. Shuffle each group internally
             Object.values(groups).forEach(g => g.sort(() => Math.random() - 0.5));
 
-            // 3. Interleave
+            // 3. Interleave with diversity window of 2
             const uniquePool = [];
-            let lastOriginId = null;
+            const recentOrigins = []; // track last 2 origins
             let groupKeys = Object.keys(groups);
 
             while (groupKeys.length > 0) {
-                // Try to pick a different origin than the last one
-                let candidates = groupKeys.filter(k => k !== lastOriginId);
+                // Filter out origins seen in the last 2 picks
+                let candidates = groupKeys.filter(k => !recentOrigins.includes(k));
 
-                // If only one origin left (or no others), forced to pick it
-                if (candidates.length === 0) candidates = groupKeys;
+                // If no alternatives, relax to just avoiding the immediate last
+                if (candidates.length === 0) {
+                    candidates = groupKeys.filter(k => k !== recentOrigins[recentOrigins.length - 1]);
+                }
 
-                // HEURISTIC: Sort by remaining size DESCENDING
-                // This ensures we burn down the big piles while we have alternative interleaves
-                candidates.sort((a, b) => groups[b].length - groups[a].length);
+                // If still nothing (single material left), allow it
+                if (candidates.length === 0) candidates = [...groupKeys];
 
-                // Pick the largest group
-                const chosenKey = candidates[0];
+                // Weighted random: prefer larger groups to drain evenly
+                const totalSize = candidates.reduce((sum, k) => sum + groups[k].length, 0);
+                let roll = Math.random() * totalSize;
+                let chosenKey = candidates[0];
+                for (const k of candidates) {
+                    roll -= groups[k].length;
+                    if (roll <= 0) { chosenKey = k; break; }
+                }
+
                 const chosenGroup = groups[chosenKey];
+                uniquePool.push(chosenGroup.pop());
 
-                if (chosenGroup && chosenGroup.length > 0) {
-                    uniquePool.push(chosenGroup.pop());
-                    lastOriginId = chosenKey;
+                // Update recent origins window (keep last 2)
+                recentOrigins.push(chosenKey);
+                if (recentOrigins.length > 2) recentOrigins.shift();
 
-                    // Cleanup empty groups
-                    if (chosenGroup.length === 0) {
-                        delete groups[chosenKey];
-                        groupKeys = Object.keys(groups); // Refresh keys
-                    }
-                } else {
-                    // Should not happen if logic is correct, but safety
-                    groupKeys = groupKeys.filter(k => k !== chosenKey);
+                // Cleanup empty groups
+                if (chosenGroup.length === 0) {
+                    delete groups[chosenKey];
+                    groupKeys = Object.keys(groups);
                 }
             }
 
@@ -2592,22 +2606,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 console.log(`Restoring ${validItems.length} valid items from offline buffer [User: ${key}]...`);
 
-                // Re-validate and Re-Preload images
-                const restorePromises = validItems.map(async (item) => {
-                    if (item.imageUrl) {
-                        try {
-                            const img = new Image();
-                            img.src = item.imageUrl;
-                            // We don't await onload here to be faster, but we trigger the request
-                        } catch (e) { }
+                // Fix stale blob: URLs and preload valid images
+                validItems.forEach(item => {
+                    if (item.imageUrl && item.imageUrl.startsWith('blob:')) {
+                        const prompt = item.imagePrompt || item.question || '';
+                        const clean = prompt.replace(/\?|-\s*T\d+/g, '').substring(0, 150);
+                        const encoded = encodeURIComponent(clean);
+                        const seed = Math.abs((item.question || '').split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a }, 0)) % 1000000;
+                        item.imageUrl = `/api/proxy/image?prompt=${encoded}&seed=${seed}&model=flux`;
                     }
-                    return item;
+                    // Preload valid image URLs
+                    if (item.imageUrl && !item.imageUrl.startsWith('blob:')) {
+                        try { const img = new Image(); img.src = item.imageUrl; } catch (e) { }
+                    }
                 });
 
-                const restored = await Promise.all(restorePromises);
+                // Save cleaned URLs back to localStorage
+                localStorage.setItem(key, JSON.stringify(validItems));
 
-                // Reset buffer to restored state (wipe any guest data)
-                window.endlessBuffer = restored;
+                // Reset buffer to restored state
+                window.endlessBuffer = validItems;
                 console.log("Offline buffer restored & images warmed.");
             }
         } catch (e) {
@@ -2983,6 +3001,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let existingUrl = q.forcedImageUrl || q.imageUrl; // Check both sources
 
+            // Replace stale blob: URLs with live proxy URLs
+            if (existingUrl && existingUrl.startsWith('blob:')) {
+                const prompt = q.imagePrompt || q.question || '';
+                const clean = prompt.replace(/\?|-\s*T\d+/g, '').substring(0, 150);
+                const encoded = encodeURIComponent(clean);
+                const seed = Math.abs((q.question || '').split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a }, 0)) % 1000000;
+                existingUrl = `/api/proxy/image?prompt=${encoded}&seed=${seed}&model=flux`;
+                q.imageUrl = existingUrl;
+            }
+
             // Logic fix: News API returns explicit 'null' to trigger client generation
             // But if it's undefined, it might also need generation.
             // If it is non-empty string, use it.
@@ -3199,7 +3227,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             },
                             body: JSON.stringify(spawnPayload)
                         }).then(r => r.json())
-                            .then(data => {
+                            .then(async data => {
                                 if (loadingToast) loadingToast.remove();
                                 if (data.success && data.questions && data.questions.length > 0) {
                                     // STRICTLY LIMIT TO 1
@@ -3225,6 +3253,25 @@ document.addEventListener('DOMContentLoaded', () => {
                                         setTimeout(() => toast.remove(), 2500);
 
                                         if (totalNum) totalNum.textContent = allCurrentQuestions.length;
+                                    }
+
+                                    // Save spawned question to library permanently
+                                    const newQ = singleQ[0];
+                                    if (newQ && newQ.originId) {
+                                        try {
+                                            const fileRes = await fetch(apiUrl(`/api/materials/${newQ.originId}`));
+                                            if (fileRes.ok) {
+                                                const file = await fileRes.json();
+                                                if (file && file.questions) {
+                                                    file.questions.push(newQ);
+                                                    await fetch(apiUrl('/api/files/update'), {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ fileId: file.id, updates: { questions: file.questions } })
+                                                    });
+                                                }
+                                            }
+                                        } catch (e) { console.warn('[Spawn] Save to library failed:', e.message); }
                                     }
                                 } else if (data.error) {
                                     console.warn('[Spawn] Error:', data.error);
@@ -3304,7 +3351,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 },
                                 body: JSON.stringify(spawnPayload)
                             }).then(r => r.json())
-                                .then(data => {
+                                .then(async data => {
                                     if (loadingToast) loadingToast.remove();
                                     if (data.success && data.questions && data.questions.length > 0) {
                                         // STRICTLY LIMIT TO 1
@@ -3332,6 +3379,25 @@ document.addEventListener('DOMContentLoaded', () => {
                                             setTimeout(() => toast.remove(), 2500);
 
                                             if (totalNum) totalNum.textContent = allCurrentQuestions.length;
+                                        }
+
+                                        // Save spawned question to library permanently
+                                        const newQ = singleQ[0];
+                                        if (newQ && newQ.originId) {
+                                            try {
+                                                const fileRes = await fetch(apiUrl(`/api/materials/${newQ.originId}`));
+                                                if (fileRes.ok) {
+                                                    const file = await fileRes.json();
+                                                    if (file && file.questions) {
+                                                        file.questions.push(newQ);
+                                                        await fetch(apiUrl('/api/files/update'), {
+                                                            method: 'POST',
+                                                            headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({ fileId: file.id, updates: { questions: file.questions } })
+                                                        });
+                                                    }
+                                                }
+                                            } catch (e) { console.warn('[Spawn] Save to library failed:', e.message); }
                                         }
                                     } else if (data.error) {
                                         console.warn('[Spawn] Error:', data.error);
@@ -3888,19 +3954,45 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
 
-            // Subjects
+            // Subject Mastery — per-material progress
             const subList = document.getElementById('subject-list');
-            if (subList && data.topSubjects) {
+            if (subList) {
                 subList.innerHTML = '';
-                data.topSubjects.slice(0, 5).forEach(sub => {
-                    const row = document.createElement('div');
-                    row.style.display = 'flex';
-                    row.style.justifyContent = 'space-between';
-                    row.style.padding = '8px 0';
-                    row.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
-                    row.innerHTML = `<span style='white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:180px;'>${sub.emoji} ${sub.name}</span> <span style='color: #94a3b8; font-size: 0.85rem; font-family: inherit;'>${sub.count}Qs/${sub.timeSaved}m</span>`;
-                    subList.appendChild(row);
-                });
+                if (!data.topSubjects || data.topSubjects.length === 0) {
+                    subList.innerHTML = `<div style="text-align:center; color:var(--text-muted); padding:20px 0; font-size:0.9rem;">
+                        Start solving questions to see your progress here!
+                    </div>`;
+                } else {
+                    data.topSubjects.slice(0, 10).forEach(sub => {
+                        const accuracy = sub.accuracy || 0;
+                        const barColor = accuracy >= 80 ? '#4ade80' : accuracy >= 50 ? '#facc15' : '#f87171';
+                        const timeTxt = sub.timeSaved >= 60
+                            ? `${Math.floor(sub.timeSaved / 60)}h ${sub.timeSaved % 60}m`
+                            : `${sub.timeSaved}m`;
+
+                        const row = document.createElement('div');
+                        row.style.cssText = 'padding:10px 0; border-bottom:1px solid var(--border-light);';
+                        row.innerHTML = `
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                <span style="font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:65%; font-weight:500;">
+                                    ${sub.emoji} ${sub.name}
+                                </span>
+                                <span style="color:var(--text-muted); font-size:0.8rem; white-space:nowrap;">
+                                    ${accuracy}% · ${timeTxt} saved
+                                </span>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <div style="flex:1; height:6px; background:var(--border-light); border-radius:3px; overflow:hidden;">
+                                    <div style="width:${accuracy}%; height:100%; background:${barColor}; border-radius:3px; transition:width 0.3s;"></div>
+                                </div>
+                                <span style="font-size:0.75rem; color:var(--text-muted); min-width:55px; text-align:right;">
+                                    ${sub.correct}✓ ${sub.wrong}✗
+                                </span>
+                            </div>
+                        `;
+                        subList.appendChild(row);
+                    });
+                }
             }
 
         } catch (e) {

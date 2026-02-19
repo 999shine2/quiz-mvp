@@ -35,6 +35,19 @@
         });
     }
 
+    // Helper: pre-assign proxy image URLs so <img> tags load immediately
+    function assignImageUrls(questions) {
+        questions.forEach(q => {
+            if (!q.imageUrl) {
+                const prompt = q.imagePrompt || q.question || '';
+                const clean = prompt.replace(/\?|-\s*T\d+/g, '').substring(0, 150);
+                const encoded = encodeURIComponent(clean);
+                const seed = Math.floor(Math.random() * 1000000);
+                q.imageUrl = `/api/proxy/image?prompt=${encoded}&seed=${seed}&model=flux`;
+            }
+        });
+    }
+
     // ── AI FALLBACK HELPERS ────────────────────────────────────
     async function fetchAIQuestions(text, title, count, context = '', distribution = 'standard', avoidQuestions = []) {
         const apiKey = getApiKey();
@@ -272,7 +285,14 @@
             // ── TRACK SOLVE ──────────────────────────────────
             if (path === '/api/track/solve' && method === 'POST') {
                 const userId = getUserId();
-                const log = await clientDB.getActivityLog(userId) || { dailyStats: {}, totalQuestionsSolved: 0, totalTimeSavedMins: 0, subjects: {} };
+                const log = await clientDB.getActivityLog(userId) || { dailyStats: {}, totalQuestionsSolved: 0, totalTimeSavedMins: 0, materials: {} };
+
+                // Migrate old 'subjects' to 'materials' if needed
+                if (log.subjects && !log.materials) {
+                    log.materials = {};
+                }
+
+                if (!log.materials) log.materials = {};
 
                 const today = new Date().toISOString().split('T')[0];
                 if (!log.dailyStats[today]) {
@@ -282,20 +302,26 @@
                 const count = body.count || 1;
                 const correct = body.correct || 0;
                 const wrong = body.wrong || 0;
+                // Correct = 2min saved, Wrong = 1min saved (still learned something)
+                const timeSaved = (correct * 2) + (wrong * 1);
 
                 log.dailyStats[today].solved += count;
                 log.dailyStats[today].correct += correct;
                 log.dailyStats[today].wrong += wrong;
                 log.totalQuestionsSolved = (log.totalQuestionsSolved || 0) + count;
-                log.totalTimeSavedMins = (log.totalTimeSavedMins || 0) + count * 2; // ~2 min per question
+                log.totalTimeSavedMins = (log.totalTimeSavedMins || 0) + timeSaved;
 
-                // Track subject
-                if (body.subject) {
-                    if (!log.subjects) log.subjects = {};
-                    if (!log.subjects[body.subject]) log.subjects[body.subject] = { count: 0 };
-                    log.subjects[body.subject].count += count;
-                    if (body.materialName) log.subjects[body.subject].name = body.materialName;
+                // Track per material (keyed by materialName for uniqueness)
+                const materialName = body.materialName || 'Unknown';
+                if (!log.materials[materialName]) {
+                    log.materials[materialName] = { count: 0, correct: 0, wrong: 0, timeSaved: 0, emoji: body.subject || '📚' };
                 }
+                log.materials[materialName].count += count;
+                log.materials[materialName].correct += correct;
+                log.materials[materialName].wrong += wrong;
+                log.materials[materialName].timeSaved += timeSaved;
+                // Update emoji in case it changed
+                if (body.subject) log.materials[materialName].emoji = body.subject;
 
                 await clientDB.saveActivityLog(userId, log);
                 return jsonResponse({ success: true });
@@ -304,7 +330,7 @@
             // ── PROFILE ──────────────────────────────────────
             if (path === '/api/profile' && method === 'GET') {
                 const userId = getUserId();
-                const log = await clientDB.getActivityLog(userId) || { dailyStats: {}, totalQuestionsSolved: 0, totalTimeSavedMins: 0, subjects: {} };
+                const log = await clientDB.getActivityLog(userId) || { dailyStats: {}, totalQuestionsSolved: 0, totalTimeSavedMins: 0, materials: {} };
 
                 // Calculate streak
                 let streak = 0;
@@ -320,12 +346,26 @@
                     }
                 }
 
+                // Build topSubjects from materials, sorted by most practiced
+                const materials = log.materials || {};
+                const topSubjects = Object.entries(materials)
+                    .map(([name, m]) => ({
+                        name,
+                        emoji: m.emoji || '📚',
+                        count: m.count || 0,
+                        correct: m.correct || 0,
+                        wrong: m.wrong || 0,
+                        timeSaved: m.timeSaved || 0,
+                        accuracy: m.count > 0 ? Math.round((m.correct / m.count) * 100) : 0
+                    }))
+                    .sort((a, b) => b.count - a.count);
+
                 return jsonResponse({
                     totalQuestionsSolved: log.totalQuestionsSolved || 0,
                     totalTimeSavedMins: log.totalTimeSavedMins || 0,
                     currentStreak: streak,
                     dailyStats: log.dailyStats || {},
-                    subjects: log.subjects || {}
+                    topSubjects
                 });
             }
 
@@ -352,8 +392,6 @@
                 try {
                     const userId = getUserId();
                     const data = await fetchAICreative(body.title, body.author, body.type, 10);
-                    // Generate images locally
-                    await clientImage.generateForQuestions(data.questions || [], userId);
 
                     const fileObj = {
                         id: generateId(),
@@ -368,7 +406,16 @@
                         userId
                     };
 
+                    // Pre-assign image URLs so UI can start loading immediately
+                    assignImageUrls(fileObj.questions);
+
                     await clientDB.saveLibraryItem(userId, fileObj);
+
+                    // Also cache images in IndexedDB in background
+                    clientImage.generateForQuestions(fileObj.questions, userId).then(() => {
+                        clientDB.saveLibraryItem(userId, fileObj);
+                    }).catch(err => console.warn('[Bridge] Background image cache:', err.message));
+
                     return jsonResponse(fileObj);
                 } catch (e) {
                     return jsonResponse({ error: e.message }, 500);
@@ -390,9 +437,6 @@
                     const userId = getUserId();
                     const data = await fetchAIQuestions(text, file.name, 5);
 
-                    // Generate images locally
-                    await clientImage.generateForQuestions(data.questions || [], userId);
-
                     const fileObj = {
                         id: generateId(),
                         filename: data.suggestedTitle || file.name.replace(/\.[^.]+$/, ''),
@@ -406,13 +450,22 @@
                         userId
                     };
 
+                    // Pre-assign image URLs so UI can start loading immediately
+                    assignImageUrls(fileObj.questions);
+
+                    await clientDB.saveLibraryItem(userId, fileObj);
+
+                    // Also cache images in IndexedDB in background
+                    clientImage.generateForQuestions(fileObj.questions, userId).then(() => {
+                        clientDB.saveLibraryItem(userId, fileObj);
+                    }).catch(err => console.warn('[Bridge] Background image cache:', err.message));
+
                     // Generate summary in background
                     fetchAISummary(text, fileObj.filename).then(summary => {
                         fileObj.summary = summary;
                         clientDB.saveLibraryItem(userId, fileObj);
                     }).catch(() => { });
 
-                    await clientDB.saveLibraryItem(userId, fileObj);
                     return jsonResponse(fileObj);
                 } catch (e) {
                     console.error('[Bridge] File upload error:', e);
@@ -449,9 +502,6 @@
                         const userId = getUserId();
                         const data = await fetchAIQuestions(transcript, videoTitle, 5);
 
-                        // Generate images locally
-                        await clientImage.generateForQuestions(data.questions || [], userId);
-
                         const fileObj = {
                             id: generateId(),
                             filename: data.suggestedTitle || videoTitle,
@@ -466,13 +516,22 @@
                             userId
                         };
 
+                        // Pre-assign image URLs so UI can start loading immediately
+                        assignImageUrls(fileObj.questions);
+
+                        await clientDB.saveLibraryItem(userId, fileObj);
+
+                        // Also cache images in IndexedDB in background
+                        clientImage.generateForQuestions(fileObj.questions, userId).then(() => {
+                            clientDB.saveLibraryItem(userId, fileObj);
+                        }).catch(err => console.warn('[Bridge] Background image cache:', err.message));
+
                         // Background summary
                         fetchAISummary(transcript, fileObj.filename).then(summary => {
                             fileObj.summary = summary;
                             clientDB.saveLibraryItem(userId, fileObj);
                         }).catch(() => { });
 
-                        await clientDB.saveLibraryItem(userId, fileObj);
                         return jsonResponse(fileObj);
                     } catch (e) {
                         console.warn('[Bridge] YouTube local gen failed, falling through to server:', e.message);
@@ -503,12 +562,17 @@
 
                     const newQuestions = data.questions || [];
 
-                    // Generate missing images locally
-                    await clientImage.generateForQuestions(newQuestions, userId);
+                    // Pre-assign image URLs so UI can start loading immediately
+                    assignImageUrls(newQuestions);
 
-                    // Append to file
+                    // Append to file immediately
                     file.questions = [...(file.questions || []), ...newQuestions];
                     await clientDB.saveLibraryItem(userId, file);
+
+                    // Also cache images in IndexedDB in background
+                    clientImage.generateForQuestions(newQuestions, userId).then(() => {
+                        clientDB.saveLibraryItem(userId, file);
+                    }).catch(err => console.warn('[Bridge] Background image cache:', err.message));
 
                     return jsonResponse({ success: true, newQuestions });
                 } catch (e) {
@@ -519,19 +583,58 @@
             // ── REELS SPAWN (Similar Questions) ──────────────
             if (path === '/api/reels/spawn' && method === 'POST') {
                 try {
+                    // Client sends 'question', bridge needs 'seedQuestion'
+                    const seedQuestion = body.seedQuestion || body.question || '';
+                    if (!seedQuestion) return jsonResponse({ success: false, questions: [] });
+
+                    const userId = getUserId();
+
+                    // Look up source material for context
+                    let context = body.context || '';
+                    let sourceTitle = body.sourceTitle || 'this material';
+                    let originId = body.originId || null;
+                    let originFilename = '';
+                    let originSubject = '📚';
+
+                    if (originId) {
+                        const items = await clientDB.getAllLibrary(userId);
+                        const sourceFile = (items || []).find(f => f.id === originId);
+                        if (sourceFile) {
+                            if (!context) context = (sourceFile.transcript || '').substring(0, 15000);
+                            sourceTitle = sourceFile.filename || sourceTitle;
+                            originFilename = sourceFile.filename || '';
+                            originSubject = sourceFile.subjectEmoji || '📚';
+                        }
+                    }
+
+                    const existingQs = body.existingQuestions || [];
+
                     const result = await fetchAISimilar(
-                        body.seedQuestion || '',
-                        body.context || '',
+                        seedQuestion,
+                        context,
                         body.type || 2,
-                        body.existingQuestions || [],
-                        body.sourceTitle || 'this material'
+                        existingQs,
+                        sourceTitle
                     );
 
-                    // Generate image for the new questions
-                    const userId = getUserId();
-                    await clientImage.generateForQuestions(result || [], userId);
+                    // Pre-assign image URLs
+                    assignImageUrls(result || []);
 
-                    return jsonResponse({ questions: result });
+                    // Cache images in background
+                    clientImage.generateForQuestions(result || [], userId)
+                        .catch(err => console.warn('[Bridge] Background image cache:', err.message));
+
+                    // Wrap in format client expects: { question: {...}, originId, sourceTitle, ... }
+                    const wrapped = (result || []).map(q => ({
+                        question: q,
+                        originId,
+                        sourceTitle,
+                        originFilename,
+                        materialName: originFilename,
+                        originSubject
+                    }));
+
+                    return jsonResponse({ success: true, questions: wrapped });
                 } catch (e) {
                     console.error('[Bridge] Spawn failed:', e);
                     return jsonResponse({ questions: [] });
@@ -569,8 +672,12 @@
                         originId: randomFile.id
                     }));
 
-                    // Generate images
-                    await clientImage.generateForQuestions(newQuestions, userId);
+                    // Pre-assign image URLs so UI can start loading immediately
+                    assignImageUrls(newQuestions);
+
+                    // Also cache images in IndexedDB in background
+                    clientImage.generateForQuestions(newQuestions, userId)
+                        .catch(err => console.warn('[Bridge] Background image cache:', err.message));
 
                     return jsonResponse({ questions: newQuestions });
                 } catch (e) {
