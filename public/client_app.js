@@ -1620,7 +1620,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 flashcard.style.boxShadow = '0 8px 24px rgba(107, 140, 66, 0.15)';
                 flashcard.innerHTML = `
                     <div style="font-size: 0.9em; text-transform: uppercase; letter-spacing: 1.5px; color: var(--primary, #6B8C42); margin-bottom: 12px; font-weight: 700;">
-                        ✨ Expert Insight
+                        ${t('expert_insight')}
                     </div>
                     <div style="font-size: 1.15em; line-height: 1.7; font-family: var(--font-body, 'Nunito'); color: var(--text-main, #3D3B30);">
                         ${q.idealAnswer || q.explanation || 'No insight provided.'}
@@ -1635,7 +1635,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Initial "Tap to Reveal" State
                 flashcard.innerHTML = `
                     <div style="font-size: 2.5em; margin-bottom: 10px; opacity: 0.8;">🌱</div>
-                    <div style="font-size: 1.2em; font-weight: 600; font-family: var(--font-hand, 'Patrick Hand'); color: var(--primary, #6B8C42);">Click to Reveal</div>
+                    <div style="font-size: 1.2em; font-weight: 600; font-family: var(--font-hand, 'Patrick Hand'); color: var(--primary, #6B8C42);">${t('tap_reveal')}</div>
                 `;
 
                 flashcard.onclick = () => {
@@ -1708,7 +1708,7 @@ document.addEventListener('DOMContentLoaded', () => {
         prevBtn.disabled = currentQuestionIndex === 0;
 
         if (currentQuestionIndex === currentQuestions.length - 1) {
-            nextBtn.textContent = 'Finish';
+            nextBtn.textContent = t('btn_finish');
 
             // --- INJECT MORE QUESTIONS BUTTON ---
             let moreBtn = document.getElementById('more-questions-btn');
@@ -1718,7 +1718,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 moreBtn.className = 'nav-btn';
                 moreBtn.style.backgroundColor = '#6366f1';
                 moreBtn.style.marginLeft = '10px';
-                moreBtn.textContent = '+ More Questions';
+                moreBtn.textContent = t('btn_more_questions');
                 moreBtn.onclick = handleMoreQuestionsClick;
                 nextBtn.parentNode.appendChild(moreBtn);
             }
@@ -1726,7 +1726,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // ------------------------------------
 
         } else {
-            nextBtn.textContent = 'Next';
+            nextBtn.textContent = t('btn_next');
             const moreBtn = document.getElementById('more-questions-btn');
             if (moreBtn) moreBtn.hidden = true;
         }
@@ -1789,7 +1789,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const moreBtn = document.getElementById('more-questions-btn');
         if (moreBtn) {
             moreBtn.disabled = true;
-            moreBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+            moreBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${t('btn_generating')}`;
         }
 
         try {
@@ -1828,7 +1828,7 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Error generating questions: ' + e.message);
             if (moreBtn) {
                 moreBtn.disabled = false;
-                moreBtn.textContent = '+ More Questions';
+                moreBtn.textContent = t('btn_more_questions');
             }
         }
     }
@@ -2341,7 +2341,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const emoji = materialEmojiInput.value.trim();
 
             if (!name) {
-                alert('Material name is required');
+                alert(t('material_name_required'));
                 return;
             }
 
@@ -2411,25 +2411,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Validate options
             if (options.some(o => !o)) {
-                alert('Please fill in all options');
+                alert(t('fill_options'));
                 return;
             }
 
             // Get correct answer
             const correctRadio = document.querySelector('input[name="correct-opt"]:checked');
             if (!correctRadio) {
-                alert('Select the correct answer');
+                alert(t('select_correct'));
                 return;
             }
             const correctAnswer = parseInt(correctRadio.value);
 
             if (!fileId) {
-                alert('Please select a material file');
+                alert(t('select_material'));
                 return;
             }
 
             if (!questionText) {
-                alert('Question text is required');
+                alert(t('question_required'));
                 return;
             }
 
@@ -2460,7 +2460,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 modalFileSelect.value = '';
 
                 await loadLibrary(); // Refresh
-                alert('Question added successfully!');
+                alert(t('question_added'));
 
             } catch (err) {
                 alert('Error: ' + err.message);
@@ -3151,7 +3151,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     flashcard.style.boxShadow = '0 8px 24px rgba(107, 140, 66, 0.15)';
                     flashcard.innerHTML = `
                         <div style="font-size: 0.9em; text-transform: uppercase; letter-spacing: 1.5px; color: var(--primary, #6B8C42); margin-bottom: 12px; font-weight: 700;">
-                            ✨ Expert Insight
+                            ${t('expert_insight')}
                         </div>
                         <div style="font-size: 1.15em; line-height: 1.7; font-family: var(--font-body, 'Nunito'); color: var(--text-main, #3D3B30);">
                             ${q.idealAnswer || q.explanation || 'No insight provided.'}
@@ -3165,7 +3165,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Initial State
                 flashcard.innerHTML = `
                     <div style="font-size: 2.5em; margin-bottom: 10px; opacity: 0.8;">🌱</div>
-                    <div style="font-size: 1.2em; font-weight: 600; font-family: var(--font-hand, 'Patrick Hand'); color: var(--primary, #6B8C42);">Click to Reveal</div>
+                    <div style="font-size: 1.2em; font-weight: 600; font-family: var(--font-hand, 'Patrick Hand'); color: var(--primary, #6B8C42);">${t('tap_reveal')}</div>
                 `;
 
                 flashcard.onclick = () => {
@@ -3208,7 +3208,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         console.log('Flashcard Revealed! Spawning ONE similar question...');
                         const loadingToast = document.createElement('div');
                         loadingToast.className = 'spawn-toast';
-                        loadingToast.textContent = '🔄 Generating Bonus Question...';
+                        loadingToast.textContent = t('toast_spawning');
                         document.body.appendChild(loadingToast);
 
                         const spawnPayload = {
@@ -3248,7 +3248,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                                         const toast = document.createElement('div');
                                         toast.className = 'spawn-toast';
-                                        toast.textContent = '✨ New Question Spawned!';
+                                        toast.textContent = t('toast_spawned');
                                         document.body.appendChild(toast);
                                         setTimeout(() => toast.remove(), 2500);
 
@@ -3325,7 +3325,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             console.log('Correct Answer! Spawning ONE similar question...');
                             const loadingToast = document.createElement('div');
                             loadingToast.className = 'spawn-toast';
-                            loadingToast.textContent = '🔄 Generating Bonus Question...';
+                            loadingToast.textContent = t('toast_spawning');
                             document.body.appendChild(loadingToast);
 
                             // Determine Type
@@ -3374,7 +3374,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                                             const toast = document.createElement('div');
                                             toast.className = 'spawn-toast';
-                                            toast.textContent = '✨ New Question Added to Queue!';
+                                            toast.textContent = t('toast_added_queue');
                                             document.body.appendChild(toast);
                                             setTimeout(() => toast.remove(), 2500);
 
@@ -3636,7 +3636,7 @@ document.addEventListener('DOMContentLoaded', () => {
         container.innerHTML = '';
 
         if (files.length === 0) {
-            container.innerHTML = '<div class="col-span-full text-center text-gray-500 py-10">No matching materials found.</div>';
+            container.innerHTML = `<div class="col-span-full text-center text-gray-500 py-10">${t('no_materials_found')}</div>`;
             return;
         }
 
@@ -3684,7 +3684,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             
                 <h3 class="font-bold text-base mb-1 truncate pr-6" title="${file.filename}">${file.filename}</h3>
-                <p class="text-xs text-gray-400 mb-3">${file.type === 'youtube' ? 'Video' : 'Text'} • ${dateStr}</p>
+                <p class="text-xs text-gray-400 mb-3">${file.type === 'youtube' ? t('lib_type_video') : t('lib_type_text')} • ${dateStr}</p>
                 
                 <!-- Divider -->
                 <div class="h-px bg-gray-700/30 w-full mb-3"></div>
@@ -3693,15 +3693,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="flex gap-2 card-actions">
                     <button id="btn-review-${file.id}" onclick="event.stopPropagation(); window.startReview('${file.id}')" 
                         class="action-btn flex-1 px-2.5 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 rounded-lg text-xs font-bold text-white transition-all">
-                        Review
+                        ${t('lib_review')}
                     </button>
-                    <button id="btn-more-${file.id}" onclick="event.stopPropagation(); window.generateMore('${file.id}')" 
+                    <button id="btn-more-${file.id}" onclick="event.stopPropagation(); window.generateMore('${file.id}')"
                         class="action-btn flex-1 px-2.5 py-1.5 bg-gray-700/50 hover:bg-gray-600/50 rounded-lg text-xs font-medium text-gray-200 border border-gray-600/50 transition-all">
-                        New Qs
+                        ${t('lib_create_more')}
                     </button>
-                    <button id="btn-summary-${file.id}" onclick="event.stopPropagation(); window.openOverview('${file.id}')" 
+                    <button id="btn-summary-${file.id}" onclick="event.stopPropagation(); window.openOverview('${file.id}')"
                         class="action-btn flex-1 px-2.5 py-1.5 bg-gray-700/50 hover:bg-gray-600/50 rounded-lg text-xs font-medium text-gray-200 border border-gray-600/50 transition-all">
-                        Summary
+                        ${t('lib_summary')}
                     </button>
                 </div>
             `;
@@ -3909,7 +3909,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Set streak count
             const streak = data.currentStreak || 0;
             if (streakEl) streakEl.textContent = streak;
-            if (streakDescEl) streakDescEl.textContent = streak === 1 ? '1 day' : `${streak} days`;
+            if (streakDescEl) streakDescEl.textContent = streak === 1 ? `1 ${t('stat_day')}` : `${streak} ${t('stat_days')}`;
 
             // Chart
             const chartContainer = document.getElementById('activity-chart');
@@ -3960,7 +3960,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 subList.innerHTML = '';
                 if (!data.topSubjects || data.topSubjects.length === 0) {
                     subList.innerHTML = `<div style="text-align:center; color:var(--text-muted); padding:20px 0; font-size:0.9rem;">
-                        Start solving questions to see your progress here!
+                        ${t('stat_no_progress')}
                     </div>`;
                 } else {
                     data.topSubjects.slice(0, 10).forEach(sub => {
@@ -3978,7 +3978,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     ${sub.emoji} ${sub.name}
                                 </span>
                                 <span style="color:var(--text-muted); font-size:0.8rem; white-space:nowrap;">
-                                    ${accuracy}% · ${timeTxt} saved
+                                    ${accuracy}% · ${timeTxt} ${t('stat_saved_suffix')}
                                 </span>
                             </div>
                             <div style="display:flex; align-items:center; gap:8px;">
@@ -4289,24 +4289,47 @@ document.addEventListener('DOMContentLoaded', () => {
 // --- Localization ---
 const translations = {
     en: {
+        nav_review: "Review",
         nav_upload: "Upload",
         nav_library: "Library",
         nav_profile: "Profile",
-        hero_title_html: 'Turn Study Material into <br><span class="gradient-text">Mastery Quizzes</span>',
-        hero_desc: "Generate high-quality practice questions from your lecture notes or videos.",
-        tab_file: "📄 File Upload",
-        tab_youtube: "YouTube Video",
-        drop_title: "Drag & Drop your file here",
-        drop_desc: "or click to browse (.pdf, .doc, .docx)",
+        hero_title_html: 'Capture <span class="gradient-text">Insights</span>',
+        hero_desc: "Turn videos and notes into mastery.",
+        tab_file: "📄 Document",
+        tab_youtube: "▶ YouTube",
+        tab_creative: "🎨 Creative",
+        drop_title: "Upload Document",
+        drop_desc: "PDF, DOC, DOCX",
         btn_generate: "Generate Quiz",
-        yt_title: "Paste YouTube Video Link",
+        btn_yt_quiz: "▶️ Start YouTube Quiz",
+        btn_news_quiz: "📰 Start News Quiz",
+        yt_title: "Enter YouTube URL",
         api_hint: "Leave blank to use server default",
+
+        // Creative
+        creative_title: "Creative Work",
+        creative_label_title: "Title",
+        creative_label_author: "Author / Director (Optional)",
+        creative_label_type: "Type",
+        creative_movie: "🎬 Movie",
+        creative_book: "📖 Book",
+        creative_tvshow: "📺 TV Show",
+        creative_music: "🎵 Music Album",
+        creative_art: "🎭 Art / Play",
+
         // Quiz
-        back_library: "Back to Library",
+        back_library: "Before",
         explanation: "Explanation",
-        btn_previous: "Previous",
+        btn_previous: "Prev",
         btn_next: "Next",
-        btn_finish: "Finish Review",
+        btn_finish: "Finish",
+        btn_more_questions: "+ More Questions",
+        btn_generating: "⏳ Generating...",
+        toast_spawning: "🔄 Generating Bonus Question...",
+        toast_spawned: "✨ New Question Spawned!",
+        toast_added_queue: "✨ New Question Added to Queue!",
+        expert_insight: "✨ Expert Insight",
+        tap_reveal: "Tap to Reveal Answer",
 
         // Library headers
         library_title_html: 'Your <span class="gradient-text">Study Library</span>',
@@ -4348,7 +4371,7 @@ const translations = {
         chart_title: "Last 7 Days (Questions/Time)",
         subject_mastery: "Subject Mastery",
 
-        // Library
+        // Library buttons
         lib_review: "Review",
         lib_start: "Start Quiz",
         lib_summary: "Summary",
@@ -4356,27 +4379,88 @@ const translations = {
         lib_questions: "Questions",
         lib_min_saved: "min saved",
         lib_create_more: "New Qs",
-        lib_generating: "⏳ ..."
+        lib_generating: "⏳ ...",
+
+        // Profile stats
+        stat_solved_label: "Solved",
+        stat_saved_label: "Saved",
+        stat_streak_label: "Streak",
+        stat_days: "days",
+        stat_day: "day",
+        stat_saved_suffix: "saved",
+        stat_no_progress: "Start solving questions to see your progress here!",
+        knowledge_sources: "Knowledge Sources",
+        connect_notion: "📓 Connect Notion",
+        personal_interests: "Personal Interests",
+        setup_personal: "👤 Setup Personal",
+        no_interests: "No interests selected",
+
+        // Library card
+        lib_type_video: "Video",
+        lib_type_text: "Text",
+        no_materials_found: "No matching materials found.",
+
+        // Categories
+        filter_category: "Category:",
+        cat_business: "Business",
+        cat_finance: "Finance",
+        cat_science: "Science",
+        cat_technology: "Technology",
+        cat_health: "Health",
+        cat_engineering: "Engineering",
+        cat_design: "Design",
+        cat_philosophy: "Philosophy",
+        cat_education: "Education",
+        cat_politics: "Society",
+
+        // Modals & Alerts
+        ready_to_process: "Ready to process",
+        select_file: "Select a file...",
+        question_added: "Question added successfully!",
+        question_required: "Question text is required",
+        fill_options: "Please fill in all options",
+        select_correct: "Select the correct answer",
+        select_material: "Please select a material file",
+        material_name_required: "Material name is required"
     },
     zh: {
+        nav_review: "复习",
         nav_upload: "上传",
         nav_library: "库",
         nav_profile: "个人资料",
-        hero_title_html: '将学习资料转化为<br><span class="gradient-text">精通测验</span>',
-        hero_desc: "从讲义或视频生成高质量的练习题。",
-        tab_file: "📄 上传文件",
-        tab_youtube: "YouTube 视频",
-        drop_title: "将文件拖放到此处",
-        drop_desc: "或点击浏览 (.pdf, .doc, .docx)",
+        hero_title_html: '捕获<span class="gradient-text">洞见</span>',
+        hero_desc: "将视频和笔记转化为精通。",
+        tab_file: "📄 文档",
+        tab_youtube: "▶ YouTube",
+        tab_creative: "🎨 创意",
+        drop_title: "上传文档",
+        drop_desc: "PDF, DOC, DOCX",
         btn_generate: "生成测验",
-        yt_title: "粘贴 YouTube 视频链接",
-        yt_desc: "自动提取字幕（CC 或自动生成）",
+        btn_yt_quiz: "▶️ 开始YouTube测验",
+        btn_news_quiz: "📰 开始新闻测验",
+        yt_title: "输入YouTube链接",
         api_hint: "留空以使用服务器默认值",
-        back_library: "返回库",
+        creative_title: "创意作品",
+        creative_label_title: "标题",
+        creative_label_author: "作者/导演（可选）",
+        creative_label_type: "类型",
+        creative_movie: "🎬 电影",
+        creative_book: "📖 书籍",
+        creative_tvshow: "📺 电视剧",
+        creative_music: "🎵 音乐专辑",
+        creative_art: "🎭 艺术/戏剧",
+        back_library: "返回",
         explanation: "解释",
         btn_previous: "上一个",
         btn_next: "下一个",
-        btn_finish: "完成复习",
+        btn_finish: "完成",
+        btn_more_questions: "+ 更多问题",
+        btn_generating: "⏳ 生成中...",
+        toast_spawning: "🔄 正在生成额外问题...",
+        toast_spawned: "✨ 新问题已生成！",
+        toast_added_queue: "✨ 新问题已添加！",
+        expert_insight: "✨ 专家洞见",
+        tap_reveal: "点击查看答案",
         library_title_html: '您的<span class="gradient-text">学习库</span>',
         library_desc: "查看过去上传的笔记并重新进行测验。",
         endless_review: "无限复习",
@@ -4386,6 +4470,10 @@ const translations = {
         filter_type: "类型：",
         date_newest: "日期（最新）",
         date_oldest: "日期（最旧）",
+        sort_solved_desc: "解题最多",
+        sort_solved_asc: "解题最少",
+        sort_time_desc: "节省时间最多",
+        sort_time_asc: "节省时间最少",
         all_materials: "所有材料",
         type_video: "视频",
         type_doc: "文档",
@@ -4395,7 +4483,6 @@ const translations = {
         alert_library_empty: "库为空！请先上传内容。",
         alert_no_questions: "库中未找到问题。",
         translating_questions: "正在翻译问题...",
-
         profile_title_html: '您的<span class="gradient-text">学习之旅</span>',
         profile_desc: "跟踪所有资料的进度和统计数据。",
         stat_time: "节省时间",
@@ -4407,7 +4494,6 @@ const translations = {
         stat_most_studied: "学习最多",
         chart_title: "过去7天 (问题/时间)",
         subject_mastery: "科目掌握度",
-
         lib_review: "复习测验",
         lib_start: "开始测验",
         lib_summary: "摘要",
@@ -4415,27 +4501,80 @@ const translations = {
         lib_questions: "问题",
         lib_min_saved: "分钟已省",
         lib_create_more: "创建新问题",
-        lib_generating: "⏳ ..."
+        lib_generating: "⏳ ...",
+        stat_solved_label: "已解",
+        stat_saved_label: "已省",
+        stat_streak_label: "连续",
+        stat_days: "天",
+        stat_day: "天",
+        stat_saved_suffix: "已省",
+        stat_no_progress: "开始做题查看进度！",
+        knowledge_sources: "知识来源",
+        connect_notion: "📓 连接 Notion",
+        personal_interests: "个人兴趣",
+        setup_personal: "👤 设置个人",
+        no_interests: "未选择兴趣",
+        lib_type_video: "视频",
+        lib_type_text: "文本",
+        no_materials_found: "未找到匹配的资料。",
+        filter_category: "分类：",
+        cat_business: "商业",
+        cat_finance: "金融",
+        cat_science: "科学",
+        cat_technology: "科技",
+        cat_health: "健康",
+        cat_engineering: "工程",
+        cat_design: "设计",
+        cat_philosophy: "哲学",
+        cat_education: "教育",
+        cat_politics: "社会",
+        ready_to_process: "准备处理",
+        select_file: "选择文件...",
+        question_added: "问题添加成功！",
+        question_required: "请输入问题文本",
+        fill_options: "请填写所有选项",
+        select_correct: "请选择正确答案",
+        select_material: "请选择资料文件",
+        material_name_required: "资料名称为必填项"
     },
     ko: {
+        nav_review: "복습",
         nav_upload: "업로드",
         nav_library: "라이브러리",
         nav_profile: "프로필",
-        hero_title_html: '학습 자료를 <br><span class="gradient-text">마스터 퀴즈</span>로 변환',
-        hero_desc: "강의 노트나 동영상에서 고품질 연습 문제를 생성하세요.",
-        tab_file: "📄 파일 업로드",
-        tab_youtube: "YouTube 동영상",
-        drop_title: "파일을 여기로 드래그하세요",
-        drop_desc: "또는 클릭하여 찾아보기 (.pdf, .doc, .docx)",
+        hero_title_html: '<span class="gradient-text">인사이트</span> 캡처',
+        hero_desc: "영상과 노트를 마스터리로 변환하세요.",
+        tab_file: "📄 문서",
+        tab_youtube: "▶ YouTube",
+        tab_creative: "🎨 창작물",
+        drop_title: "문서 업로드",
+        drop_desc: "PDF, DOC, DOCX",
         btn_generate: "퀴즈 생성",
-        yt_title: "YouTube 동영상 링크 붙여넣기",
-        yt_desc: "자막 자동 추출 (CC 또는 자동 생성)",
+        btn_yt_quiz: "▶️ YouTube 퀴즈 시작",
+        btn_news_quiz: "📰 뉴스 퀴즈 시작",
+        yt_title: "YouTube URL 입력",
         api_hint: "서버 기본값을 사용하려면 비워 두세요",
-        back_library: "라이브러리로 돌아가기",
+        creative_title: "창작물",
+        creative_label_title: "제목",
+        creative_label_author: "저자 / 감독 (선택)",
+        creative_label_type: "유형",
+        creative_movie: "🎬 영화",
+        creative_book: "📖 책",
+        creative_tvshow: "📺 TV 프로그램",
+        creative_music: "🎵 음악 앨범",
+        creative_art: "🎭 예술 / 연극",
+        back_library: "뒤로",
         explanation: "설명",
         btn_previous: "이전",
         btn_next: "다음",
-        btn_finish: "복습 완료",
+        btn_finish: "완료",
+        btn_more_questions: "+ 추가 문제",
+        btn_generating: "⏳ 생성 중...",
+        toast_spawning: "🔄 보너스 문제 생성 중...",
+        toast_spawned: "✨ 새 문제가 생성되었습니다!",
+        toast_added_queue: "✨ 새 문제가 추가되었습니다!",
+        expert_insight: "✨ 전문가 인사이트",
+        tap_reveal: "탭하여 답 확인",
         library_title_html: '당신의 <span class="gradient-text">학습 라이브러리</span>',
         library_desc: "과거 업로드한 노트를 검토하고 퀴즈를 다시 풀어보세요.",
         endless_review: "무한 복습",
@@ -4445,6 +4584,10 @@ const translations = {
         filter_type: "유형:",
         date_newest: "날짜 (최신순)",
         date_oldest: "날짜 (오래된순)",
+        sort_solved_desc: "많이 푼 순",
+        sort_solved_asc: "적게 푼 순",
+        sort_time_desc: "절약 시간 많은 순",
+        sort_time_asc: "절약 시간 적은 순",
         all_materials: "모든 자료",
         type_video: "동영상",
         type_doc: "문서",
@@ -4454,7 +4597,6 @@ const translations = {
         alert_library_empty: "라이브러리가 비어 있습니다! 먼저 콘텐츠를 업로드하세요.",
         alert_no_questions: "라이브러리에서 문제를 찾을 수 없습니다.",
         translating_questions: "질문 번역 중...",
-
         profile_title_html: '당신의 <span class="gradient-text">학습 여정</span>',
         profile_desc: "학습 진행 상황과 통계를 추적하세요.",
         stat_time: "절약한 시간",
@@ -4464,9 +4606,8 @@ const translations = {
         stat_top: "최고 과목",
         stat_no_data: "데이터 없음",
         stat_most_studied: "가장 많이 학습함",
-        chart_title: "最近7日 (問題/時間)",
+        chart_title: "최근 7일 (문제/시간)",
         subject_mastery: "과목 숙련도",
-
         lib_review: "퀴즈 복습",
         lib_start: "퀴즈 시작",
         lib_summary: "요약",
@@ -4474,29 +4615,82 @@ const translations = {
         lib_questions: "문제",
         lib_min_saved: "분 절약",
         lib_create_more: "새 문제 생성",
-        lib_generating: "⏳ ..."
+        lib_generating: "⏳ ...",
+        stat_solved_label: "해결",
+        stat_saved_label: "절약",
+        stat_streak_label: "연속",
+        stat_days: "일",
+        stat_day: "일",
+        stat_saved_suffix: "절약",
+        stat_no_progress: "문제를 풀고 진행 상황을 확인하세요!",
+        knowledge_sources: "지식 소스",
+        connect_notion: "📓 Notion 연결",
+        personal_interests: "관심 분야",
+        setup_personal: "👤 개인 설정",
+        no_interests: "선택된 관심사 없음",
+        lib_type_video: "동영상",
+        lib_type_text: "텍스트",
+        no_materials_found: "일치하는 자료가 없습니다.",
+        filter_category: "카테고리:",
+        cat_business: "비즈니스",
+        cat_finance: "금융",
+        cat_science: "과학",
+        cat_technology: "기술",
+        cat_health: "건강",
+        cat_engineering: "공학",
+        cat_design: "디자인",
+        cat_philosophy: "철학",
+        cat_education: "교육",
+        cat_politics: "사회",
+        ready_to_process: "처리 준비 완료",
+        select_file: "파일 선택...",
+        question_added: "문제가 추가되었습니다!",
+        question_required: "문제 텍스트를 입력하세요",
+        fill_options: "모든 옵션을 채워주세요",
+        select_correct: "정답을 선택하세요",
+        select_material: "자료 파일을 선택하세요",
+        material_name_required: "자료 이름은 필수입니다"
     },
     ja: {
+        nav_review: "復習",
         nav_upload: "アップロード",
         nav_library: "ライブラリ",
         nav_profile: "プロフィール",
-        hero_title_html: '教材を<br><span class="gradient-text">習得クイズ</span>に変える',
-        hero_desc: "講義ノートや動画から高品質な練習問題を作成します。",
-        tab_file: "📄 ファイル",
-        tab_youtube: "YouTube",
-        drop_title: "ここにファイルをドラッグ",
-        drop_desc: "またはクリックして選択 (.pdf, .doc, .docx)",
+        hero_title_html: '<span class="gradient-text">インサイト</span>を捉える',
+        hero_desc: "動画やノートを習得に変える。",
+        tab_file: "📄 文書",
+        tab_youtube: "▶ YouTube",
+        tab_creative: "🎨 クリエイティブ",
+        drop_title: "文書をアップロード",
+        drop_desc: "PDF, DOC, DOCX",
         btn_generate: "クイズ作成",
-        yt_title: "YouTubeリンクを貼り付け",
-        yt_desc: "字幕を自動抽出 (CCまたは自動生成)",
-        api_hint: "デフォルトを使用する場合は空白のままにしてください",
-        back_library: "ライブラリに戻る",
+        btn_yt_quiz: "▶️ YouTubeクイズ開始",
+        btn_news_quiz: "📰 ニュースクイズ開始",
+        yt_title: "YouTube URLを入力",
+        api_hint: "デフォルトを使用する場合は空白",
+        creative_title: "クリエイティブ作品",
+        creative_label_title: "タイトル",
+        creative_label_author: "著者/監督（任意）",
+        creative_label_type: "種類",
+        creative_movie: "🎬 映画",
+        creative_book: "📖 本",
+        creative_tvshow: "📺 テレビ番組",
+        creative_music: "🎵 音楽アルバム",
+        creative_art: "🎭 芸術/演劇",
+        back_library: "戻る",
         explanation: "説明",
         btn_previous: "前へ",
         btn_next: "次へ",
-        btn_finish: "復習を完了",
+        btn_finish: "完了",
+        btn_more_questions: "+ もっと問題",
+        btn_generating: "⏳ 生成中...",
+        toast_spawning: "🔄 ボーナス問題を生成中...",
+        toast_spawned: "✨ 新しい問題が生成されました！",
+        toast_added_queue: "✨ 新しい問題が追加されました！",
+        expert_insight: "✨ エキスパートの洞察",
+        tap_reveal: "タップして答えを表示",
         library_title_html: 'あなたの<span class="gradient-text">学習ライブラリ</span>',
-        library_desc: "過去にアップロードしたノートを見直し、クイズを再受験します。",
+        library_desc: "過去にアップロードしたノートを見直し、クイズを再受験。",
         endless_review: "無限復習",
         create_question: "問題を作成",
         create_material: "教材を作成",
@@ -4504,18 +4698,21 @@ const translations = {
         filter_type: "種類：",
         date_newest: "日付（新しい順）",
         date_oldest: "日付（古い順）",
+        sort_solved_desc: "解答数（多い順）",
+        sort_solved_asc: "解答数（少ない順）",
+        sort_time_desc: "節約時間（多い順）",
+        sort_time_asc: "節約時間（少ない順）",
         all_materials: "すべての教材",
         type_video: "動画",
         type_doc: "文書",
         no_files_found: "一致するファイルが見つかりません。",
         loading_library: "読み込み中...",
-        library_empty: "ライブラリは空です。ファイルをアップロードして開始してください！",
-        alert_library_empty: "ライブラリが空です！まずコンテンツをアップロードしてください。",
+        library_empty: "ライブラリは空です。ファイルをアップロードして開始！",
+        alert_library_empty: "ライブラリが空です！まずコンテンツをアップロード。",
         alert_no_questions: "ライブラリに問題が見つかりません。",
         translating_questions: "質問を翻訳中...",
-
         profile_title_html: 'あなたの<span class="gradient-text">学習の旅</span>',
-        profile_desc: "進捗状況と統計を追跡します。",
+        profile_desc: "進捗状況と統計を追跡。",
         stat_time: "節約時間",
         stat_time_desc: "スマート正解率スコア",
         stat_qs: "解決した問題",
@@ -4525,7 +4722,6 @@ const translations = {
         stat_most_studied: "最も学習した",
         chart_title: "過去7日間 (問題/時間)",
         subject_mastery: "科目習得度",
-
         lib_review: "クイズ復習",
         lib_start: "クイズ開始",
         lib_summary: "要約",
@@ -4533,27 +4729,80 @@ const translations = {
         lib_questions: "問",
         lib_min_saved: "分節約",
         lib_create_more: "新しい問題を作成",
-        lib_generating: "⏳ ..."
+        lib_generating: "⏳ ...",
+        stat_solved_label: "解答",
+        stat_saved_label: "節約",
+        stat_streak_label: "連続",
+        stat_days: "日間",
+        stat_day: "日",
+        stat_saved_suffix: "節約",
+        stat_no_progress: "問題を解いて進捗を確認しましょう！",
+        knowledge_sources: "知識ソース",
+        connect_notion: "📓 Notion接続",
+        personal_interests: "個人の関心",
+        setup_personal: "👤 個人設定",
+        no_interests: "関心なし",
+        lib_type_video: "動画",
+        lib_type_text: "テキスト",
+        no_materials_found: "一致する教材が見つかりません。",
+        filter_category: "カテゴリ：",
+        cat_business: "ビジネス",
+        cat_finance: "金融",
+        cat_science: "科学",
+        cat_technology: "テクノロジー",
+        cat_health: "健康",
+        cat_engineering: "工学",
+        cat_design: "デザイン",
+        cat_philosophy: "哲学",
+        cat_education: "教育",
+        cat_politics: "社会",
+        ready_to_process: "処理の準備完了",
+        select_file: "ファイルを選択...",
+        question_added: "問題が追加されました！",
+        question_required: "問題テキストを入力してください",
+        fill_options: "すべての選択肢を入力してください",
+        select_correct: "正解を選択してください",
+        select_material: "教材ファイルを選択してください",
+        material_name_required: "教材名は必須です"
     },
     fr: {
+        nav_review: "Réviser",
         nav_upload: "Télécharger",
         nav_library: "Bibliothèque",
         nav_profile: "Profil",
-        hero_title_html: 'Transformez vos notes en <br><span class="gradient-text">Quiz de Maîtrise</span>',
-        hero_desc: "Générez des questions de haute qualité à partir de vos cours.",
-        tab_file: "📄 Fichier",
-        tab_youtube: "YouTube",
-        drop_title: "Déposez votre fichier ici",
-        drop_desc: "ou cliquez pour parcourir",
+        hero_title_html: 'Capturez des <span class="gradient-text">Insights</span>',
+        hero_desc: "Transformez vidéos et notes en maîtrise.",
+        tab_file: "📄 Document",
+        tab_youtube: "▶ YouTube",
+        tab_creative: "🎨 Créatif",
+        drop_title: "Télécharger un document",
+        drop_desc: "PDF, DOC, DOCX",
         btn_generate: "Générer",
-        yt_title: "Coller le lien YouTube",
-        yt_desc: "Extraction automatique des sous-titres",
+        btn_yt_quiz: "▶️ Quiz YouTube",
+        btn_news_quiz: "📰 Quiz Actualités",
+        yt_title: "Entrer l'URL YouTube",
         api_hint: "Laisser vide pour la valeur par défaut",
-        back_library: "Retour à la bibliothèque",
+        creative_title: "Œuvre créative",
+        creative_label_title: "Titre",
+        creative_label_author: "Auteur / Réalisateur (Optionnel)",
+        creative_label_type: "Type",
+        creative_movie: "🎬 Film",
+        creative_book: "📖 Livre",
+        creative_tvshow: "📺 Série TV",
+        creative_music: "🎵 Album musical",
+        creative_art: "🎭 Art / Théâtre",
+        back_library: "Retour",
         explanation: "Explication",
         btn_previous: "Précédent",
         btn_next: "Suivant",
         btn_finish: "Terminer",
+        btn_more_questions: "+ Plus de questions",
+        btn_generating: "⏳ Génération...",
+        toast_spawning: "🔄 Génération de question bonus...",
+        toast_spawned: "✨ Nouvelle question générée !",
+        toast_added_queue: "✨ Nouvelle question ajoutée !",
+        expert_insight: "✨ Avis d'expert",
+        tap_reveal: "Appuyez pour révéler",
         library_title_html: 'Votre <span class="gradient-text">Bibliothèque</span>',
         library_desc: "Révisez vos notes et refaites les quiz.",
         endless_review: "Mode infini",
@@ -4563,16 +4812,19 @@ const translations = {
         filter_type: "Type :",
         date_newest: "Date (Plus récent)",
         date_oldest: "Date (Plus ancien)",
+        sort_solved_desc: "Plus résolu",
+        sort_solved_asc: "Moins résolu",
+        sort_time_desc: "Plus de temps gagné",
+        sort_time_asc: "Moins de temps gagné",
         all_materials: "Tous",
         type_video: "Vidéo",
         type_doc: "Document",
         no_files_found: "Aucun fichier trouvé.",
         loading_library: "Chargement...",
-        library_empty: "La bibliothèque est vide. Téléchargez un fichier pour commencer!",
-        alert_library_empty: "La bibliothèque est vide! Téléchargez du contenu d'abord.",
-        alert_no_questions: "Aucune question trouvée dans la bibliothèque.",
+        library_empty: "Bibliothèque vide. Téléchargez un fichier !",
+        alert_library_empty: "Bibliothèque vide ! Téléchargez du contenu d'abord.",
+        alert_no_questions: "Aucune question trouvée.",
         translating_questions: "Traduction des questions...",
-
         profile_title_html: 'Votre <span class="gradient-text">Parcours</span>',
         profile_desc: "Suivez vos progrès et statistiques.",
         stat_time: "Temps gagné",
@@ -4584,7 +4836,6 @@ const translations = {
         stat_most_studied: "Le plus étudié",
         chart_title: "7 derniers jours (Questions/Temps)",
         subject_mastery: "Maîtrise du sujet",
-
         lib_review: "Réviser",
         lib_start: "Commencer",
         lib_summary: "Résumé",
@@ -4592,29 +4843,82 @@ const translations = {
         lib_questions: "Questions",
         lib_min_saved: "min gagnées",
         lib_create_more: "Créer des questions",
-        lib_generating: "⏳ ..."
+        lib_generating: "⏳ ...",
+        stat_solved_label: "Résolu",
+        stat_saved_label: "Gagné",
+        stat_streak_label: "Série",
+        stat_days: "jours",
+        stat_day: "jour",
+        stat_saved_suffix: "gagné",
+        stat_no_progress: "Commencez à résoudre des questions !",
+        knowledge_sources: "Sources de connaissances",
+        connect_notion: "📓 Connecter Notion",
+        personal_interests: "Centres d'intérêt",
+        setup_personal: "👤 Configurer",
+        no_interests: "Aucun intérêt sélectionné",
+        lib_type_video: "Vidéo",
+        lib_type_text: "Texte",
+        no_materials_found: "Aucun matériel trouvé.",
+        filter_category: "Catégorie :",
+        cat_business: "Affaires",
+        cat_finance: "Finance",
+        cat_science: "Science",
+        cat_technology: "Technologie",
+        cat_health: "Santé",
+        cat_engineering: "Ingénierie",
+        cat_design: "Design",
+        cat_philosophy: "Philosophie",
+        cat_education: "Éducation",
+        cat_politics: "Société",
+        ready_to_process: "Prêt à traiter",
+        select_file: "Sélectionner un fichier...",
+        question_added: "Question ajoutée !",
+        question_required: "Le texte de la question est requis",
+        fill_options: "Remplissez toutes les options",
+        select_correct: "Sélectionnez la bonne réponse",
+        select_material: "Sélectionnez un fichier",
+        material_name_required: "Le nom du matériel est requis"
     },
     de: {
+        nav_review: "Überprüfen",
         nav_upload: "Hochladen",
         nav_library: "Bibliothek",
         nav_profile: "Profil",
-        hero_title_html: 'Verwandeln Sie Material in <br><span class="gradient-text">Meisterschaftsquiz</span>',
-        hero_desc: "Erstellen Sie hochwertige Übungsfragen aus Ihren Notizen.",
-        tab_file: "📄 Datei",
-        tab_youtube: "YouTube",
-        drop_title: "Datei hier ablegen",
-        drop_desc: "oder klicken zum Durchsuchen",
+        hero_title_html: '<span class="gradient-text">Erkenntnisse</span> erfassen',
+        hero_desc: "Videos und Notizen in Meisterschaft verwandeln.",
+        tab_file: "📄 Dokument",
+        tab_youtube: "▶ YouTube",
+        tab_creative: "🎨 Kreativ",
+        drop_title: "Dokument hochladen",
+        drop_desc: "PDF, DOC, DOCX",
         btn_generate: "Quiz erstellen",
-        yt_title: "YouTube-Link einfügen",
-        yt_desc: "Automatische Untertitel-Extraktion",
+        btn_yt_quiz: "▶️ YouTube-Quiz starten",
+        btn_news_quiz: "📰 Nachrichten-Quiz starten",
+        yt_title: "YouTube-URL eingeben",
         api_hint: "Leer lassen für Standard",
-        back_library: "Zurück zur Bibliothek",
+        creative_title: "Kreatives Werk",
+        creative_label_title: "Titel",
+        creative_label_author: "Autor / Regisseur (Optional)",
+        creative_label_type: "Typ",
+        creative_movie: "🎬 Film",
+        creative_book: "📖 Buch",
+        creative_tvshow: "📺 TV-Serie",
+        creative_music: "🎵 Musikalbum",
+        creative_art: "🎭 Kunst / Theater",
+        back_library: "Zurück",
         explanation: "Erklärung",
         btn_previous: "Zurück",
         btn_next: "Weiter",
         btn_finish: "Fertig",
+        btn_more_questions: "+ Mehr Fragen",
+        btn_generating: "⏳ Wird erstellt...",
+        toast_spawning: "🔄 Bonusfrage wird erstellt...",
+        toast_spawned: "✨ Neue Frage erstellt!",
+        toast_added_queue: "✨ Neue Frage hinzugefügt!",
+        expert_insight: "✨ Experteneinblick",
+        tap_reveal: "Tippen zum Aufdecken",
         library_title_html: 'Ihre <span class="gradient-text">Bibliothek</span>',
-        library_desc: "Überprüfen Sie Ihre Notizen und wiederholen Sie Quiz.",
+        library_desc: "Notizen überprüfen und Quiz wiederholen.",
         endless_review: "Endlosmodus",
         create_question: "Frage erstellen",
         create_material: "Material erstellen",
@@ -4622,6 +4926,10 @@ const translations = {
         filter_type: "Typ:",
         date_newest: "Datum (Neueste)",
         date_oldest: "Datum (Älteste)",
+        sort_solved_desc: "Meiste Fragen gelöst",
+        sort_solved_asc: "Wenigste Fragen gelöst",
+        sort_time_desc: "Meiste Zeit gespart",
+        sort_time_asc: "Wenigste Zeit gespart",
         all_materials: "Alle",
         type_video: "Video",
         type_doc: "Dokument",
@@ -4629,9 +4937,8 @@ const translations = {
         loading_library: "Laden...",
         library_empty: "Bibliothek ist leer. Laden Sie eine Datei hoch!",
         alert_library_empty: "Bibliothek ist leer! Laden Sie zuerst Inhalte hoch.",
-        alert_no_questions: "Keine Fragen in der Bibliothek gefunden.",
+        alert_no_questions: "Keine Fragen gefunden.",
         translating_questions: "Fragen werden übersetzt...",
-
         profile_title_html: 'Ihre <span class="gradient-text">Lernreise</span>',
         profile_desc: "Verfolgen Sie Ihren Fortschritt.",
         stat_time: "Zeit gespart",
@@ -4643,7 +4950,6 @@ const translations = {
         stat_most_studied: "Meist gelernt",
         chart_title: "Letzte 7 Tage (Fragen/Zeit)",
         subject_mastery: "Fachbeherrschung",
-
         lib_review: "Überprüfen",
         lib_start: "Starten",
         lib_summary: "Zusammenfassung",
@@ -4651,27 +4957,80 @@ const translations = {
         lib_questions: "Fragen",
         lib_min_saved: "Min gespart",
         lib_create_more: "Neue Fragen erstellen",
-        lib_generating: "⏳ ..."
+        lib_generating: "⏳ ...",
+        stat_solved_label: "Gelöst",
+        stat_saved_label: "Gespart",
+        stat_streak_label: "Serie",
+        stat_days: "Tage",
+        stat_day: "Tag",
+        stat_saved_suffix: "gespart",
+        stat_no_progress: "Lösen Sie Fragen, um Ihren Fortschritt zu sehen!",
+        knowledge_sources: "Wissensquellen",
+        connect_notion: "📓 Notion verbinden",
+        personal_interests: "Persönliche Interessen",
+        setup_personal: "👤 Einrichten",
+        no_interests: "Keine Interessen ausgewählt",
+        lib_type_video: "Video",
+        lib_type_text: "Text",
+        no_materials_found: "Kein passendes Material gefunden.",
+        filter_category: "Kategorie:",
+        cat_business: "Wirtschaft",
+        cat_finance: "Finanzen",
+        cat_science: "Wissenschaft",
+        cat_technology: "Technologie",
+        cat_health: "Gesundheit",
+        cat_engineering: "Ingenieurwesen",
+        cat_design: "Design",
+        cat_philosophy: "Philosophie",
+        cat_education: "Bildung",
+        cat_politics: "Gesellschaft",
+        ready_to_process: "Bereit zur Verarbeitung",
+        select_file: "Datei auswählen...",
+        question_added: "Frage hinzugefügt!",
+        question_required: "Fragetext ist erforderlich",
+        fill_options: "Alle Optionen ausfüllen",
+        select_correct: "Richtige Antwort auswählen",
+        select_material: "Materialdatei auswählen",
+        material_name_required: "Materialname ist erforderlich"
     },
     es: {
+        nav_review: "Revisar",
         nav_upload: "Subir",
         nav_library: "Biblioteca",
         nav_profile: "Perfil",
-        hero_title_html: 'Convierte notas en <br><span class="gradient-text">Cuestionarios</span>',
-        hero_desc: "Genera preguntas de práctica de alta calidad.",
-        tab_file: "📄 Archivo",
-        tab_youtube: "YouTube",
-        drop_title: "Arrastra tu archivo aquí",
-        drop_desc: "o haz clic para buscar",
+        hero_title_html: 'Captura <span class="gradient-text">Ideas</span>',
+        hero_desc: "Convierte videos y notas en dominio.",
+        tab_file: "📄 Documento",
+        tab_youtube: "▶ YouTube",
+        tab_creative: "🎨 Creativo",
+        drop_title: "Subir documento",
+        drop_desc: "PDF, DOC, DOCX",
         btn_generate: "Generar Quiz",
-        yt_title: "Pegar enlace de YouTube",
-        yt_desc: "Extracción automática de subtítulos",
-        api_hint: "Dejar en blanco para valor predeterminado",
-        back_library: "Volver a la biblioteca",
+        btn_yt_quiz: "▶️ Quiz de YouTube",
+        btn_news_quiz: "📰 Quiz de Noticias",
+        yt_title: "Ingresa URL de YouTube",
+        api_hint: "Dejar en blanco para predeterminado",
+        creative_title: "Obra creativa",
+        creative_label_title: "Título",
+        creative_label_author: "Autor / Director (Opcional)",
+        creative_label_type: "Tipo",
+        creative_movie: "🎬 Película",
+        creative_book: "📖 Libro",
+        creative_tvshow: "📺 Serie de TV",
+        creative_music: "🎵 Álbum musical",
+        creative_art: "🎭 Arte / Teatro",
+        back_library: "Atrás",
         explanation: "Explicación",
         btn_previous: "Anterior",
         btn_next: "Siguiente",
         btn_finish: "Finalizar",
+        btn_more_questions: "+ Más preguntas",
+        btn_generating: "⏳ Generando...",
+        toast_spawning: "🔄 Generando pregunta bonus...",
+        toast_spawned: "✨ ¡Nueva pregunta generada!",
+        toast_added_queue: "✨ ¡Nueva pregunta añadida!",
+        expert_insight: "✨ Perspectiva experta",
+        tap_reveal: "Toca para revelar",
         library_title_html: 'Tu <span class="gradient-text">Biblioteca</span>',
         library_desc: "Revisa tus notas y repite los cuestionarios.",
         endless_review: "Modo infinito",
@@ -4681,16 +5040,19 @@ const translations = {
         filter_type: "Tipo:",
         date_newest: "Fecha (Más reciente)",
         date_oldest: "Fecha (Más antiguo)",
+        sort_solved_desc: "Más resueltas",
+        sort_solved_asc: "Menos resueltas",
+        sort_time_desc: "Más tiempo ahorrado",
+        sort_time_asc: "Menos tiempo ahorrado",
         all_materials: "Todos",
         type_video: "Video",
         type_doc: "Documento",
         no_files_found: "No se encontraron archivos.",
         loading_library: "Cargando...",
-        library_empty: "La biblioteca está vacía. ¡Sube un archivo para comenzar!",
-        alert_library_empty: "¡La biblioteca está vacía! Sube contenido primero.",
-        alert_no_questions: "No se encontraron preguntas en la biblioteca.",
+        library_empty: "Biblioteca vacía. ¡Sube un archivo!",
+        alert_library_empty: "¡Biblioteca vacía! Sube contenido primero.",
+        alert_no_questions: "No se encontraron preguntas.",
         translating_questions: "Traduciendo preguntas...",
-
         profile_title_html: 'Tu <span class="gradient-text">Viaje de Aprendizaje</span>',
         profile_desc: "Sigue tu progreso y estadísticas.",
         stat_time: "Tiempo ahorrado",
@@ -4702,7 +5064,6 @@ const translations = {
         stat_most_studied: "Más estudiado",
         chart_title: "Últimos 7 días (Preguntas/Tiempo)",
         subject_mastery: "Dominio del tema",
-
         lib_review: "Revisar",
         lib_start: "Empezar",
         lib_summary: "Resumen",
@@ -4710,27 +5071,80 @@ const translations = {
         lib_questions: "Preguntas",
         lib_min_saved: "min ahorrados",
         lib_create_more: "Crear nuevas preguntas",
-        lib_generating: "⏳ ..."
+        lib_generating: "⏳ ...",
+        stat_solved_label: "Resueltas",
+        stat_saved_label: "Ahorrado",
+        stat_streak_label: "Racha",
+        stat_days: "días",
+        stat_day: "día",
+        stat_saved_suffix: "ahorrado",
+        stat_no_progress: "¡Resuelve preguntas para ver tu progreso!",
+        knowledge_sources: "Fuentes de conocimiento",
+        connect_notion: "📓 Conectar Notion",
+        personal_interests: "Intereses personales",
+        setup_personal: "👤 Configurar",
+        no_interests: "Sin intereses seleccionados",
+        lib_type_video: "Video",
+        lib_type_text: "Texto",
+        no_materials_found: "No se encontró material.",
+        filter_category: "Categoría:",
+        cat_business: "Negocios",
+        cat_finance: "Finanzas",
+        cat_science: "Ciencia",
+        cat_technology: "Tecnología",
+        cat_health: "Salud",
+        cat_engineering: "Ingeniería",
+        cat_design: "Diseño",
+        cat_philosophy: "Filosofía",
+        cat_education: "Educación",
+        cat_politics: "Sociedad",
+        ready_to_process: "Listo para procesar",
+        select_file: "Seleccionar archivo...",
+        question_added: "¡Pregunta añadida!",
+        question_required: "El texto de la pregunta es obligatorio",
+        fill_options: "Complete todas las opciones",
+        select_correct: "Seleccione la respuesta correcta",
+        select_material: "Seleccione un archivo de material",
+        material_name_required: "El nombre del material es obligatorio"
     },
     pt: {
+        nav_review: "Revisar",
         nav_upload: "Carregar",
         nav_library: "Biblioteca",
         nav_profile: "Perfil",
-        hero_title_html: 'Transforme estudos em <br><span class="gradient-text">Quizzes</span>',
-        hero_desc: "Gere perguntas de prática de alta qualidade.",
-        tab_file: "📄 Arquivo",
-        tab_youtube: "YouTube",
-        drop_title: "Arraste seu arquivo aqui",
-        drop_desc: "ou clique para navegar",
+        hero_title_html: 'Capture <span class="gradient-text">Insights</span>',
+        hero_desc: "Transforme vídeos e notas em domínio.",
+        tab_file: "📄 Documento",
+        tab_youtube: "▶ YouTube",
+        tab_creative: "🎨 Criativo",
+        drop_title: "Carregar documento",
+        drop_desc: "PDF, DOC, DOCX",
         btn_generate: "Gerar Quiz",
-        yt_title: "Colar link do YouTube",
-        yt_desc: "Extração automática de legendas",
+        btn_yt_quiz: "▶️ Quiz do YouTube",
+        btn_news_quiz: "📰 Quiz de Notícias",
+        yt_title: "Insira a URL do YouTube",
         api_hint: "Deixe em branco para o padrão",
-        back_library: "Voltar à biblioteca",
+        creative_title: "Obra criativa",
+        creative_label_title: "Título",
+        creative_label_author: "Autor / Diretor (Opcional)",
+        creative_label_type: "Tipo",
+        creative_movie: "🎬 Filme",
+        creative_book: "📖 Livro",
+        creative_tvshow: "📺 Série de TV",
+        creative_music: "🎵 Álbum musical",
+        creative_art: "🎭 Arte / Teatro",
+        back_library: "Voltar",
         explanation: "Explicação",
         btn_previous: "Anterior",
         btn_next: "Próximo",
         btn_finish: "Finalizar",
+        btn_more_questions: "+ Mais questões",
+        btn_generating: "⏳ Gerando...",
+        toast_spawning: "🔄 Gerando questão bônus...",
+        toast_spawned: "✨ Nova questão gerada!",
+        toast_added_queue: "✨ Nova questão adicionada!",
+        expert_insight: "✨ Visão especializada",
+        tap_reveal: "Toque para revelar",
         library_title_html: 'Sua <span class="gradient-text">Biblioteca</span>',
         library_desc: "Revise suas notas e refaça os questionários.",
         endless_review: "Modo infinito",
@@ -4740,16 +5154,19 @@ const translations = {
         filter_type: "Tipo:",
         date_newest: "Data (Mais recente)",
         date_oldest: "Data (Mais antiga)",
+        sort_solved_desc: "Mais resolvidas",
+        sort_solved_asc: "Menos resolvidas",
+        sort_time_desc: "Mais tempo economizado",
+        sort_time_asc: "Menos tempo economizado",
         all_materials: "Todos",
         type_video: "Vídeo",
         type_doc: "Documento",
         no_files_found: "Nenhum arquivo encontrado.",
         loading_library: "Carregando...",
-        library_empty: "A biblioteca está vazia. Carregue um arquivo para começar!",
-        alert_library_empty: "A biblioteca está vazia! Carregue conteúdo primeiro.",
-        alert_no_questions: "Nenhuma pergunta encontrada na biblioteca.",
+        library_empty: "Biblioteca vazia. Carregue um arquivo!",
+        alert_library_empty: "Biblioteca vazia! Carregue conteúdo primeiro.",
+        alert_no_questions: "Nenhuma pergunta encontrada.",
         translating_questions: "Traduzindo perguntas...",
-
         profile_title_html: 'Sua <span class="gradient-text">Jornada</span>',
         profile_desc: "Acompanhe seu progresso.",
         stat_time: "Tempo economizado",
@@ -4761,7 +5178,6 @@ const translations = {
         stat_most_studied: "Mais estudado",
         chart_title: "Últimos 7 dias (Questões/Tempo)",
         subject_mastery: "Domínio do assunto",
-
         lib_review: "Revisar",
         lib_start: "Começar",
         lib_summary: "Resumo",
@@ -4769,27 +5185,80 @@ const translations = {
         lib_questions: "Questões",
         lib_min_saved: "min economizados",
         lib_create_more: "Criar novas perguntas",
-        lib_generating: "⏳ ..."
+        lib_generating: "⏳ ...",
+        stat_solved_label: "Resolvidas",
+        stat_saved_label: "Economizado",
+        stat_streak_label: "Sequência",
+        stat_days: "dias",
+        stat_day: "dia",
+        stat_saved_suffix: "economizado",
+        stat_no_progress: "Resolva questões para ver seu progresso!",
+        knowledge_sources: "Fontes de conhecimento",
+        connect_notion: "📓 Conectar Notion",
+        personal_interests: "Interesses pessoais",
+        setup_personal: "👤 Configurar",
+        no_interests: "Nenhum interesse selecionado",
+        lib_type_video: "Vídeo",
+        lib_type_text: "Texto",
+        no_materials_found: "Nenhum material encontrado.",
+        filter_category: "Categoria:",
+        cat_business: "Negócios",
+        cat_finance: "Finanças",
+        cat_science: "Ciência",
+        cat_technology: "Tecnologia",
+        cat_health: "Saúde",
+        cat_engineering: "Engenharia",
+        cat_design: "Design",
+        cat_philosophy: "Filosofia",
+        cat_education: "Educação",
+        cat_politics: "Sociedade",
+        ready_to_process: "Pronto para processar",
+        select_file: "Selecionar arquivo...",
+        question_added: "Pergunta adicionada!",
+        question_required: "O texto da pergunta é obrigatório",
+        fill_options: "Preencha todas as opções",
+        select_correct: "Selecione a resposta correta",
+        select_material: "Selecione um arquivo de material",
+        material_name_required: "O nome do material é obrigatório"
     },
     vi: {
+        nav_review: "Ôn tập",
         nav_upload: "Tải lên",
         nav_library: "Thư viện",
         nav_profile: "Hồ sơ",
-        hero_title_html: 'Biến tài liệu thành <br><span class="gradient-text">Bài kiểm tra</span>',
-        hero_desc: "Tạo câu hỏi thực hành chất lượng cao từ ghi chú.",
-        tab_file: "📄 Tải tệp",
-        tab_youtube: "YouTube",
-        drop_title: "Kéo và thả tệp vào đây",
-        drop_desc: "hoặc nhấp để duyệt",
+        hero_title_html: 'Nắm bắt <span class="gradient-text">Insights</span>',
+        hero_desc: "Biến video và ghi chú thành kiến thức.",
+        tab_file: "📄 Tài liệu",
+        tab_youtube: "▶ YouTube",
+        tab_creative: "🎨 Sáng tạo",
+        drop_title: "Tải lên tài liệu",
+        drop_desc: "PDF, DOC, DOCX",
         btn_generate: "Tạo Quiz",
-        yt_title: "Dán liên kết YouTube",
-        yt_desc: "Tự động trích xuất phụ đề",
+        btn_yt_quiz: "▶️ Quiz YouTube",
+        btn_news_quiz: "📰 Quiz Tin tức",
+        yt_title: "Nhập URL YouTube",
         api_hint: "Để trống để dùng mặc định",
-        back_library: "Quay lại thư viện",
+        creative_title: "Tác phẩm sáng tạo",
+        creative_label_title: "Tiêu đề",
+        creative_label_author: "Tác giả / Đạo diễn (Tùy chọn)",
+        creative_label_type: "Loại",
+        creative_movie: "🎬 Phim",
+        creative_book: "📖 Sách",
+        creative_tvshow: "📺 Chương trình TV",
+        creative_music: "🎵 Album nhạc",
+        creative_art: "🎭 Nghệ thuật / Kịch",
+        back_library: "Quay lại",
         explanation: "Giải thích",
         btn_previous: "Trước",
         btn_next: "Tiếp",
         btn_finish: "Hoàn thành",
+        btn_more_questions: "+ Thêm câu hỏi",
+        btn_generating: "⏳ Đang tạo...",
+        toast_spawning: "🔄 Đang tạo câu hỏi thưởng...",
+        toast_spawned: "✨ Câu hỏi mới đã được tạo!",
+        toast_added_queue: "✨ Câu hỏi mới đã thêm!",
+        expert_insight: "✨ Góc nhìn chuyên gia",
+        tap_reveal: "Chạm để xem đáp án",
         library_title_html: '<span class="gradient-text">Thư viện</span> của bạn',
         library_desc: "Xem lại ghi chú và làm lại bài kiểm tra.",
         endless_review: "Chế độ vô tận",
@@ -4799,6 +5268,10 @@ const translations = {
         filter_type: "Loại:",
         date_newest: "Ngày (Mới nhất)",
         date_oldest: "Ngày (Cũ nhất)",
+        sort_solved_desc: "Giải nhiều nhất",
+        sort_solved_asc: "Giải ít nhất",
+        sort_time_desc: "Tiết kiệm nhiều nhất",
+        sort_time_asc: "Tiết kiệm ít nhất",
         all_materials: "Tất cả",
         type_video: "Video",
         type_doc: "Tài liệu",
@@ -4806,9 +5279,8 @@ const translations = {
         loading_library: "Đang tải...",
         library_empty: "Thư viện trống. Tải lên tệp để bắt đầu!",
         alert_library_empty: "Thư viện trống! Hãy tải nội dung lên trước.",
-        alert_no_questions: "Không tìm thấy câu hỏi nào trong thư viện.",
+        alert_no_questions: "Không tìm thấy câu hỏi nào.",
         translating_questions: "Đang dịch câu hỏi...",
-
         profile_title_html: '<span class="gradient-text">Hành trình học tập</span>',
         profile_desc: "Theo dõi tiến độ và thống kê.",
         stat_time: "Thời gian tiết kiệm",
@@ -4820,7 +5292,6 @@ const translations = {
         stat_most_studied: "Học nhiều nhất",
         chart_title: "7 ngày qua (Câu hỏi/Thời gian)",
         subject_mastery: "Làm chủ môn học",
-
         lib_review: "Ôn tập",
         lib_start: "Bắt đầu",
         lib_summary: "Tóm tắt",
@@ -4828,29 +5299,82 @@ const translations = {
         lib_questions: "Câu hỏi",
         lib_min_saved: "phút đã lưu",
         lib_create_more: "Tạo câu hỏi mới",
-        lib_generating: "⏳ ..."
+        lib_generating: "⏳ ...",
+        stat_solved_label: "Đã giải",
+        stat_saved_label: "Đã tiết kiệm",
+        stat_streak_label: "Chuỗi",
+        stat_days: "ngày",
+        stat_day: "ngày",
+        stat_saved_suffix: "đã lưu",
+        stat_no_progress: "Giải câu hỏi để xem tiến độ!",
+        knowledge_sources: "Nguồn kiến thức",
+        connect_notion: "📓 Kết nối Notion",
+        personal_interests: "Sở thích cá nhân",
+        setup_personal: "👤 Cài đặt",
+        no_interests: "Chưa chọn sở thích",
+        lib_type_video: "Video",
+        lib_type_text: "Văn bản",
+        no_materials_found: "Không tìm thấy tài liệu.",
+        filter_category: "Danh mục:",
+        cat_business: "Kinh doanh",
+        cat_finance: "Tài chính",
+        cat_science: "Khoa học",
+        cat_technology: "Công nghệ",
+        cat_health: "Sức khỏe",
+        cat_engineering: "Kỹ thuật",
+        cat_design: "Thiết kế",
+        cat_philosophy: "Triết học",
+        cat_education: "Giáo dục",
+        cat_politics: "Xã hội",
+        ready_to_process: "Sẵn sàng xử lý",
+        select_file: "Chọn tệp...",
+        question_added: "Đã thêm câu hỏi!",
+        question_required: "Vui lòng nhập câu hỏi",
+        fill_options: "Vui lòng điền tất cả các tùy chọn",
+        select_correct: "Chọn đáp án đúng",
+        select_material: "Chọn tệp tài liệu",
+        material_name_required: "Tên tài liệu là bắt buộc"
     },
     hi: {
+        nav_review: "समीक्षा",
         nav_upload: "अपलोड",
         nav_library: "लाइब्रेरी",
         nav_profile: "प्रोफाइल",
-        hero_title_html: 'अध्ययन सामग्री को <br><span class="gradient-text">क्विज़</span> में बदलें',
-        hero_desc: "अपने नोट्स या वीडियो से उच्च गुणवत्ता वाले प्रश्न बनाएं।",
-        tab_file: "📄 फ़ाइल अपलोड",
-        tab_youtube: "यूट्यूब वीडियो",
-        drop_title: "अपनी फ़ाइल यहाँ खींचें",
-        drop_desc: "या ब्राउज़ करने के लिए क्लिक करें",
+        hero_title_html: '<span class="gradient-text">अंतर्दृष्टि</span> कैप्चर करें',
+        hero_desc: "वीडियो और नोट्स को महारत में बदलें।",
+        tab_file: "📄 दस्तावेज़",
+        tab_youtube: "▶ YouTube",
+        tab_creative: "🎨 रचनात्मक",
+        drop_title: "दस्तावेज़ अपलोड करें",
+        drop_desc: "PDF, DOC, DOCX",
         btn_generate: "क्विज़ बनाएं",
-        yt_title: "यूट्यूब लिंक पेस्ट करें",
-        yt_desc: "स्वचालित रूप से कैप्शन निकालता है",
-        api_hint: "सर्वर डिफ़ॉल्ट का उपयोग करने के लिए खाली छोड़ें",
-        back_library: "लाइब्रेरी पर वापस जाएं",
+        btn_yt_quiz: "▶️ YouTube क्विज़ शुरू करें",
+        btn_news_quiz: "📰 समाचार क्विज़ शुरू करें",
+        yt_title: "YouTube URL दर्ज करें",
+        api_hint: "सर्वर डिफ़ॉल्ट के लिए खाली छोड़ें",
+        creative_title: "रचनात्मक कार्य",
+        creative_label_title: "शीर्षक",
+        creative_label_author: "लेखक / निर्देशक (वैकल्पिक)",
+        creative_label_type: "प्रकार",
+        creative_movie: "🎬 फ़िल्म",
+        creative_book: "📖 किताब",
+        creative_tvshow: "📺 टीवी शो",
+        creative_music: "🎵 संगीत एल्बम",
+        creative_art: "🎭 कला / नाटक",
+        back_library: "वापस",
         explanation: "व्याख्या",
         btn_previous: "पिछला",
         btn_next: "अगला",
-        btn_finish: "समीक्षा समाप्त करें",
+        btn_finish: "समाप्त",
+        btn_more_questions: "+ अधिक प्रश्न",
+        btn_generating: "⏳ बना रहे हैं...",
+        toast_spawning: "🔄 बोनस प्रश्न बना रहे हैं...",
+        toast_spawned: "✨ नया प्रश्न बनाया गया!",
+        toast_added_queue: "✨ नया प्रश्न जोड़ा गया!",
+        expert_insight: "✨ विशेषज्ञ अंतर्दृष्टि",
+        tap_reveal: "उत्तर देखने के लिए टैप करें",
         library_title_html: 'आपकी <span class="gradient-text">अध्ययन लाइब्रेरी</span>',
-        library_desc: "पिछले अपलोड किए गए नोट्स की समीक्षा करें और क्विज़ दोबारा लें।",
+        library_desc: "नोट्स की समीक्षा करें और क्विज़ दोबारा लें।",
         endless_review: "अनंत समीक्षा",
         create_question: "प्रश्न बनाएं",
         create_material: "सामग्री बनाएं",
@@ -4858,16 +5382,19 @@ const translations = {
         filter_type: "प्रकार:",
         date_newest: "तिथि (नवीनतम)",
         date_oldest: "तिथि (सबसे पुराना)",
+        sort_solved_desc: "सबसे अधिक हल किए गए",
+        sort_solved_asc: "सबसे कम हल किए गए",
+        sort_time_desc: "सबसे अधिक समय बचाया",
+        sort_time_asc: "सबसे कम समय बचाया",
         all_materials: "सभी सामग्री",
         type_video: "वीडियो",
         type_doc: "दस्तावेज़",
         no_files_found: "कोई फ़ाइल नहीं मिली।",
         loading_library: "लोड हो रहा है...",
-        library_empty: "लाइब्रेरी खाली है। शुरू करने के लिए फ़ाइल अपलोड करें!",
+        library_empty: "लाइब्रेरी खाली है। फ़ाइल अपलोड करें!",
         alert_library_empty: "लाइब्रेरी खाली है! पहले सामग्री अपलोड करें।",
-        alert_no_questions: "लाइब्रेरी में कोई प्रश्न नहीं मिला।",
-        translating_questions: "प्रश्नों का अनुवाद किया जा रहा है...",
-
+        alert_no_questions: "कोई प्रश्न नहीं मिला।",
+        translating_questions: "प्रश्नों का अनुवाद हो रहा है...",
         profile_title_html: 'आपकी <span class="gradient-text">सीखने की यात्रा</span>',
         profile_desc: "अपनी प्रगति और आंकड़ों को ट्रैक करें।",
         stat_time: "बचाया गया समय",
@@ -4879,7 +5406,6 @@ const translations = {
         stat_most_studied: "सबसे अधिक अध्ययन किया",
         chart_title: "पिछले 7 दिन (प्रश्न/समय)",
         subject_mastery: "विषय में महारत",
-
         lib_review: "समीक्षा करें",
         lib_start: "शुरू करें",
         lib_summary: "सारांश",
@@ -4887,29 +5413,82 @@ const translations = {
         lib_questions: "प्रश्न",
         lib_min_saved: "मिनट बचाए",
         lib_create_more: "नए प्रश्न बनाएं",
-        lib_generating: "⏳ ..."
+        lib_generating: "⏳ ...",
+        stat_solved_label: "हल किए",
+        stat_saved_label: "बचाया",
+        stat_streak_label: "लगातार",
+        stat_days: "दिन",
+        stat_day: "दिन",
+        stat_saved_suffix: "बचाया",
+        stat_no_progress: "प्रगति देखने के लिए प्रश्न हल करें!",
+        knowledge_sources: "ज्ञान स्रोत",
+        connect_notion: "📓 Notion जोड़ें",
+        personal_interests: "व्यक्तिगत रुचियाँ",
+        setup_personal: "👤 सेटअप",
+        no_interests: "कोई रुचि नहीं चुनी",
+        lib_type_video: "वीडियो",
+        lib_type_text: "टेक्स्ट",
+        no_materials_found: "कोई सामग्री नहीं मिली।",
+        filter_category: "श्रेणी:",
+        cat_business: "व्यवसाय",
+        cat_finance: "वित्त",
+        cat_science: "विज्ञान",
+        cat_technology: "प्रौद्योगिकी",
+        cat_health: "स्वास्थ्य",
+        cat_engineering: "इंजीनियरिंग",
+        cat_design: "डिज़ाइन",
+        cat_philosophy: "दर्शन",
+        cat_education: "शिक्षा",
+        cat_politics: "समाज",
+        ready_to_process: "प्रक्रिया के लिए तैयार",
+        select_file: "फ़ाइल चुनें...",
+        question_added: "प्रश्न जोड़ा गया!",
+        question_required: "प्रश्न टेक्स्ट आवश्यक है",
+        fill_options: "सभी विकल्प भरें",
+        select_correct: "सही उत्तर चुनें",
+        select_material: "सामग्री फ़ाइल चुनें",
+        material_name_required: "सामग्री का नाम आवश्यक है"
     },
     ar: {
+        nav_review: "مراجعة",
         nav_upload: "رفع",
         nav_library: "المكتبة",
         nav_profile: "الملف",
-        hero_title_html: 'حول المواد الدراسية إلى <br><span class="gradient-text">اختبارات إتقان</span>',
-        hero_desc: "أنشئ أسئلة تدريب عالية الجودة من ملاحظاتك أو مقاطع الفيديو.",
-        tab_file: "📄 رفع ملف",
-        tab_youtube: "يوتيوب",
-        drop_title: "سحب وإسقاط الملف هنا",
-        drop_desc: "أو انقر للتصفح",
+        hero_title_html: 'التقط <span class="gradient-text">الأفكار</span>',
+        hero_desc: "حوّل الفيديوهات والملاحظات إلى إتقان.",
+        tab_file: "📄 مستند",
+        tab_youtube: "▶ يوتيوب",
+        tab_creative: "🎨 إبداعي",
+        drop_title: "رفع مستند",
+        drop_desc: "PDF, DOC, DOCX",
         btn_generate: "إنشاء اختبار",
-        yt_title: "لصق رابط يوتيوب",
-        yt_desc: "استخراج تلقائي للتسميات التوضيحية",
-        api_hint: "اتركه فارغًا لاستخدام الافتراضي",
-        back_library: "العودة إلى المكتبة",
+        btn_yt_quiz: "▶️ اختبار يوتيوب",
+        btn_news_quiz: "📰 اختبار الأخبار",
+        yt_title: "أدخل رابط يوتيوب",
+        api_hint: "اتركه فارغًا للافتراضي",
+        creative_title: "عمل إبداعي",
+        creative_label_title: "العنوان",
+        creative_label_author: "المؤلف / المخرج (اختياري)",
+        creative_label_type: "النوع",
+        creative_movie: "🎬 فيلم",
+        creative_book: "📖 كتاب",
+        creative_tvshow: "📺 مسلسل",
+        creative_music: "🎵 ألبوم موسيقي",
+        creative_art: "🎭 فن / مسرح",
+        back_library: "رجوع",
         explanation: "شرح",
         btn_previous: "السابق",
         btn_next: "التالي",
-        btn_finish: "إنهاء المراجعة",
+        btn_finish: "إنهاء",
+        btn_more_questions: "+ أسئلة إضافية",
+        btn_generating: "⏳ جارٍ الإنشاء...",
+        toast_spawning: "🔄 جارٍ إنشاء سؤال إضافي...",
+        toast_spawned: "✨ تم إنشاء سؤال جديد!",
+        toast_added_queue: "✨ تم إضافة سؤال جديد!",
+        expert_insight: "✨ رؤية خبير",
+        tap_reveal: "انقر لكشف الإجابة",
         library_title_html: '<span class="gradient-text">مكتبتك</span> الدراسية',
-        library_desc: "راجع ملاحظاتك السابقة وأعد الاختبارات.",
+        library_desc: "راجع ملاحظاتك وأعد الاختبارات.",
         endless_review: "مراجعة لا نهائية",
         create_question: "إنشاء سؤال",
         create_material: "إنشاء مادة",
@@ -4917,20 +5496,23 @@ const translations = {
         filter_type: "النوع:",
         date_newest: "التاريخ (الأحدث)",
         date_oldest: "التاريخ (الأقدم)",
+        sort_solved_desc: "الأكثر حلاً",
+        sort_solved_asc: "الأقل حلاً",
+        sort_time_desc: "أكثر وقت موفر",
+        sort_time_asc: "أقل وقت موفر",
         all_materials: "جميع المواد",
         type_video: "فيديو",
         type_doc: "وثيقة",
         no_files_found: "لم يتم العثور على ملفات.",
         loading_library: "جارٍ التحميل...",
-        library_empty: "المكتبة فارغة. قم بتحميل ملف للبدء!",
-        alert_library_empty: "المكتبة فارغة! قم بتحميل المحتوى أولاً.",
-        alert_no_questions: "لم يتم العثور على أسئلة في المكتبة.",
+        library_empty: "المكتبة فارغة. قم بتحميل ملف!",
+        alert_library_empty: "المكتبة فارغة! حمّل المحتوى أولاً.",
+        alert_no_questions: "لم يتم العثور على أسئلة.",
         translating_questions: "جارٍ ترجمة الأسئلة...",
-
         profile_title_html: '<span class="gradient-text">رحلة التعلم</span> الخاصة بك',
-        profile_desc: "تتبع تقدمك وإحصائياتك عبر جميع المواد.",
+        profile_desc: "تتبع تقدمك وإحصائياتك.",
         stat_time: "الوقت الموفر",
-        stat_time_desc: "نظام تسجيل الدقة الذكي",
+        stat_time_desc: "نظام الدقة الذكي",
         stat_qs: "الأسئلة المحلولة",
         stat_qs_desc: "الإجمالي عبر جميع المواد",
         stat_top: "أفضل مادة",
@@ -4938,7 +5520,6 @@ const translations = {
         stat_most_studied: "الأكثر دراسة",
         chart_title: "آخر 7 أيام (أسئلة/وقت)",
         subject_mastery: "إتقان الموضوع",
-
         lib_review: "مراجعة",
         lib_start: "يبدأ",
         lib_summary: "ملخص",
@@ -4946,7 +5527,41 @@ const translations = {
         lib_questions: "أسئلة",
         lib_min_saved: "دقيقة وفرت",
         lib_create_more: "إنشاء أسئلة جديدة",
-        lib_generating: "⏳ ..."
+        lib_generating: "⏳ ...",
+        stat_solved_label: "محلولة",
+        stat_saved_label: "موفر",
+        stat_streak_label: "سلسلة",
+        stat_days: "أيام",
+        stat_day: "يوم",
+        stat_saved_suffix: "موفر",
+        stat_no_progress: "ابدأ بحل الأسئلة لرؤية تقدمك!",
+        knowledge_sources: "مصادر المعرفة",
+        connect_notion: "📓 ربط Notion",
+        personal_interests: "الاهتمامات الشخصية",
+        setup_personal: "👤 إعداد",
+        no_interests: "لم يتم اختيار اهتمامات",
+        lib_type_video: "فيديو",
+        lib_type_text: "نص",
+        no_materials_found: "لم يتم العثور على مواد.",
+        filter_category: "الفئة:",
+        cat_business: "أعمال",
+        cat_finance: "مالية",
+        cat_science: "علوم",
+        cat_technology: "تكنولوجيا",
+        cat_health: "صحة",
+        cat_engineering: "هندسة",
+        cat_design: "تصميم",
+        cat_philosophy: "فلسفة",
+        cat_education: "تعليم",
+        cat_politics: "مجتمع",
+        ready_to_process: "جاهز للمعالجة",
+        select_file: "اختر ملفًا...",
+        question_added: "تم إضافة السؤال!",
+        question_required: "نص السؤال مطلوب",
+        fill_options: "يرجى ملء جميع الخيارات",
+        select_correct: "اختر الإجابة الصحيحة",
+        select_material: "اختر ملف المادة",
+        material_name_required: "اسم المادة مطلوب"
     }
 };
 
@@ -4963,33 +5578,28 @@ function updateLanguage(lang) {
         document.body.dir = 'ltr';
     }
 
-    const t = translations[lang];
+    const tr = translations[lang];
     const elements = document.querySelectorAll('[data-i18n]');
 
     elements.forEach(el => {
         const key = el.getAttribute('data-i18n');
-        if (t[key]) {
+        if (tr[key]) {
             if (key.endsWith('_html')) {
-                el.innerHTML = t[key];
+                el.innerHTML = tr[key];
             } else {
-                el.textContent = t[key];
+                el.textContent = tr[key];
             }
         }
     });
 
-    // Update placeholders if needed (manually map)
-
-    // ... placeholders ...
-    const ytInput = document.getElementById('youtube-input');
-
-    // Re-render active view to apply dynamic translations
+    // Re-render all active views to apply dynamic translations
     const librarySection = document.getElementById('library-section');
     const profileSection = document.getElementById('profile-section');
 
-    if (librarySection && !librarySection.classList.contains('hidden')) {
+    if (librarySection && librarySection.classList.contains('active-view')) {
         if (window.renderLibrary) window.renderLibrary();
     }
-    if (profileSection && !profileSection.classList.contains('hidden')) {
+    if (profileSection && profileSection.classList.contains('active-view')) {
         renderProfile();
     }
 }
