@@ -35,6 +35,80 @@
         });
     }
 
+    // Helper: extract YouTube video ID from URL
+    function extractVideoId(url) {
+        const patterns = [
+            /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\?\/\#]+)/,
+            /^([a-zA-Z0-9_-]{11})$/
+        ];
+        for (const p of patterns) {
+            const m = url.match(p);
+            if (m) return m[1];
+        }
+        return null;
+    }
+
+    // Helper: fetch YouTube transcript via Innertube API from browser
+    // This may fail due to CORS — used as last-resort fallback
+    async function fetchTranscriptFromBrowser(videoId) {
+        const playerBody = {
+            context: {
+                client: {
+                    clientName: 'WEB',
+                    clientVersion: '2.20240101.00.00',
+                    hl: 'en',
+                    gl: 'US'
+                }
+            },
+            videoId: videoId
+        };
+
+        // Use _originalFetch to avoid our monkey-patch loop
+        const playerRes = await _originalFetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(playerBody)
+        });
+
+        if (!playerRes.ok) throw new Error(`Innertube player failed: ${playerRes.status}`);
+        const playerData = await playerRes.json();
+
+        const videoTitle = playerData?.videoDetails?.title || 'YouTube Video';
+        const captions = playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+
+        if (!captions || captions.length === 0) {
+            throw new Error('No captions available for this video');
+        }
+
+        // Prefer manual captions over auto-generated
+        let track = captions.find(c => c.kind !== 'asr') || captions[0];
+        const captionUrl = track.baseUrl + '&fmt=json3';
+
+        const captionRes = await _originalFetch(captionUrl);
+        if (!captionRes.ok) throw new Error(`Caption fetch failed: ${captionRes.status}`);
+        const captionData = await captionRes.json();
+
+        if (!captionData.events) throw new Error('No transcript events found');
+
+        const segments = captionData.events
+            .filter(e => e.segs)
+            .map(e => ({
+                text: e.segs.map(s => s.utf8).join(''),
+                start: (e.tStartMs || 0) / 1000,
+                duration: (e.dDurationMs || 0) / 1000
+            }));
+
+        const fullText = segments.map(s => s.text).join(' ').replace(/\s+/g, ' ').trim();
+
+        console.log(`[Bridge] Browser transcript: ${fullText.length} chars, lang: ${track.languageCode}`);
+
+        return {
+            title: videoTitle,
+            transcript: fullText,
+            language: track.languageCode || 'en'
+        };
+    }
+
     // Helper: pre-assign proxy image URLs so <img> tags load immediately
     function assignImageUrls(questions) {
         questions.forEach(q => {
@@ -474,31 +548,60 @@
             }
 
             // ── YOUTUBE GENERATE ─────────────────────────────
-            // YouTube needs a server proxy for transcript fetching (CORS)
             if (path === '/api/youtube/generate' && method === 'POST') {
-                // If there's a URL, proxy the transcript through server, then generate locally
                 if (body.url) {
+                    let transcript = '';
+                    let videoTitle = 'YouTube Video';
+
+                    // Strategy 1: Try server proxy first (has 4 internal fallback strategies)
                     try {
-                        // Try fetching transcript from server proxy
+                        console.log('[Bridge] YouTube: trying server proxy...');
+                        const controller = new AbortController();
+                        const timeout = setTimeout(() => controller.abort(), 60000);
                         const proxyRes = await _originalFetch('/api/youtube/transcript', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ url: body.url })
+                            body: JSON.stringify({ url: body.url }),
+                            signal: controller.signal
                         });
+                        clearTimeout(timeout);
 
-                        if (!proxyRes.ok) {
-                            // Fallback: pass through to original server
-                            return _originalFetch(url, options);
+                        if (proxyRes.ok) {
+                            const proxyData = await proxyRes.json();
+                            transcript = proxyData.transcript || '';
+                            videoTitle = proxyData.title || videoTitle;
+                            if (transcript.length >= 50) {
+                                console.log('[Bridge] YouTube: server proxy succeeded');
+                            }
                         }
+                    } catch (e) {
+                        console.warn('[Bridge] YouTube: server proxy failed:', e.message);
+                    }
 
-                        const proxyData = await proxyRes.json();
-                        const transcript = proxyData.transcript || '';
-                        const videoTitle = proxyData.title || 'YouTube Video';
-
-                        if (!transcript || transcript.length < 50) {
-                            return jsonResponse({ error: 'Could not extract transcript from this video.' }, 400);
+                    // Strategy 2: Fetch transcript directly from browser (user's IP, not blocked)
+                    if (!transcript || transcript.length < 50) {
+                        try {
+                            console.log('[Bridge] YouTube: trying browser-side transcript fetch...');
+                            const videoId = extractVideoId(body.url);
+                            if (videoId) {
+                                const browserResult = await fetchTranscriptFromBrowser(videoId);
+                                transcript = browserResult.transcript || '';
+                                videoTitle = browserResult.title || videoTitle;
+                                if (transcript.length >= 50) {
+                                    console.log('[Bridge] YouTube: browser fetch succeeded');
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('[Bridge] YouTube: browser fetch failed:', e.message);
                         }
+                    }
 
+                    // If both strategies failed
+                    if (!transcript || transcript.length < 50) {
+                        return jsonResponse({ error: 'Could not extract transcript from this video. The video may not have captions available.' }, 400);
+                    }
+
+                    try {
                         const userId = getUserId();
                         const data = await fetchAIQuestions(transcript, videoTitle, 5);
 
@@ -516,17 +619,13 @@
                             userId
                         };
 
-                        // Pre-assign image URLs so UI can start loading immediately
                         assignImageUrls(fileObj.questions);
-
                         await clientDB.saveLibraryItem(userId, fileObj);
 
-                        // Also cache images in IndexedDB in background
                         clientImage.generateForQuestions(fileObj.questions, userId).then(() => {
                             clientDB.saveLibraryItem(userId, fileObj);
                         }).catch(err => console.warn('[Bridge] Background image cache:', err.message));
 
-                        // Background summary
                         fetchAISummary(transcript, fileObj.filename).then(summary => {
                             fileObj.summary = summary;
                             clientDB.saveLibraryItem(userId, fileObj);
@@ -534,8 +633,8 @@
 
                         return jsonResponse(fileObj);
                     } catch (e) {
-                        console.warn('[Bridge] YouTube local gen failed, falling through to server:', e.message);
-                        return _originalFetch(url, options);
+                        console.error('[Bridge] YouTube question generation failed:', e.message);
+                        return jsonResponse({ error: 'Failed to generate questions: ' + e.message }, 500);
                     }
                 }
                 // No URL = daily YouTube quiz, fall through to server
