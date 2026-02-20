@@ -840,9 +840,32 @@
 
             // ── NEWS GENERATE ────────────────────────────────
             if (path === '/api/news/generate' && method === 'POST') {
-                // News generation requires server-side news fetching
-                // Fall through to server
-                return _originalFetch(url, options);
+                // News fetching requires server-side RSS/API access
+                // Intercept the response to assign image URLs
+                try {
+                    const serverRes = await _originalFetch(url, options);
+                    if (serverRes.ok) {
+                        const data = await serverRes.json();
+                        if (data.questions && data.questions.length > 0) {
+                            assignImageUrls(data.questions);
+
+                            // Save to local DB and trigger background image caching
+                            const userId = getUserId();
+                            await clientDB.saveLibraryItem(userId, data);
+
+                            clientImage.generateForQuestions(data.questions, userId).then(() => {
+                                clientDB.saveLibraryItem(userId, data);
+                            }).catch(err => console.warn('[Bridge] News image cache:', err.message));
+                        }
+                        return jsonResponse(data);
+                    }
+                    // Return the error response as-is
+                    const errData = await serverRes.json().catch(() => ({ error: 'News quiz failed' }));
+                    return jsonResponse(errData, serverRes.status);
+                } catch (e) {
+                    console.error('[Bridge] News generate error:', e);
+                    return jsonResponse({ error: 'Failed to generate news quiz: ' + e.message }, 500);
+                }
             }
 
             // ── SYNC NOTION ──────────────────────────────────
