@@ -2368,105 +2368,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    // --- Create Question Logic ---
-    const createQuestionBtn = document.getElementById('create-question-btn');
-    const questionModal = document.getElementById('question-modal');
-    const closeQuestionModalBtn = document.getElementById('close-modal-btn');
-    const saveQuestionBtn = document.getElementById('save-question-btn');
-    const modalFileSelect = document.getElementById('modal-file-select');
-    const modalQuestion = document.getElementById('modal-question');
-    const modalExplanation = document.getElementById('modal-explanation');
-
-    if (createQuestionBtn) {
-        createQuestionBtn.addEventListener('click', () => {
-            // Populate file select
-            modalFileSelect.innerHTML = '<option value="" disabled selected>Select a file...</option>';
-            if (window.allFiles) {
-                window.allFiles.forEach(file => {
-                    const opt = document.createElement('option');
-                    opt.value = file.id;
-                    opt.textContent = file.filename;
-                    modalFileSelect.appendChild(opt);
-                });
-            }
-            questionModal.hidden = false;
-        });
-    }
-
-    if (closeQuestionModalBtn) {
-        closeQuestionModalBtn.addEventListener('click', () => {
-            questionModal.hidden = true;
-        });
-    }
-
-    if (saveQuestionBtn) {
-        saveQuestionBtn.addEventListener('click', async () => {
-            const fileId = modalFileSelect.value;
-            const questionText = modalQuestion.value.trim();
-            const explanation = modalExplanation.value.trim();
-
-            // Get options
-            const optInputs = document.querySelectorAll('.modal-opt');
-            const options = Array.from(optInputs).map(input => input.value.trim()); // Filter empty? code expects 4
-
-            // Validate options
-            if (options.some(o => !o)) {
-                alert(t('fill_options'));
-                return;
-            }
-
-            // Get correct answer
-            const correctRadio = document.querySelector('input[name="correct-opt"]:checked');
-            if (!correctRadio) {
-                alert(t('select_correct'));
-                return;
-            }
-            const correctAnswer = parseInt(correctRadio.value);
-
-            if (!fileId) {
-                alert(t('select_material'));
-                return;
-            }
-
-            if (!questionText) {
-                alert(t('question_required'));
-                return;
-            }
-
-            const newQuestion = {
-                question: questionText,
-                options: options,
-                correctAnswer: correctAnswer,
-                explanation: explanation || 'No explanation provided.'
-            };
-
-            try {
-                const response = await fetch(apiUrl('/api/questions/add'), {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest')
-                    },
-                    body: JSON.stringify({ fileId, question: newQuestion })
-                });
-
-                if (!response.ok) throw new Error('Failed to add question');
-
-                questionModal.hidden = true;
-                // Clear inputs
-                modalQuestion.value = '';
-                modalExplanation.value = '';
-                optInputs.forEach(input => input.value = '');
-                modalFileSelect.value = '';
-
-                await loadLibrary(); // Refresh
-                alert(t('question_added'));
-
-            } catch (err) {
-                alert('Error: ' + err.message);
-            }
-        });
-    }
 
 
     // Helper: Generate more questions for endless mode
@@ -4072,43 +3973,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-
-    const startYouTubeQuizBtn = document.getElementById('start-youtube-quiz-btn');
-
-    if (startYouTubeQuizBtn) {
-        startYouTubeQuizBtn.addEventListener('click', async () => {
-            const originalText = startYouTubeQuizBtn.innerText;
-            startYouTubeQuizBtn.innerText = '⏳ Generating...';
-            startYouTubeQuizBtn.disabled = true;
-
-            try {
-                // Call API
-                const res = await fetch(apiUrl('/api/youtube/generate'), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ apiKey: localStorage.getItem('gemini_api_key') })
-                });
-
-                if (!res.ok) throw new Error('Generation failed');
-                const data = await res.json();
-
-                if (data.questions && data.questions.length > 0) {
-                    activeFile = data; // Set global activeFile for Like button context
-                    startReels(data.questions, true);
-                } else {
-                    alert('Could not find enough relevant videos. Try updating your interests!');
-                }
-
-            } catch (e) {
-                console.error("YouTube Quiz Error:", e);
-                alert("Failed to generate YouTube Quiz. Please try again.");
-            } finally {
-                startYouTubeQuizBtn.innerText = originalText;
-                startYouTubeQuizBtn.disabled = false;
-            }
-        });
-    }
-
 
     const startNewsQuizBtn = document.getElementById('start-news-quiz-btn');
     if (startNewsQuizBtn) {
@@ -5743,7 +5607,7 @@ window.generateMore = async (fileId) => {
 };
 
 // --- Helper: Category Picker ---
-async function showCategoryPicker(file, container, editBtn) {
+async function showCategoryPicker(file, container, renderPills) {
     const VALID_CATEGORIES = [
         "Business", "Finance / Investing", "Science", "Technology",
         "Health / Medicine", "Engineering", "Design",
@@ -5840,19 +5704,9 @@ async function showCategoryPicker(file, container, editBtn) {
     };
 
     function closePicker() {
-        editBtn.style.display = 'inline-block';
-        container.innerHTML = '';
-        file.categories.forEach(cat => {
-            const span = document.createElement('span');
-            span.className = 'cat-pill';
-            const bg = categoryTagColors[cat] || '#8b5cf6';
-            span.style.cssText = `background:${bg}; color:white; padding:4px 12px; border-radius:20px; font-size:0.85rem; font-weight:600; margin:3px; box-shadow:0 2px 4px rgba(0,0,0,0.2);`;
-            span.textContent = cat;
-            container.appendChild(span);
-        });
+        if (typeof renderPills === 'function') renderPills();
     }
 
-    editBtn.style.display = 'none';
     renderPicker();
 }
 
@@ -5878,98 +5732,63 @@ window.openOverview = async (fileId) => {
         document.getElementById('overview-emoji').textContent = file.subjectEmoji || (file.type === 'youtube' ? '📺' : '📄');
 
         // Editable Title Logic
-        const titleEl = document.getElementById('overview-title');
+        const titleEl = document.getElementById('overview-title-text');
         titleEl.textContent = file.filename;
 
-        // Create Edit Wrapper if not exists
-        let editWrapper = document.getElementById('title-edit-wrapper');
-        if (!editWrapper) {
-            editWrapper = document.createElement('div');
-            editWrapper.id = 'title-edit-wrapper';
-            editWrapper.style.cssText = 'display: inline-flex; align-items: center; gap: 8px; vertical-align: middle;';
-            titleEl.parentNode.insertBefore(editWrapper, titleEl.nextSibling);
+        // Inline title editing — double-click to edit
+        titleEl.style.cursor = 'text';
+        titleEl.title = 'Double-click to edit';
+        titleEl.ondblclick = () => {
+            const currentTitle = titleEl.textContent;
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = currentTitle;
+            input.style.cssText = 'font-size: inherit; font-weight: inherit; font-family: inherit; border: 1px solid #ccc; border-radius: 4px; padding: 2px 6px; width: 200px; text-align: center;';
+            titleEl.style.display = 'none';
+            titleEl.parentNode.insertBefore(input, titleEl);
+            input.focus();
+            input.select();
 
-            // Move title inside? No, keep layout simple. Just add button next to it.
-            // Actually, inserting next to title is cleaner.
-        }
-
-        // Edit Button
-        let editTitleBtn = document.getElementById('edit-title-btn');
-        if (!editTitleBtn) {
-            editTitleBtn = document.createElement('span'); // Span to be inline
-            editTitleBtn.id = 'edit-title-btn';
-            editTitleBtn.innerHTML = '✏️';
-            editTitleBtn.title = 'Edit Title';
-            editTitleBtn.style.cssText = 'cursor: pointer; font-size: 0.9em; opacity: 0.5; transition: opacity 0.2s; margin-left:8px;';
-            editTitleBtn.onmouseover = () => editTitleBtn.style.opacity = '1';
-            editTitleBtn.onmouseout = () => editTitleBtn.style.opacity = '0.5';
-            titleEl.parentNode.insertBefore(editTitleBtn, titleEl.nextSibling);
-
-            // Inline Edit Logic
-            editTitleBtn.onclick = () => {
-                const currentTitle = titleEl.textContent;
-                const input = document.createElement('input');
-                input.type = 'text';
-                input.value = currentTitle;
-                input.style.cssText = 'font-size: inherit; font-weight: inherit; font-family: inherit; border: 1px solid #ccc; border-radius: 4px; padding: 2px 4px; width: 100%; max-width: 300px;';
-
-                // Replace title with input
-                titleEl.style.display = 'none';
-                editTitleBtn.style.display = 'none';
-                titleEl.parentNode.insertBefore(input, titleEl);
-                input.focus();
-
-                const save = async () => {
-                    const newTitle = input.value.trim();
-                    if (newTitle && newTitle !== currentTitle) {
-                        try {
-                            const res = await fetch(apiUrl('/api/files/update'), {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest')
-                                },
-                                body: JSON.stringify({ fileId: file.id, filename: newTitle })
-                            });
-                            const data = await res.json();
-                            if (data.success) {
-                                file.filename = newTitle; // Update local reference
-                                titleEl.textContent = newTitle;
-                                // Update global list if exists
-                                if (window.allFiles) {
-                                    const f = window.allFiles.find(x => x.id === file.id);
-                                    if (f) f.filename = newTitle;
-                                }
-                                if (window.renderLibrary) window.renderLibrary(); // Refresh grid
-                            } else {
-                                alert('Failed to update title: ' + data.error);
-                                titleEl.textContent = currentTitle;
+            const save = async () => {
+                const newTitle = input.value.trim();
+                if (newTitle && newTitle !== currentTitle) {
+                    try {
+                        const res = await fetch(apiUrl('/api/files/update'), {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest')
+                            },
+                            body: JSON.stringify({ fileId: file.id, filename: newTitle })
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            file.filename = newTitle;
+                            titleEl.textContent = newTitle;
+                            if (window.allFiles) {
+                                const f = window.allFiles.find(x => x.id === file.id);
+                                if (f) f.filename = newTitle;
                             }
-                        } catch (e) {
-                            console.error(e);
+                            if (window.renderLibrary) window.renderLibrary();
+                        } else {
                             titleEl.textContent = currentTitle;
                         }
-                    } else {
+                    } catch (e) {
                         titleEl.textContent = currentTitle;
                     }
-                    input.remove();
-                    titleEl.style.display = '';
-                    editTitleBtn.style.display = '';
-                };
-
-                input.onblur = save;
-                input.onkeydown = (e) => {
-                    if (e.key === 'Enter') {
-                        input.blur(); // Triggers save
-                    }
-                    if (e.key === 'Escape') {
-                        titleEl.style.display = '';
-                        editTitleBtn.style.display = '';
-                        input.remove();
-                    }
-                };
+                } else {
+                    titleEl.textContent = currentTitle;
+                }
+                input.remove();
+                titleEl.style.display = '';
             };
-        }
+
+            input.onblur = save;
+            input.onkeydown = (e) => {
+                if (e.key === 'Enter') input.blur();
+                if (e.key === 'Escape') { titleEl.style.display = ''; input.remove(); }
+            };
+        };
 
         // Categories with colors
         const categoryColors = {
@@ -5988,41 +5807,32 @@ window.openOverview = async (fileId) => {
         const catContainer = document.getElementById('overview-tags');
         catContainer.innerHTML = '';
 
-        // Edit Button for Categories
-        let editCatsBtn = document.getElementById('edit-categories-btn');
-        if (!editCatsBtn) {
-            editCatsBtn = document.createElement('button');
-            editCatsBtn.id = 'edit-categories-btn';
-            editCatsBtn.innerHTML = '⚙️';
-            editCatsBtn.title = 'Edit Categories';
-            editCatsBtn.style.cssText = 'background: none; border: none; font-size: 1.1rem; cursor: pointer; color: var(--text-muted); padding: 2px 5px; opacity: 0.6; transition: all 0.2s; display: flex; align-items: center;';
-            editCatsBtn.onmouseover = () => editCatsBtn.style.opacity = '1';
-            editCatsBtn.onmouseout = () => editCatsBtn.style.opacity = '0.6';
-            catContainer.appendChild(editCatsBtn);
-        }
-        editCatsBtn.style.display = 'inline-block';
-        editCatsBtn.onclick = (e) => {
-            e.stopPropagation();
-            showCategoryPicker(file, catContainer, editCatsBtn);
+        const renderCategoryPills = () => {
+            catContainer.innerHTML = '';
+            const cats = file.categories && file.categories.length > 0 ? file.categories : [];
+            if (cats.length > 0) {
+                cats.forEach(cat => {
+                    const span = document.createElement('span');
+                    span.className = 'cat-pill';
+                    const bg = categoryColors[cat] || '#8b5cf6';
+                    span.style.cssText = `background:${bg}; color:white; padding:4px 12px; border-radius:20px; font-size:0.85rem; font-weight:600; margin:3px; box-shadow:0 2px 4px rgba(0,0,0,0.2); cursor:pointer; transition: opacity 0.15s;`;
+                    span.title = 'Click to edit categories';
+                    span.textContent = cat;
+                    span.onmouseenter = () => span.style.opacity = '0.8';
+                    span.onmouseleave = () => span.style.opacity = '1';
+                    span.onclick = (e) => { e.stopPropagation(); showCategoryPicker(file, catContainer, renderCategoryPills); };
+                    catContainer.appendChild(span);
+                });
+            } else {
+                // No categories yet — show a placeholder to click
+                const placeholder = document.createElement('span');
+                placeholder.style.cssText = 'font-size:0.8rem; color:var(--text-muted); cursor:pointer; border:1px dashed var(--border-light); padding:4px 12px; border-radius:20px;';
+                placeholder.textContent = '＋ Add category';
+                placeholder.onclick = (e) => { e.stopPropagation(); showCategoryPicker(file, catContainer, renderCategoryPills); };
+                catContainer.appendChild(placeholder);
+            }
         };
-
-        if (file.categories && file.categories.length > 0) {
-            file.categories.forEach(cat => {
-                const span = document.createElement('span');
-                span.className = 'cat-pill';
-                const bg = categoryColors[cat] || '#8b5cf6';
-                span.style.background = bg;
-                span.style.color = 'white';
-                span.style.padding = '4px 12px';
-                span.style.borderRadius = '20px';
-                span.style.fontSize = '0.85rem';
-                span.style.fontWeight = '600';
-                span.style.marginRight = '6px';
-                span.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
-                span.textContent = cat;
-                catContainer.appendChild(span);
-            });
-        }
+        renderCategoryPills();
 
         // Stats
         const qCount = file.questions ? file.questions.length : 0;

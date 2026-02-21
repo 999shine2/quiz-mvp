@@ -249,7 +249,24 @@ const clientAI = (() => {
 
       Part 2: Identify the ONE single emoji that best represents the specific subject matter.
       Part 3: Generate an EXTREMELY CONCISE title (max 5 words).
-      Part 4: Select 1-2 categories STRICTLY from this list: ${VALID_CATEGORIES.join(", ")}.
+
+      **Part 4: CATEGORY SELECTION (CRITICAL — DO NOT DEFAULT TO "Design")**
+      You MUST select 1-2 categories from ONLY this list based on the actual content:
+      - "Business" — startups, management, marketing, entrepreneurship, corporate strategy
+      - "Finance / Investing" — money, investing, economics, markets, personal finance
+      - "Science" — biology, physics, chemistry, psychology, research
+      - "Technology" — software, AI, engineering tools, internet, gadgets
+      - "Health / Medicine" — health, fitness, medicine, nutrition, mental health
+      - "Engineering" — mechanical, electrical, civil, systems engineering
+      - "Design" — visual design, UI/UX, graphic design, architecture, art
+      - "Philosophy / Thinking" — philosophy, ethics, critical thinking, self-improvement, wisdom, literature
+      - "Career / Education" — jobs, education, learning, professional development, skills
+      - "Politics / Society" — politics, government, social issues, inequality, history, law
+
+      **RULES:** Read the content carefully and pick the category that matches what the text is ABOUT.
+      A book about inequality → "Politics / Society". A book about investing → "Finance / Investing".
+      A psychology lecture → "Science". A self-help book → "Philosophy / Thinking".
+      Do NOT pick "Design" unless the content is literally about visual/graphic design.
 
       **CRITICAL: IMAGE PROMPT INSTRUCTION (VISUAL-FIRST)**
       - For each question, generate a "imagePrompt".
@@ -329,12 +346,20 @@ const clientAI = (() => {
             return { questions: parsed, subjectEmoji: '📄', suggestedTitle: 'Study Guide', isMock: false };
         }
 
-        // Sanitize categories
+        // Sanitize categories (flexible matching for AI variations)
         let finalCategories = [];
         if (parsed.categories && Array.isArray(parsed.categories)) {
-            finalCategories = parsed.categories.filter(c => VALID_CATEGORIES.includes(c));
+            finalCategories = parsed.categories.map(c => {
+                // Exact match first
+                if (VALID_CATEGORIES.includes(c)) return c;
+                // Fuzzy match: normalize and compare
+                const normalized = c.trim().toLowerCase();
+                return VALID_CATEGORIES.find(v => v.toLowerCase() === normalized
+                    || v.toLowerCase().replace(/\s*\/\s*/g, '/') === normalized.replace(/\s*\/\s*/g, '/')
+                ) || null;
+            }).filter(Boolean);
         }
-        if (finalCategories.length === 0) finalCategories = ["Business"];
+        if (finalCategories.length === 0) finalCategories = ["Philosophy / Thinking"];
 
         return {
             questions: parsed.questions,
@@ -412,11 +437,34 @@ const clientAI = (() => {
       4. **Questions 9 to 10:** **Type 4 (Short Answer Reflection)**.
          - JSON type: "SAQ". Provide "idealAnswer" instead of "correctAnswer".
 
+      **CATEGORY SELECTION (CRITICAL — READ CAREFULLY):**
+      You MUST select 1-2 categories from ONLY this list based on what the work is ABOUT:
+      - "Business" — startups, management, marketing, entrepreneurship, corporate strategy
+      - "Finance / Investing" — money, investing, economics, markets, personal finance
+      - "Science" — biology, physics, chemistry, psychology, research, sci-fi themes about science
+      - "Technology" — software, AI, engineering tools, internet, gadgets, sci-fi themes about tech
+      - "Health / Medicine" — health, fitness, medicine, nutrition, mental health
+      - "Engineering" — mechanical, electrical, civil, systems engineering
+      - "Design" — ONLY for works literally about visual design, UI/UX, graphic design, or architecture
+      - "Philosophy / Thinking" — philosophy, ethics, critical thinking, self-improvement, wisdom, literature, human nature, dystopia, existentialism
+      - "Career / Education" — jobs, education, learning, professional development, skills
+      - "Politics / Society" — politics, government, social issues, inequality, history, law, class struggle, revolution
+
+      **STRICT RULES — DO NOT IGNORE:**
+      - "Design" means VISUAL/GRAPHIC DESIGN. A novel is NOT design. A movie is NOT design. Music is NOT design.
+      - "1984" by Orwell → "Politics / Society" (dystopia, surveillance, totalitarianism)
+      - "A Discourse on Inequality" by Rousseau → "Politics / Society" (inequality, social contract)
+      - A sci-fi movie → "Science" or "Philosophy / Thinking" (NOT "Design")
+      - A drama about human relationships → "Philosophy / Thinking" (NOT "Design")
+      - A book about self-improvement → "Philosophy / Thinking"
+      - A thriller/action movie → "Philosophy / Thinking" (themes) or "Politics / Society" (if political)
+      - ONLY pick "Design" if the work is literally ABOUT visual art, graphic design, or UI/UX
+
       **OUTPUT FORMAT:** Strictly valid JSON.
       {
         "subjectEmoji": "🎬",
         "suggestedTitle": "${title}",
-        "categories": ["Category1", "Category2"],
+        "categories": ["Philosophy / Thinking"],
         "questions": [
            {
              "type": "MCQ",
@@ -460,14 +508,21 @@ const clientAI = (() => {
             };
         }
 
-        if (parsed.categories) {
-            parsed.categories = parsed.categories.filter(c => VALID_CATEGORIES.includes(c));
-            if (parsed.categories.length === 0) parsed.categories = ["Design"];
+        let creativeCategories = [];
+        if (parsed.categories && Array.isArray(parsed.categories)) {
+            creativeCategories = parsed.categories.map(c => {
+                if (VALID_CATEGORIES.includes(c)) return c;
+                const normalized = c.trim().toLowerCase();
+                return VALID_CATEGORIES.find(v => v.toLowerCase() === normalized
+                    || v.toLowerCase().replace(/\s*\/\s*/g, '/') === normalized.replace(/\s*\/\s*/g, '/')
+                ) || null;
+            }).filter(Boolean);
         }
+        if (creativeCategories.length === 0) creativeCategories = ["Philosophy / Thinking"];
 
         return {
             questions: parsed.questions,
-            categories: parsed.categories || ["Design"],
+            categories: creativeCategories,
             subjectEmoji: parsed.subjectEmoji || '🎨',
             suggestedTitle: parsed.suggestedTitle || cleanTitle,
             summary: `A study set about the ${type}: ${cleanTitle}.`,

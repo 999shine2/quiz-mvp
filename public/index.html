@@ -18,7 +18,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&family=Patrick+Hand&family=Quicksand:wght@500;600;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=2">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <!-- Client-Side Libraries (PDF.js + mammoth.js) -->
@@ -122,12 +122,8 @@
 
                     <!-- Daily Quiz Feature -->
                     <div style="margin-top: 15px; margin-bottom: 10px;">
-                        <button id="start-youtube-quiz-btn" class="secondary-btn"
-                            style="background: rgba(255,255,255,0.8); backdrop-filter: blur(4px);">
-                            <span data-i18n="btn_yt_quiz">▶️ Start YouTube Quiz</span>
-                        </button>
                         <button id="start-news-quiz-btn" class="secondary-btn"
-                            style="background: rgba(255,255,255,0.8); backdrop-filter: blur(4px); margin-left:10px;">
+                            style="background: rgba(255,255,255,0.8); backdrop-filter: blur(4px);">
                             <span data-i18n="btn_news_quiz">📰 Start News Quiz</span>
                         </button>
                     </div>
@@ -260,9 +256,6 @@
                 <div class="library-header">
                     <h2 data-i18n="library_title_html">Your <span class="gradient-text">Study Library</span></h2>
                     <div class="library-actions">
-                        <button id="create-question-btn" class="small-btn">
-                            <span>➕</span> <span data-i18n="create_question">Question</span>
-                        </button>
                         <button id="create-material-btn" class="small-btn">
                             <span>📚</span> <span data-i18n="create_material">Material</span>
                         </button>
@@ -507,13 +500,13 @@
     <div class="background-blobs"></div>
 
     <!-- Client-Side Modules (load BEFORE client_app.js) -->
-    <script src="clientDB.js"></script>
-    <script src="clientAuth.js"></script>
-    <script src="clientAI.js"></script>
-    <script src="clientImage.js"></script>
-    <script src="clientParser.js"></script>
-    <script src="clientBridge.js"></script>
-    <script src="client_app.js?v=client_side_003"></script>
+    <script src="clientDB.js?v=2"></script>
+    <script src="clientAuth.js?v=2"></script>
+    <script src="clientAI.js?v=2"></script>
+    <script src="clientImage.js?v=2"></script>
+    <script src="clientParser.js?v=2"></script>
+    <script src="clientBridge.js?v=2"></script>
+    <script src="client_app.js?v=2"></script>
 
     <!-- Just checking if we need the modal logic from before, probably yes, keeping it minimal -->
     <div id="summary-modal" class="modal-overlay" hidden
@@ -528,12 +521,11 @@
                 </button>
 
                 <div style="text-align: center; margin-top: 10px;">
-                    <div style="font-size: 1.8rem; margin-bottom: 5px;">
-                        <span id="overview-emoji">🚀</span>
-                    </div>
                     <h3 id="overview-title"
-                        style="font-size: 1.3rem; margin: 0; font-weight: 700; font-family: var(--font-heading);">Why YC
-                        Still Matters</h3>
+                        style="font-size: 1.3rem; margin: 0; font-weight: 700; font-family: var(--font-heading); display: flex; align-items: center; justify-content: center; gap: 6px;">
+                        <span id="overview-emoji" style="font-size: 1.2em; flex-shrink: 0;">🚀</span>
+                        <span id="overview-title-text">Why YC Still Matters</span>
+                    </h3>
                 </div>
 
                 <!-- Tags / Categories -->
@@ -629,66 +621,6 @@
         </div>
     </div>
 
-    <!-- Create Question Modal -->
-    <div id="question-modal" class="modal-overlay" hidden
-        style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:2000; background:rgba(0,0,0,0.5);">
-        <div class="modal-content"
-            style="background:var(--card-bg); padding:2rem; border-radius:24px; max-width:90%; width: 600px; border:1px solid var(--border-light); box-shadow: var(--shadow-soft);">
-            <div class="modal-header" style="display:flex; justify-content:space-between; margin-bottom:1rem;">
-                <h3 style="font-family:var(--font-heading); color:var(--text-main); font-size:1.2rem;">Add Custom
-                    Question</h3>
-                <button id="close-modal-btn"
-                    style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--text-muted);">×</button>
-            </div>
-            <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
-                <div class="form-group" style="margin-bottom:1rem;">
-                    <label style="display:block; margin-bottom:0.5rem; color:var(--text-muted);">Assign to
-                        Material</label>
-                    <select id="modal-file-select" class="text-input"
-                        style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border-light); background:rgba(255,255,255,0.5);">
-                        <option value="" disabled selected>Select a file...</option>
-                    </select>
-                </div>
-                <div class="form-group" style="margin-bottom:1rem;">
-                    <label style="display:block; margin-bottom:0.5rem; color:var(--text-muted);">Question</label>
-                    <textarea id="modal-question" rows="3" class="text-input" placeholder="Enter your question..."
-                        style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border-light); background:rgba(255,255,255,0.5);"></textarea>
-                </div>
-                <div class="form-group" style="margin-bottom:1rem;">
-                    <label style="display:block; margin-bottom:0.5rem; color:var(--text-muted);">Options (Select
-                        correct)</label>
-                    <div style="display:flex; flex-direction:column; gap:5px;">
-                        <div style="display:flex; gap:10px; align-items:center;">
-                            <input type="radio" name="correct-opt" value="0" checked>
-                            <input type="text" class="modal-opt text-input" placeholder="Option A"
-                                style="flex:1; padding:8px; border-radius:8px;">
-                        </div>
-                        <div style="display:flex; gap:10px; align-items:center;">
-                            <input type="radio" name="correct-opt" value="1">
-                            <input type="text" class="modal-opt text-input" placeholder="Option B"
-                                style="flex:1; padding:8px; border-radius:8px;">
-                        </div>
-                        <div style="display:flex; gap:10px; align-items:center;">
-                            <input type="radio" name="correct-opt" value="2">
-                            <input type="text" class="modal-opt text-input" placeholder="Option C"
-                                style="flex:1; padding:8px; border-radius:8px;">
-                        </div>
-                        <div style="display:flex; gap:10px; align-items:center;">
-                            <input type="radio" name="correct-opt" value="3">
-                            <input type="text" class="modal-opt text-input" placeholder="Option D"
-                                style="flex:1; padding:8px; border-radius:8px;">
-                        </div>
-                    </div>
-                </div>
-                <div class="form-group" style="margin-bottom:1.5rem;">
-                    <label style="display:block; margin-bottom:0.5rem; color:var(--text-muted);">Explanation</label>
-                    <textarea id="modal-explanation" rows="2" class="text-input" placeholder="Why is this correct?"
-                        style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border-light); background:rgba(255,255,255,0.5);"></textarea>
-                </div>
-                <button id="save-question-btn" class="primary-btn" style="width:100%;">Save Question</button>
-            </div>
-        </div>
-    </div>
     <!-- Personal Interests Modal -->
     <div id="personal-modal" class="modal-overlay" hidden
         style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:2000; background:rgba(0,0,0,0.5);">

@@ -467,12 +467,21 @@
                     const userId = getUserId();
                     const data = await fetchAICreative(body.title, body.author, body.type, 10);
 
+                    const creativeTypeCategoryMap = {
+                        'movie': ['Philosophy / Thinking'],
+                        'tvshow': ['Philosophy / Thinking'],
+                        'book': ['Philosophy / Thinking'],
+                        'music': ['Philosophy / Thinking'],
+                        'art': ['Philosophy / Thinking'],
+                    };
+                    const fallbackCategory = creativeTypeCategoryMap[(body.type || '').toLowerCase()] || ['Philosophy / Thinking'];
+
                     const fileObj = {
                         id: generateId(),
                         filename: body.title || 'Creative Task',
                         subjectEmoji: data.subjectEmoji || '🎨',
                         questions: data.questions || [],
-                        categories: data.categories || ['Design'],
+                        categories: (data.categories && data.categories.length > 0) ? data.categories : fallbackCategory,
                         type: 'creative',
                         transcript: `Creative task for ${body.author || 'Unknown Author'}: ${body.title}`,
                         summary: data.summary || '',
@@ -516,7 +525,7 @@
                         filename: data.suggestedTitle || file.name.replace(/\.[^.]+$/, ''),
                         subjectEmoji: data.subjectEmoji || '📄',
                         questions: data.questions || [],
-                        categories: data.categories || ['Business'],
+                        categories: (data.categories && data.categories.length > 0) ? data.categories : ['Philosophy / Thinking'],
                         type: file.name.toLowerCase().endsWith('.pdf') ? 'pdf' : 'doc',
                         transcript: text.substring(0, 20000),
                         summary: '',
@@ -610,7 +619,7 @@
                             filename: data.suggestedTitle || videoTitle,
                             subjectEmoji: data.subjectEmoji || '▶️',
                             questions: data.questions || [],
-                            categories: data.categories || ['Technology'],
+                            categories: (data.categories && data.categories.length > 0) ? data.categories : ['Technology'],
                             type: 'youtube',
                             url: body.url,
                             transcript: transcript.substring(0, 20000),

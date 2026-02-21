@@ -208,7 +208,19 @@ async function generateQuestions(text, apiKey, count = 5, title = "", relatedCon
 
       Part 2: Identify the ONE single emoji that best represents the specific subject matter.
       Part 3: Generate an EXTREMELY CONCISE title (max 5 words).
-      Part 4: Select 1-2 categories STRICTLY from this list: ${VALID_CATEGORIES.join(", ")}.
+      Part 4: CATEGORY SELECTION (CRITICAL — DO NOT DEFAULT TO "Design")
+      Select 1-2 categories STRICTLY from this list based on the actual content:
+      - "Business" — startups, management, marketing, entrepreneurship
+      - "Finance / Investing" — money, investing, economics, markets
+      - "Science" — biology, physics, chemistry, psychology, research
+      - "Technology" — software, AI, engineering tools, internet
+      - "Health / Medicine" — health, fitness, medicine, nutrition
+      - "Engineering" — mechanical, electrical, civil, systems engineering
+      - "Design" — ONLY visual design, UI/UX, graphic design, architecture
+      - "Philosophy / Thinking" — philosophy, ethics, self-improvement, wisdom, literature
+      - "Career / Education" — jobs, education, learning, professional development
+      - "Politics / Society" — politics, government, social issues, inequality, history, law
+      Do NOT pick "Design" unless the content is literally about visual/graphic design.
       Do NOT invent new categories.
 
       **CRITICAL: IMAGE PROMPT INSTRUCTION**
@@ -352,11 +364,17 @@ async function generateQuestions(text, apiKey, count = 5, title = "", relatedCon
         // SANITIZE CATEGORIES
         let finalCategories = [];
         if (parsed.categories && Array.isArray(parsed.categories)) {
-            finalCategories = parsed.categories.filter(c => VALID_CATEGORIES.includes(c));
+            finalCategories = parsed.categories.map(c => {
+                if (VALID_CATEGORIES.includes(c)) return c;
+                const normalized = c.trim().toLowerCase();
+                return VALID_CATEGORIES.find(v => v.toLowerCase() === normalized
+                    || v.toLowerCase().replace(/\s*\/\s*/g, '/') === normalized.replace(/\s*\/\s*/g, '/')
+                ) || null;
+            }).filter(Boolean);
         }
         // Fallback if empty or invalid
         if (finalCategories.length === 0) {
-            finalCategories = ["Business"]; // Default safety
+            finalCategories = ["Philosophy / Thinking"];
         }
 
         if (Array.isArray(parsed)) {
@@ -576,12 +594,33 @@ async function generateQuestionsForCreativeWork(title, author, type, apiKey, cou
          - **FORMAT:** JSON field \`"type": "SAQ"\`.
          - Provide \`"idealAnswer"\` instead of \`"correctAnswer"\`.
 
+      **CATEGORY SELECTION (CRITICAL — READ CAREFULLY):**
+      You MUST select 1-2 categories from ONLY this list based on what the work is ABOUT:
+      - "Business" — startups, management, marketing, entrepreneurship, corporate strategy
+      - "Finance / Investing" — money, investing, economics, markets, personal finance
+      - "Science" — biology, physics, chemistry, psychology, research, sci-fi themes about science
+      - "Technology" — software, AI, engineering tools, internet, gadgets, sci-fi themes about tech
+      - "Health / Medicine" — health, fitness, medicine, nutrition, mental health
+      - "Engineering" — mechanical, electrical, civil, systems engineering
+      - "Design" — ONLY for works literally about visual design, UI/UX, graphic design, or architecture
+      - "Philosophy / Thinking" — philosophy, ethics, critical thinking, self-improvement, wisdom, literature, human nature, dystopia, existentialism
+      - "Career / Education" — jobs, education, learning, professional development, skills
+      - "Politics / Society" — politics, government, social issues, inequality, history, law, class struggle, revolution
+
+      **STRICT RULES:**
+      - "Design" means VISUAL/GRAPHIC DESIGN. A novel is NOT design. A movie is NOT design. Music is NOT design.
+      - "1984" by Orwell → "Politics / Society"
+      - "A Discourse on Inequality" by Rousseau → "Politics / Society"
+      - A sci-fi movie → "Science" or "Philosophy / Thinking"
+      - A drama about human relationships → "Philosophy / Thinking"
+      - ONLY pick "Design" if the work is literally ABOUT visual art, graphic design, or UI/UX
+
       **OUTPUT FORMAT:**
       Strictly valid JSON.
       {
         "subjectEmoji": "🎬 (or 📖/📺/🎵)",
         "suggestedTitle": "${title}",
-        "categories": ["Category1", "Category2"],
+        "categories": ["Philosophy / Thinking"],
         "questions": [
            {
              "type": "MCQ",
@@ -653,15 +692,22 @@ async function generateQuestionsForCreativeWork(title, author, type, apiKey, cou
             };
         }
 
-        // Sanitize categories
-        if (parsed.categories) {
-            parsed.categories = parsed.categories.filter(c => VALID_CATEGORIES.includes(c));
-            if (parsed.categories.length === 0) parsed.categories = ["Design"]; // Fallback
+        // Sanitize categories (flexible matching for AI variations)
+        let creativeCategories = [];
+        if (parsed.categories && Array.isArray(parsed.categories)) {
+            creativeCategories = parsed.categories.map(c => {
+                if (VALID_CATEGORIES.includes(c)) return c;
+                const normalized = c.trim().toLowerCase();
+                return VALID_CATEGORIES.find(v => v.toLowerCase() === normalized
+                    || v.toLowerCase().replace(/\s*\/\s*/g, '/') === normalized.replace(/\s*\/\s*/g, '/')
+                ) || null;
+            }).filter(Boolean);
         }
+        if (creativeCategories.length === 0) creativeCategories = ["Philosophy / Thinking"];
 
         return {
             questions: parsed.questions,
-            categories: parsed.categories || ["Design"],
+            categories: creativeCategories,
             subjectEmoji: parsed.subjectEmoji || '🎨',
             suggestedTitle: parsed.suggestedTitle || cleanTitle,
             summary: `A study set about the ${type}: ${cleanTitle}.`,

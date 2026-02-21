@@ -686,6 +686,7 @@ body.reels-mode .nav-item.active {
     background: #FFF;
     border: 1px solid var(--border-light);
     box-shadow: 0 2px 5px rgba(107, 140, 66, 0.1);
+    border-radius: 20px;
 }
 
 /* Library Filters Bar */
