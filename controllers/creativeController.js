@@ -1,4 +1,4 @@
-import { generateQuestionsForCreativeWork } from '../aiService.js';
+import { generateQuestionsForCreativeWork, generateSummary } from '../aiService.js';
 import { generateQuestionImage } from '../services/imageService.js';
 import { getDB, saveDB } from '../utils/dbShim.js';
 import { getUserID } from '../utils/user.js';
@@ -17,6 +17,25 @@ export const generateCreativeQuiz = async (req, res) => {
         const startAI = Date.now();
         const aiResult = await generateQuestionsForCreativeWork(title, author, type, apiKey, 10);
         console.log(`Creative Gen time: ${Date.now() - startAI}ms`);
+
+        // Always generate a proper summary from questions context
+        // (AI's inline summary field is unreliable)
+        let creativeSummary;
+        try {
+            const questionContext = aiResult.questions.slice(0, 8).map(q => {
+                let parts = [q.question];
+                if (q.explanation) parts.push(q.explanation);
+                if (q.idealAnswer) parts.push(q.idealAnswer);
+                return parts.join(' — ');
+            }).join('\n');
+            const contextText = `Title: ${title} (${type})${author ? ` by ${author}` : ''}\n\nKey topics and themes explored:\n${questionContext}`;
+            console.log('[Creative] Generating summary from questions context...');
+            creativeSummary = await generateSummary(contextText, apiKey, title);
+            console.log(`[Creative] Summary generated: "${creativeSummary?.substring(0, 80)}..."`);
+        } catch (e) {
+            console.warn('[Creative] Summary generation failed:', e.message);
+            creativeSummary = aiResult.summary || `Creative study set for ${title}`;
+        }
 
         const db = await getDB(req);
         const fileId = Date.now().toString();
@@ -37,7 +56,7 @@ export const generateCreativeQuiz = async (req, res) => {
             questions: questionsWithOrigin,
             subjectEmoji: aiResult.subjectEmoji,
             categories: aiResult.categories || [],
-            summary: `Creative study set for ${title}`,
+            summary: creativeSummary,
             creativeType: type
         };
 

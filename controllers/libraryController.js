@@ -202,10 +202,24 @@ export const getSummary = async (req, res) => {
         const file = db.files.find(f => f.id === req.params.id);
 
         if (!file) return res.status(404).json({ error: 'File not found' });
-        if (file.summary) return res.json({ summary: file.summary });
+
+        // Detect template/placeholder summaries that need regeneration
+        const isTemplateSummary = file.summary && (/^A study set about/i.test(file.summary) || /^Creative study set for/i.test(file.summary));
+
+        if (file.summary && !isTemplateSummary) return res.json({ summary: file.summary });
 
         let textToSummarize = '';
-        if (file.type === 'youtube' && file.originalUrl) {
+
+        if (file.type === 'creative' && file.questions && file.questions.length > 0) {
+            // For creative works (books/movies/etc), build context from the questions data
+            const questionContext = file.questions.slice(0, 10).map(q => {
+                let parts = [q.question];
+                if (q.explanation) parts.push(q.explanation);
+                if (q.idealAnswer) parts.push(q.idealAnswer);
+                return parts.join(' — ');
+            }).join('\n');
+            textToSummarize = `Title: ${file.filename}\nType: ${file.creativeType || 'creative work'}\n\nKey topics and themes explored:\n${questionContext}`;
+        } else if (file.type === 'youtube' && file.originalUrl) {
             const videoId = extractVideoId(file.originalUrl);
             const tData = await fetchYouTubeTranscript(videoId);
             textToSummarize = tData.text;

@@ -3893,10 +3893,40 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } else {
                 const data = await res.json();
-                summaryContent.dataset.rawSummary = data.summary;
+                let summaryText = data.summary;
+
+                // Auto-regenerate template/placeholder summaries
+                const isTemplate = /^(A study set about|Creative study set for)/i.test(summaryText);
+                if (isTemplate && file && file.type === 'creative' && file.questions && file.questions.length > 0) {
+                    summaryContent.innerHTML = '<p style="text-align:center;color:var(--text-muted);">Generating summary...</p>';
+                    try {
+                        const questionContext = file.questions.slice(0, 8).map(q => {
+                            let parts = [q.question];
+                            if (q.explanation) parts.push(q.explanation);
+                            if (q.idealAnswer) parts.push(q.idealAnswer);
+                            return parts.join(' — ');
+                        }).join('\n');
+                        const contextText = `Title: ${file.filename}\n\nKey topics:\n${questionContext}`;
+                        const geminiKey = localStorage.getItem('gemini_api_key');
+                        if (geminiKey && typeof clientAI !== 'undefined' && clientAI.generateSummary) {
+                            const regenSummary = await clientAI.generateSummary(contextText, geminiKey, file.filename);
+                            if (regenSummary && !/^(A study set|Creative study set|Summary not available)/i.test(regenSummary)) {
+                                summaryText = regenSummary;
+                                // Save back to server
+                                fetch(`/api/summary/${fileId}/update`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', 'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest') },
+                                    body: JSON.stringify({ summary: regenSummary })
+                                }).catch(e => console.warn('Summary save failed:', e));
+                            }
+                        }
+                    } catch (e) { console.warn('Client summary regen failed:', e); }
+                }
+
+                summaryContent.dataset.rawSummary = summaryText;
 
                 // Format text
-                let formatted = data.summary
+                let formatted = summaryText
                     .replace(/\*\*(.*?)\*\*/g, '<strong style="color: var(--primary-dark);">$1</strong>')
                     .replace(/\n/g, '<br>')
                     .replace(/^- (.*)/gm, '• $1');

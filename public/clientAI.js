@@ -412,7 +412,8 @@ const clientAI = (() => {
       
       **TASK:**
       1. Recall details, themes, characters, and plot points of this work.
-      2. Generate ${count} high-quality study/trivia questions.
+      2. Write a "summary" field: 2-3 sentences describing the work's plot, core themes, and significance. MUST be in the SAME language as the title.
+      3. Generate ${count} high-quality study/trivia questions.
       
       **TONE & STYLE GUIDE (CRITICAL):**
       - **FRIENDLY & CONVERSATIONAL:** Do NOT sound like a standardized test.
@@ -460,10 +461,17 @@ const clientAI = (() => {
       - A thriller/action movie → "Philosophy / Thinking" (themes) or "Politics / Society" (if political)
       - ONLY pick "Design" if the work is literally ABOUT visual art, graphic design, or UI/UX
 
+      **MANDATORY "summary" FIELD (DO NOT SKIP):**
+      You MUST write a "summary" field with 2-3 real sentences about THIS specific work.
+      - Describe the plot/premise, core themes, and why it is significant.
+      - MUST be in the SAME language as the title.
+      - DO NOT write generic text like "A study set about..." — write a REAL description.
+
       **OUTPUT FORMAT:** Strictly valid JSON.
       {
         "subjectEmoji": "🎬",
         "suggestedTitle": "${title}",
+        "summary": "(MANDATORY — 2-3 real sentences about this work, in the same language as the title)",
         "categories": ["Philosophy / Thinking"],
         "questions": [
            {
@@ -482,7 +490,7 @@ const clientAI = (() => {
            }
         ]
       }
-      
+
       Do NOT include markdown backticks. Just raw JSON.
     `;
 
@@ -525,7 +533,7 @@ const clientAI = (() => {
             categories: creativeCategories,
             subjectEmoji: parsed.subjectEmoji || '🎨',
             suggestedTitle: parsed.suggestedTitle || cleanTitle,
-            summary: `A study set about the ${type}: ${cleanTitle}.`,
+            summary: parsed.summary || `A study set about the ${type}: ${cleanTitle}.`,
             isMock: false
         };
     }

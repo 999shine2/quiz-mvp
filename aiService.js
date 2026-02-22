@@ -548,7 +548,8 @@ async function generateQuestionsForCreativeWork(title, author, type, apiKey, cou
       
       **TASK:**
       1. Recall details, themes, characters, and plot points of this work.
-      2. Generate ${count} high-quality study/trivia questions.
+      2. Write a "summary" field: 2-3 sentences describing the work's plot, core themes, and significance. MUST be in the SAME language as the title.
+      3. Generate ${count} high-quality study/trivia questions.
       
       **TONE & STYLE GUIDE (CRITICAL):**
       - **FRIENDLY & CONVERSATIONAL:** Do NOT sound like a standardized test.
@@ -615,11 +616,19 @@ async function generateQuestionsForCreativeWork(title, author, type, apiKey, cou
       - A drama about human relationships → "Philosophy / Thinking"
       - ONLY pick "Design" if the work is literally ABOUT visual art, graphic design, or UI/UX
 
+      **MANDATORY "summary" FIELD (DO NOT SKIP):**
+      You MUST write a "summary" field with 2-3 real sentences about THIS specific work.
+      - Describe the plot/premise, core themes, and why it is significant.
+      - MUST be in the SAME language as the title (Korean title → Korean summary, English title → English summary).
+      - DO NOT write generic text like "A study set about..." — write a REAL description.
+      - Example for "1984": "조지 오웰의 1984는 전체주의 정권 하의 감시 사회를 그린 디스토피아 소설입니다. 빅 브라더의 통제 아래 개인의 자유와 사상이 억압되는 과정을 통해, 권력의 본질과 언어 조작의 위험성을 경고합니다."
+
       **OUTPUT FORMAT:**
       Strictly valid JSON.
       {
         "subjectEmoji": "🎬 (or 📖/📺/🎵)",
         "suggestedTitle": "${title}",
+        "summary": "(MANDATORY — 2-3 real sentences about this work, in the same language as the title)",
         "categories": ["Philosophy / Thinking"],
         "questions": [
            {
@@ -638,7 +647,7 @@ async function generateQuestionsForCreativeWork(title, author, type, apiKey, cou
            }
         ]
       }
-      
+
       Do NOT include markdown backticks. Just raw JSON.
     `;
 
@@ -680,6 +689,9 @@ async function generateQuestionsForCreativeWork(title, author, type, apiKey, cou
             }
         }
 
+        console.log(`[Creative] Parsed keys: ${Object.keys(parsed).join(', ')}`);
+        console.log(`[Creative] parsed.summary = "${parsed.summary?.substring(0, 100) || 'MISSING'}"`);
+
         // HANDLE ARRAY RESPONSE DIRECTLY
         if (Array.isArray(parsed)) {
             return {
@@ -710,7 +722,7 @@ async function generateQuestionsForCreativeWork(title, author, type, apiKey, cou
             categories: creativeCategories,
             subjectEmoji: parsed.subjectEmoji || '🎨',
             suggestedTitle: parsed.suggestedTitle || cleanTitle,
-            summary: `A study set about the ${type}: ${cleanTitle}.`,
+            summary: parsed.summary || `A study set about the ${type}: ${cleanTitle}.`,
             isMock: false
         };
 
