@@ -572,9 +572,16 @@ async function generateQuestionsForCreativeWork(title, author, type, apiKey, cou
       2. Write a detailed "summary" field (250-400 words) with 3 sections using [H]...[/H] headers (see MANDATORY summary section below). MUST be in the SAME language as the title.
       3. Generate ${count} high-quality study/trivia questions.
       
+      **FACTUAL ACCURACY (HIGHEST PRIORITY):**
+      - The "correctAnswer" index MUST point to the option that is ACTUALLY correct based on the real work.
+      - DOUBLE-CHECK every question: re-read the question, look at all 4 options, and verify the correctAnswer index (0-3) matches the truly correct option.
+      - Wrong answers are UNACCEPTABLE. If you are unsure about a fact, do NOT make a question about it.
+      - The wrong options (distractors) must be clearly wrong — do NOT make distractors that could also be considered correct.
+      - The "explanation" field must clearly explain WHY the correct answer is right and why others are wrong.
+
       **TONE & STYLE GUIDE (CRITICAL):**
       - **FRIENDLY & CONVERSATIONAL:** Do NOT sound like a standardized test.
-      - **CONCISE & DIRECT:** 
+      - **CONCISE & DIRECT:**
         - Avoid unnecessary words or long preambles.
         - Get straight to the point, but ensure the question is clear and high-quality.
         - **DELETE FLUFF:** Remove phrases like "In the context of the movie...", "Considering the plot...", "In the book [Title]...", etc.

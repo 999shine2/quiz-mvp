@@ -12,6 +12,21 @@
 
     const _originalFetch = window.fetch;
 
+    // Helper: fetch internal API with auth headers
+    function _authFetch(url, options = {}) {
+        const headers = { ...(options.headers || {}) };
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+            headers['Authorization'] = 'Bearer ' + token;
+        }
+        // Fallback: always send x-user-id for backward compat
+        const userId = localStorage.getItem('study_user') || localStorage.getItem('user_name') || '';
+        if (userId && userId !== 'guest') {
+            headers['x-user-id'] = encodeURIComponent(userId);
+        }
+        return _originalFetch(url, { ...options, headers });
+    }
+
     // Helper: get API key from settings
     function getApiKey() {
         return localStorage.getItem('gemini_api_key') || '';
@@ -129,7 +144,7 @@
             return clientAI.generateQuestions(text, apiKey, count, title, context, null, distribution, avoidQuestions);
         }
         // Fallback to Server Proxy
-        const res = await _originalFetch('/api/proxy/generate-questions', {
+        const res = await _authFetch('/api/proxy/generate-questions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text, title, count, context, distribution, avoidQuestions })
@@ -144,7 +159,7 @@
             return clientAI.generateSummary(text, apiKey, title);
         }
         // Fallback to Server Proxy
-        const res = await _originalFetch('/api/proxy/generate-summary', {
+        const res = await _authFetch('/api/proxy/generate-summary', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text, title })
@@ -160,7 +175,7 @@
             return clientAI.generateCreativeQuestions(title, author, type, apiKey, count);
         }
         // Fallback to Server Proxy
-        const res = await _originalFetch('/api/proxy/generate-creative', {
+        const res = await _authFetch('/api/proxy/generate-creative', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title, author, type, count })
@@ -175,7 +190,7 @@
             return clientAI.generateSimilarQuestions(seedQuestion, context, type, apiKey, existingQuestions, sourceTitle);
         }
         // Fallback to Server Proxy
-        const res = await _originalFetch('/api/proxy/generate-similar', {
+        const res = await _authFetch('/api/proxy/generate-similar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ seedQuestion, context, type, existingQuestions, sourceTitle })
@@ -567,7 +582,7 @@
                         console.log('[Bridge] YouTube: trying server proxy...');
                         const controller = new AbortController();
                         const timeout = setTimeout(() => controller.abort(), 60000);
-                        const proxyRes = await _originalFetch('/api/youtube/transcript', {
+                        const proxyRes = await _authFetch('/api/youtube/transcript', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ url: body.url }),
@@ -647,7 +662,7 @@
                     }
                 }
                 // No URL = daily YouTube quiz, fall through to server
-                return _originalFetch(url, options);
+                return _authFetch(url, options);
             }
 
             // ── GENERATE MORE QUESTIONS ──────────────────────
@@ -852,7 +867,7 @@
                 // News fetching requires server-side RSS/API access
                 // Intercept the response to assign image URLs
                 try {
-                    const serverRes = await _originalFetch(url, options);
+                    const serverRes = await _authFetch(url, options);
                     if (serverRes.ok) {
                         const data = await serverRes.json();
                         if (data.questions && data.questions.length > 0) {
@@ -887,8 +902,8 @@
             // Fall through to original fetch on bridge error
         }
 
-        // ── FALLTHROUGH: Let unmatched requests go to original fetch ─
-        return _originalFetch(url, options);
+        // ── FALLTHROUGH: Let unmatched requests go to original fetch with auth ─
+        return _authFetch(url, options);
     };
 
     // ── Settings Logic ────────────────────────────────────────

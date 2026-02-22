@@ -1,11 +1,15 @@
 
 // Helper: Get User ID from Request
+// Prefers JWT-extracted user (set by authMiddleware), falls back to x-user-id header
 export function getUserID(req) {
-    let userId = req.headers['x-user-id'];
-    if (!userId) {
-        if (req.user && req.user.userId) return req.user.userId;
-        return 'anonymous';
+    // 1. From auth middleware (JWT or parsed x-user-id)
+    if (req.user && req.user.userId && req.user.userId !== 'anonymous') {
+        return req.user.userId;
     }
+
+    // 2. Fallback: raw header (shouldn't normally reach here if authMiddleware runs)
+    let userId = req.headers['x-user-id'];
+    if (!userId) return 'anonymous';
 
     try {
         userId = decodeURIComponent(userId);

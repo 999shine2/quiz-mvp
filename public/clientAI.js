@@ -415,6 +415,12 @@ const clientAI = (() => {
       2. Write a detailed "summary" field (150-250 words) covering: the main plot/premise, key characters, core themes and arguments, and why this work is significant. MUST be in the SAME language as the title.
       3. Generate ${count} high-quality study/trivia questions.
       
+      **FACTUAL ACCURACY (HIGHEST PRIORITY):**
+      - The "correctAnswer" index MUST point to the option that is ACTUALLY correct based on the real work.
+      - DOUBLE-CHECK every question: re-read the question, look at all 4 options, and verify the correctAnswer index (0-3) matches the truly correct option.
+      - Wrong answers are UNACCEPTABLE. If unsure about a fact, do NOT make a question about it.
+      - Distractors must be clearly wrong. The "explanation" must explain WHY the correct answer is right.
+
       **TONE & STYLE GUIDE (CRITICAL):**
       - **FRIENDLY & CONVERSATIONAL:** Do NOT sound like a standardized test.
       - **CONCISE & DIRECT:** Get straight to the point.

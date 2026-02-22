@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { User } from '../models/User.js';
 import { fileUser } from '../utils/fileStore.js';
+import { generateToken } from '../middleware/auth.js';
 
 export const register = async (req, res) => {
     try {
@@ -12,6 +13,14 @@ export const register = async (req, res) => {
 
         if (!/^[a-zA-Z0-9_]+$/.test(userId)) {
             return res.status(400).json({ error: "User ID must be alphanumeric (letters, numbers, underscore)." });
+        }
+
+        if (userId.length < 3 || userId.length > 30) {
+            return res.status(400).json({ error: "User ID must be 3-30 characters." });
+        }
+
+        if (password.length < 6) {
+            return res.status(400).json({ error: "Password must be at least 6 characters." });
         }
 
         try {
@@ -59,7 +68,8 @@ export const register = async (req, res) => {
             }
         }
 
-        res.json({ success: true, message: "Account created!", userId, nickname });
+        const token = generateToken(userId, nickname);
+        res.json({ success: true, message: "Account created!", userId, nickname, token });
 
     } catch (err) {
         console.error("Register Error:", err);
@@ -128,7 +138,9 @@ export const login = async (req, res) => {
 
         if (isMatch) {
             console.log(`[Auth] Login Success: ${userId}`);
-            res.json({ success: true, userId, nickname: user.nickname || userId });
+            const nickname = user.nickname || userId;
+            const token = generateToken(userId, nickname);
+            res.json({ success: true, userId, nickname, token });
         } else {
             console.warn(`[Auth] Login Failed (Wrong Password): ${userId}`);
             res.status(401).json({ error: "Incorrect password." });

@@ -1,7 +1,10 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { fileURLToPath } from 'url';
+import { authMiddleware, requireAuth } from './middleware/auth.js';
 
 // Routes
 import authRoutes from './routes/authRoutes.js';
@@ -17,7 +20,7 @@ import imageRoutes from './routes/imageRoutes.js';
 import aiRoutes from './routes/aiRoutes.js';
 
 import connectDB from './config/db.js';
-import { syncNotion } from './controllers/notionController.js'; // Compat import
+import { syncNotion } from './controllers/notionController.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,36 +30,88 @@ const app = express();
 // 1. Connect DB
 connectDB();
 
-// 2. Middleware
+// 2. Security Headers (helmet)
+app.use(helmet({
+    contentSecurityPolicy: false, // Disable CSP for now (inline scripts in index.html)
+    crossOriginEmbedderPolicy: false, // Allow loading external images (Pollinations)
+}));
+
+// 3. CORS
 const corsOptions = process.env.NODE_ENV === 'production'
     ? { origin: [/\.onrender\.com$/, /^capacitor:\/\//, /^http:\/\/localhost/], credentials: true }
     : {};
 app.use(cors(corsOptions));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-// 3. Static Files
+// 4. Body Parsing with size limits
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// 5. Rate Limiters
+const globalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 300, // 300 requests per 15 min per IP
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests. Please try again later.' },
+});
+
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20, // 20 login/register attempts per 15 min
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many authentication attempts. Please try again later.' },
+});
+
+const aiLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 5, // 5 AI generation requests per minute
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'AI generation rate limit reached. Please wait a moment before trying again.' },
+});
+
+const uploadLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 5, // 5 uploads per minute
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Upload rate limit reached. Please wait a moment.' },
+});
+
+app.use('/api/', globalLimiter);
+
+// 6. Static Files
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// 4. Routes
-app.use('/api/auth', authRoutes); // Fixed: client expects /api/auth/login
+// 7. Auth middleware (runs on all /api/* routes, extracts user from JWT or x-user-id)
+app.use('/api/', authMiddleware);
+
+// 8. Routes
+// Auth (no requireAuth — these are public)
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/auth/notion', notionRoutes);
 
-app.use('/api/files', uploadRoutes);
-app.use('/api/youtube', youtubeRoutes);
-app.use('/api/news', newsRoutes);
-app.use('/api/creative', creativeRoutes);
-app.use('/api', libraryRoutes);
-app.use('/api', userRoutes);
-app.use('/api/reels', reelsRoutes);
-app.use('/api/notion', notionRoutes);
-app.use('/api', imageRoutes); // Maps /api/generate-image
+// AI-heavy routes (strict rate limit + auth required)
+app.use('/api/files', uploadLimiter, requireAuth, uploadRoutes);
+app.use('/api/youtube', aiLimiter, requireAuth, youtubeRoutes);
+app.use('/api/news', aiLimiter, requireAuth, newsRoutes);
+app.use('/api/creative', aiLimiter, requireAuth, creativeRoutes);
+
+// Image proxy (no auth — used in <img> src attributes)
+app.use('/api', imageRoutes);
 app.use('/api', aiRoutes);
+
+// Library & user routes (auth required)
+app.use('/api', requireAuth, libraryRoutes);
+app.use('/api', requireAuth, userRoutes);
+app.use('/api/reels', requireAuth, reelsRoutes);
+app.use('/api/notion', requireAuth, notionRoutes);
 
 // Compatibility Route
 const compatRouter = express.Router();
-compatRouter.post('/sync-notion', syncNotion);
+compatRouter.post('/sync-notion', requireAuth, syncNotion);
 app.use('/api', compatRouter);
 
 app.get('/', (req, res) => {

@@ -1,20 +1,24 @@
 services:
   - type: web
-    name: quiz-mvp
+    name: insighter
     runtime: node
-    plan: free
+    plan: starter
     buildCommand: npm install
     startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: "production"
       - key: SKIP_MONGO
-        value: "true"
-      - key: DATA_DIR
-        value: "./data"
+        value: "false"
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
       - key: GEMINI_API_KEY
         sync: false
       - key: POLLINATIONS_API_KEY
         sync: false
       - key: YOUTUBE_PROXY_URL
         sync: false
+      - key: PORT
+        value: "3001"

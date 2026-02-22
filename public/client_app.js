@@ -199,6 +199,9 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('study_user', currentUser);
             localStorage.setItem('user_nickname', currentUserNick);
             localStorage.setItem('user_name', currentUser);
+            if (data.token) {
+                localStorage.setItem('auth_token', data.token);
+            }
 
             alert(data.message || "Logged in successfully!");
             location.reload();
@@ -234,7 +237,8 @@ document.addEventListener('DOMContentLoaded', () => {
         logoutBtn.addEventListener('click', () => {
             if (confirm('Log out?')) {
                 localStorage.removeItem('study_user');
-                localStorage.removeItem('user_name'); // Clear sync
+                localStorage.removeItem('user_name');
+                localStorage.removeItem('auth_token');
                 location.reload();
             }
         });
@@ -257,6 +261,11 @@ document.addEventListener('DOMContentLoaded', () => {
         options = options || {};
         options.headers = options.headers || {};
 
+        // Send JWT token if available, fallback to x-user-id
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+            options.headers['Authorization'] = `Bearer ${token}`;
+        }
         if (currentUser) {
             options.headers['x-user-id'] = encodeURIComponent(currentUser);
         }
@@ -267,7 +276,16 @@ document.addEventListener('DOMContentLoaded', () => {
             options.headers['x-user-interests'] = encodeURIComponent(interests);
         }
 
-        return originalFetch(url, options);
+        // Handle 401 responses (expired token)
+        const response = await originalFetch(url, options);
+        if (response.status === 401 && token) {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('study_user');
+            localStorage.removeItem('user_name');
+            location.reload();
+            return response;
+        }
+        return response;
     };
 
 
@@ -437,13 +455,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Liked Questions Logic ---
     // --- Liked Questions Logic ---
     function renderLikedQuestions() {
-        currentView = 'liked'; // Set view state
+        currentView = 'liked';
         libraryGrid.innerHTML = '';
         const header = document.createElement('div');
-        header.className = 'liked-view-header';
+        header.style.cssText = 'display:flex; align-items:center; gap:12px; margin-bottom:16px; padding:0 4px;';
         header.innerHTML = `
-            <button onclick="window.renderLibrary()" style="background:none;border:none;font-size:1.5em;cursor:pointer;">⬅️</button>
-            <h2 style="display:inline-block; margin-left:10px;">Liked Questions ❤️</h2>
+            <button onclick="window.renderLibrary()" style="background:var(--card-bg); border:2px solid var(--border-light); border-radius:12px; padding:8px 14px; cursor:pointer; font-size:0.85rem; font-weight:600; color:var(--primary-dark); font-family:var(--font-body); display:flex; align-items:center; gap:4px; transition:all 0.2s;">
+                ← Back
+            </button>
+            <h2 style="font-family:var(--font-heading); font-size:1.3rem; font-weight:700; color:var(--text-main); margin:0;">Liked Questions ❤️</h2>
         `;
         libraryGrid.appendChild(header);
 
@@ -502,50 +522,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 4. Render
         if (likedQuestions.length === 0) {
-            libraryGrid.innerHTML += `<div class="empty-state"><p>No liked questions match filters.</p></div>`;
-            // Ensure we check return only if truly empty, but here we just continue to show nothing
+            libraryGrid.innerHTML += `<div style="text-align:center; padding:40px 20px; color:var(--text-muted);">
+                <div style="font-size:2rem; margin-bottom:8px;">🤍</div>
+                <p style="font-family:var(--font-body); font-size:0.9rem;">No liked questions yet. Tap ❤️ on questions to save them here.</p>
+            </div>`;
         }
 
         likedQuestions.forEach(item => {
             const { q, file, idx } = item;
 
-            // Render simple card
             const card = document.createElement('div');
-            card.className = 'bg-gray-800 rounded-xl p-6 border border-gray-700 hover:border-pink-500 transition-colors flex flex-col cursor-pointer h-full relative group';
+            card.className = 'card';
+            card.style.cssText = 'cursor:pointer; position:relative; margin-bottom:12px;';
 
             card.onclick = (e) => {
-                if (e.target.tagName === 'BUTTON' || e.target.parentElement.tagName === 'BUTTON') return;
+                if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
                 window.showExpandedQuestion(q, file.filename, file.id, idx);
             };
 
             let categoryText = 'General';
             if (file.categories && file.categories.length > 0) {
                 categoryText = file.categories[0];
-            } else if (file.subjectEmoji) {
-                categoryText = 'Topic';
             }
 
             card.innerHTML = `
-                 <div class="flex justify-between items-start mb-4">
-                     <div class="flex-1 min-w-0">
-                         <div class="flex items-center gap-2 mb-2">
-                             <span class="text-[10px] font-bold text-blue-300 bg-blue-900/50 px-2 py-1 rounded border border-blue-700/50 uppercase tracking-widest">
-                                 ${categoryText}
-                             </span>
-                         </div>
-                         <span class="text-sm font-bold text-white uppercase tracking-wider block truncate pr-2">
-                             ${file.subjectEmoji || '📄'} ${file.filename}
-                         </span>
-                     </div>
-                     <button class="text-2xl hover:scale-125 transition-transform active:scale-95 z-20" onclick="event.stopPropagation(); this.parentElement.parentElement.remove(); window._toggleLikeExternal('${file.id}', ${idx})">❤️</button>
-                 </div>
-                 <div class="flex-1">
-                     <p class="font-bold text-base mb-4 line-clamp-4 text-gray-200 leading-relaxed">${q.question}</p>
-                     <div class="bg-gray-900/50 rounded-lg p-3 border border-gray-700/50">
-                         <p class="text-xs text-gray-500 font-mono">Click to view answer</p>
-                     </div>
-                 </div>
-             `;
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+                    <div style="flex:1; min-width:0;">
+                        <span style="display:inline-block; font-size:0.65rem; font-weight:700; color:var(--primary-dark); background:rgba(107,140,66,0.12); padding:3px 8px; border-radius:6px; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:6px;">
+                            ${categoryText}
+                        </span>
+                        <div style="font-size:0.85rem; font-weight:600; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding-right:8px;">
+                            ${file.subjectEmoji || '📄'} ${file.filename}
+                        </div>
+                    </div>
+                    <button style="background:none; border:none; font-size:1.4rem; cursor:pointer; padding:4px; transition:transform 0.2s;"
+                        onclick="event.stopPropagation(); this.closest('.card').remove(); window._toggleLikeExternal('${file.id}', ${idx})">❤️</button>
+                </div>
+                <p style="font-family:var(--font-body); font-size:0.95rem; font-weight:600; color:var(--text-main); line-height:1.6; margin-bottom:12px; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;">${q.question}</p>
+                <div style="background:rgba(107,140,66,0.06); border-radius:10px; padding:10px 14px; border:1px solid var(--border-light);">
+                    <span style="font-size:0.75rem; color:var(--text-muted);">Tap to view answer</span>
+                </div>
+            `;
             libraryGrid.appendChild(card);
         });
     }
@@ -564,50 +581,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Modal Logic for Expanded Question
     window.showExpandedQuestion = function (q, filename, fileId, idx) {
-        // Create Modal Elements
         const overlay = document.createElement('div');
         overlay.className = 'modal-overlay';
-        overlay.style.display = 'flex';
-        overlay.style.alignItems = 'center';
-        overlay.style.justifyContent = 'center';
-        overlay.style.zIndex = '10000';
+        overlay.style.cssText = 'display:flex; align-items:center; justify-content:center; z-index:10000;';
         overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
 
+        const options = (q.options || []).map((opt, i) => {
+            const isCorrect = i === q.correctAnswer;
+            const bg = isCorrect ? 'rgba(107,140,66,0.12)' : 'rgba(0,0,0,0.02)';
+            const border = isCorrect ? 'var(--primary)' : 'var(--border-light)';
+            const badgeColor = isCorrect ? 'var(--primary); color:#fff' : 'var(--border-light); color:var(--text-muted)';
+            const textColor = isCorrect ? 'var(--primary-dark)' : 'var(--text-main)';
+            return `<div style="padding:12px 14px; border-radius:12px; border:1.5px solid ${border}; background:${bg}; display:flex; align-items:center; gap:10px;">
+                <span style="width:24px; height:24px; display:flex; align-items:center; justify-content:center; border-radius:50%; font-size:0.7rem; font-weight:700; background:${badgeColor}; flex-shrink:0;">${['A','B','C','D'][i] || (i+1)}</span>
+                <span style="font-size:0.9rem; color:${textColor}; font-weight:${isCorrect ? '600' : '400'};">${opt}</span>
+            </div>`;
+        }).join('');
+
         const modal = document.createElement('div');
-        modal.className = 'bg-gray-900 rounded-2xl p-6 border border-gray-700 shadow-2xl max-w-2xl w-full mx-4 relative';
+        modal.style.cssText = 'background:var(--card-bg); border-radius:24px; padding:28px 24px; border:2px solid #fff; box-shadow:var(--shadow-hover); max-width:560px; width:calc(100% - 32px); position:relative; max-height:90vh; overflow-y:auto;';
         modal.innerHTML = `
-            <button onclick="this.parentElement.parentElement.remove()" class="absolute top-4 right-4 text-gray-400 hover:text-white text-xl">✕</button>
-            
-            <div class="mb-4">
-                <span class="text-xs font-bold text-pink-500 uppercase tracking-widest">Liked Question</span>
-                <h3 class="text-gray-400 text-sm mt-1">From: ${filename}</h3>
+            <button onclick="this.parentElement.parentElement.remove()" style="position:absolute; top:16px; right:16px; background:none; border:none; font-size:1.2rem; color:var(--text-muted); cursor:pointer; padding:4px;">✕</button>
+
+            <div style="margin-bottom:16px;">
+                <span style="font-size:0.65rem; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:0.1em;">Liked Question</span>
+                <div style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">From: ${filename}</div>
             </div>
 
-            <div class="mb-6 relative">
-                <p class="text-xl font-bold text-white leading-relaxed">${q.question}</p>
-                <button class="absolute text-2xl hover:scale-110 transition-transform" 
-                     style="top: -100px; right: -100px;"
-                     title="Toggle Like"
-                     onclick="this.innerText = this.innerText === '❤️' ? '🤍' : '❤️'; window._toggleLikeExternal('${fileId}', ${idx})">
-                     ${q.isLiked ? '❤️' : '🤍'}
-                </button>
+            <p style="font-family:var(--font-heading); font-size:1.1rem; font-weight:700; color:var(--text-main); line-height:1.6; margin-bottom:20px;">${q.question}</p>
+
+            <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:20px;">
+                ${options}
             </div>
 
-            <div class="space-y-3 mb-6">
-                ${q.options.map((opt, i) => `
-                    <div class="p-3 rounded-lg border ${i === q.correctAnswer ? 'border-green-500 bg-green-900/20' : 'border-gray-700 bg-gray-800/50'}">
-                        <div class="flex items-center gap-3">
-                            <span class="w-6 h-6 flex items-center justify-center rounded-full text-xs ${i === q.correctAnswer ? 'bg-green-500 text-black font-bold' : 'bg-gray-700 text-gray-300'}">${['A', 'B', 'C', 'D'][i] || (i + 1)}</span>
-                            <span class="${i === q.correctAnswer ? 'text-green-300' : 'text-gray-300'}">${opt}</span>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-
-            <div class="bg-gray-800/50 rounded-lg p-4 border border-gray-700/50">
-                <h4 class="text-xs font-bold text-gray-400 uppercase mb-2">Explanation</h4>
-                <p class="text-sm text-gray-300 italic leading-relaxed">${q.explanation}</p>
-            </div>
+            ${q.explanation ? `<div style="background:rgba(107,140,66,0.06); border-radius:14px; padding:16px; border:1px solid var(--border-light);">
+                <div style="font-size:0.7rem; font-weight:700; color:var(--primary-dark); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:6px;">Explanation</div>
+                <p style="font-size:0.85rem; color:var(--text-muted); line-height:1.7; font-style:italic;">${q.explanation}</p>
+            </div>` : ''}
         `;
 
         overlay.appendChild(modal);
@@ -708,52 +718,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // --- Auto-Save Helper ---
+    // Per-question tracking now happens in handleAnswer(), so no batch tracking needed here
     async function saveProgressAndExit() {
-        if (currentView === 'quiz' && currentQuestions.length > 0) {
-            const answers = Object.entries(userAnswers);
-            const solvedCount = answers.length;
-
-            if (solvedCount > 0) {
-                let correct = 0;
-                let wrong = 0;
-
-                answers.forEach(([index, ansIdx]) => {
-                    const qIdx = parseInt(index);
-                    if (currentQuestions[qIdx] && currentQuestions[qIdx].correctAnswer === ansIdx) {
-                        correct++;
-                    } else {
-                        wrong++;
-                    }
-                });
-
-                console.log(`Auto-saving: ${correct} correct, ${wrong} wrong`);
-
-                // Get metadata safely
-                let subject = '📚';
-                let materialName = 'Quick Quiz';
-
-                if (currentFile) {
-                    if (currentFile.subjectEmoji) subject = currentFile.subjectEmoji;
-                    if (currentFile.filename) materialName = currentFile.filename;
-                    else if (currentFile.name) materialName = currentFile.name; // file object has name property
-                }
-
-                // Track with expanded data
-                try {
-                    await fetch(apiUrl('/api/track/solve'), {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            count: solvedCount,
-                            correct,
-                            wrong,
-                            materialName,
-                            subject
-                        })
-                    });
-                } catch (e) { console.error(e); }
-            }
-        }
         switchView('library');
     }
 
@@ -798,6 +764,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 saveBufferToLocal();
                 console.log(`Saved ${unsolved.length} unsolved items back to buffer.`);
             }
+            // Hide session bar
+            const _bar = document.getElementById('reels-session-bar');
+            if (_bar) _bar.hidden = true;
             switchView('library');
         });
     }
@@ -811,7 +780,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (exitReelsBtn) {
-        exitReelsBtn.addEventListener('click', () => switchView('library'));
+        exitReelsBtn.addEventListener('click', () => {
+            const _bar = document.getElementById('reels-session-bar');
+            if (_bar) _bar.hidden = true;
+            switchView('library');
+        });
     }
 
     // --- Personal Interests Logic ---
@@ -922,6 +895,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Creative Mode Logic ---
     if (generateCreativeBtn) {
+        // Creative input clear/paste buttons
+        function setupInputButtons(input, clearBtn, pasteBtn) {
+            function update() {
+                const hasText = input.value.trim().length > 0;
+                if (clearBtn) clearBtn.hidden = !hasText;
+                if (pasteBtn) pasteBtn.hidden = hasText;
+            }
+            input.addEventListener('input', update);
+            if (clearBtn) clearBtn.addEventListener('click', () => { input.value = ''; update(); input.focus(); });
+            if (pasteBtn) pasteBtn.addEventListener('click', async () => {
+                try { const t = await navigator.clipboard.readText(); if (t) { input.value = t.trim(); update(); } } catch (e) { input.focus(); }
+            });
+            update();
+        }
+
+        document.querySelectorAll('.creative-clear-btn').forEach(btn => {
+            const input = document.getElementById(btn.dataset.target);
+            const pasteBtn = btn.parentElement.querySelector('.creative-paste-btn');
+            if (input) setupInputButtons(input, btn, pasteBtn);
+        });
+
         generateCreativeBtn.addEventListener('click', async () => {
             const title = creativeTitleInput.value.trim();
             const author = creativeAuthorInput.value.trim();
@@ -1070,13 +1064,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- YouTube Logic ---
 
-    // Enable button when input has text
-    youtubeInput.addEventListener('input', () => {
+    const ytClearBtn = document.getElementById('yt-clear-btn');
+    const ytPasteBtn = document.getElementById('yt-paste-btn');
+
+    function updateYtButtons() {
         const val = youtubeInput.value.trim();
-        // Basic loose validation to ensure it looks like a youtube link
         const isValid = val.length > 0 && (val.includes('youtube.com') || val.includes('youtu.be'));
         generateYtBtn.disabled = !isValid;
-    });
+        if (ytClearBtn) ytClearBtn.hidden = val.length === 0;
+        if (ytPasteBtn) ytPasteBtn.hidden = val.length > 0;
+    }
+
+    youtubeInput.addEventListener('input', updateYtButtons);
+
+    // Clear button
+    if (ytClearBtn) {
+        ytClearBtn.addEventListener('click', () => {
+            youtubeInput.value = '';
+            updateYtButtons();
+            youtubeInput.focus();
+        });
+    }
+
+    // Paste button — reads clipboard and fills input
+    if (ytPasteBtn) {
+        ytPasteBtn.addEventListener('click', async () => {
+            try {
+                const text = await navigator.clipboard.readText();
+                if (text) {
+                    youtubeInput.value = text.trim();
+                    updateYtButtons();
+                }
+            } catch (e) {
+                // Clipboard API denied — fallback: focus input so user can Ctrl+V
+                youtubeInput.focus();
+            }
+        });
+    }
 
     generateYtBtn.addEventListener('click', async () => {
         const url = youtubeInput.value.trim();
@@ -1088,9 +1112,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const success = await handleGeneration('/api/youtube/generate', null, generateYtBtn, { url });
 
         if (success) {
-            // Auto-Clear URL
             youtubeInput.value = '';
-            generateYtBtn.disabled = true;
+            updateYtButtons();
         }
     });
 
@@ -1669,7 +1692,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
 
                 flashcard.onclick = () => {
-                    handleAnswer('revealed'); // Mark as answered
+                    handleAnswer('revealed'); // Mark as answered + tracks SRS + server
 
                     // animate transition
                     flashcard.style.transform = 'scale(0.95) rotate(-1deg)';
@@ -1677,31 +1700,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         flashcard.style.transform = 'scale(1) rotate(0deg)';
                         renderRevealedContent();
 
-                        // Show confetti (Soft/Pastel colors)
                         if (typeof confetti === 'function') {
                             confetti({
                                 particleCount: 60,
                                 spread: 70,
                                 origin: { y: 0.6 },
-                                colors: ['#6B8C42', '#F2A6A6', '#F9DA78'], // Green, Coral, Yellow
+                                colors: ['#6B8C42', '#F2A6A6', '#F9DA78'],
                                 shapes: ['circle'],
                                 scalar: 0.8
                             });
                         }
-
-                        // Track completion (Silent)
-                        fetch(apiUrl('/api/track/solve'), {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                count: 1,
-                                correct: 1,
-                                wrong: 0,
-                                materialName: activeFile ? (activeFile.filename || activeFile.name) : 'Quiz',
-                                subject: activeFile ? activeFile.subjectEmoji : '📚'
-                            })
-                        }).catch(e => console.error('Tracking failed', e));
-
                     }, 150);
                 };
             }
@@ -1868,19 +1876,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
         userAnswers[currentQuestionIndex] = selectedIndex;
 
-        // CHECK CORRECTNESS to save progress for filtering "New Question"
         const q = currentQuestions[currentQuestionIndex];
-        // Ensure q exists and compare safely
-        const isCorrect = q && (q.correctAnswer === selectedIndex || q.correctAnswer == selectedIndex);
-        if (q) recordSRSAnswer(q.question, !!isCorrect);
+        if (!q) { renderQuestion(); return; }
+
+        // SAQ/flashcard: 'revealed' counts as correct
+        const isSAQ = selectedIndex === 'revealed';
+        const isCorrect = isSAQ || (q.correctAnswer === selectedIndex || q.correctAnswer == selectedIndex);
+
+        // Update SRS + solved_questions
+        recordSRSAnswer(q.question, !!isCorrect);
         if (isCorrect) {
-            try {
-                const solvedRaw = localStorage.getItem('solved_questions');
-                const solvedSet = new Set(solvedRaw ? JSON.parse(solvedRaw) : []);
-                solvedSet.add(q.question);
-                localStorage.setItem('solved_questions', JSON.stringify(Array.from(solvedSet)));
-            } catch (e) { console.error("Storage error", e); }
+            markQuestionasSolved(q.question);
         }
+
+        // Track to server per-question (for profile stats, streak, chart)
+        const materialName = currentFile ? (currentFile.filename || currentFile.name || 'Quiz') : 'Quiz';
+        const subject = currentFile ? (currentFile.subjectEmoji || '📚') : '📚';
+        fetch(apiUrl('/api/track/solve'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                count: 1,
+                correct: isCorrect ? 1 : 0,
+                wrong: isCorrect ? 0 : 1,
+                materialName,
+                subject
+            })
+        }).catch(e => console.error('Track failed', e));
 
         renderQuestion();
     }
@@ -2154,6 +2176,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'x-user-id': encodeURIComponent(localStorage.getItem('user_name') || 'guest') }
             });
             const files = await response.json();
+            window.allFiles = files; // Make files available for date lookup in reels
 
             let libraryQuestions = [];
             // Create a lookup map to backfill missing IDs in pregenerated/stale buffer items
@@ -2344,6 +2367,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (sortSelect) sortSelect.addEventListener('change', () => window.renderLibrary());
     if (categorySelect) categorySelect.addEventListener('change', () => window.renderLibrary());
     if (filterSelect) filterSelect.addEventListener('change', () => window.renderLibrary());
+
+    // Search bar — debounced
+    const libSearchInput = document.getElementById('library-search-input');
+    if (libSearchInput) {
+        let searchTimer;
+        libSearchInput.addEventListener('input', () => {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => window.renderLibrary(), 200);
+        });
+    }
 
     // Alias for deprecated function name if necessary
 
@@ -3030,6 +3063,46 @@ document.addEventListener('DOMContentLoaded', () => {
         reelsContainer.innerHTML = '';
         reelsContainer.scrollTop = 0; // Ensure we start at the top
 
+        // --- Session stats tracker ---
+        let sessionSolved = 0, sessionCorrect = 0, sessionStreak = 0, sessionBestStreak = 0;
+        const sessionBar = document.getElementById('reels-session-bar');
+        const sessionSolvedEl = document.getElementById('session-solved-count');
+        const sessionStreakEl = document.getElementById('session-streak-count');
+        const sessionRateEl = document.getElementById('session-correct-rate');
+        const streakStatEl = document.getElementById('session-streak-stat');
+        if (sessionBar) sessionBar.hidden = false;
+
+        function updateSessionStats(isCorrect) {
+            sessionSolved++;
+            if (isCorrect) { sessionCorrect++; sessionStreak++; }
+            else { sessionStreak = 0; }
+            if (sessionStreak > sessionBestStreak) sessionBestStreak = sessionStreak;
+
+            if (sessionSolvedEl) sessionSolvedEl.textContent = sessionSolved;
+            if (sessionStreakEl) sessionStreakEl.textContent = sessionStreak;
+            if (sessionRateEl) sessionRateEl.textContent = sessionSolved > 0 ? Math.round((sessionCorrect / sessionSolved) * 100) : 0;
+            if (streakStatEl) {
+                streakStatEl.classList.toggle('hot', sessionStreak >= 5);
+            }
+
+            // Milestone toasts
+            const milestones = [
+                { count: 5, emoji: '🔥', text: '5 Streak!', sub: 'You\'re on fire!' },
+                { count: 10, emoji: '⚡', text: '10 Streak!', sub: 'Unstoppable!' },
+                { count: 20, emoji: '🏆', text: '20 Streak!', sub: 'Legendary!' },
+                { count: 50, emoji: '👑', text: '50 Streak!', sub: 'You are the master!' },
+            ];
+            const milestone = milestones.find(m => m.count === sessionStreak);
+            if (milestone) {
+                const toast = document.createElement('div');
+                toast.className = 'milestone-toast';
+                toast.innerHTML = `<span class="milestone-emoji">${milestone.emoji}</span><div class="milestone-text">${milestone.text}</div><div class="milestone-sub">${milestone.sub}</div>`;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 2500);
+                if (typeof confetti === 'function') confetti({ particleCount: 150, spread: 100, origin: { y: 0.4 }, colors: ['#6B8C42', '#F9DA78', '#F2A6A6'] });
+            }
+        }
+
         // Function to render a batch of questions
 
         // Helper: Generate a good visual prompt using the WHOLE context
@@ -3056,7 +3129,7 @@ document.addEventListener('DOMContentLoaded', () => {
             imgWrapper.style.position = 'relative';
             // imgWrapper.style.display = 'none'; // USER REQUEST: Hide image completely
             imgWrapper.style.width = '100%';
-            imgWrapper.style.marginBottom = '20px'; // Move margin from image to wrapper
+            imgWrapper.style.marginBottom = '6px';
 
             const image = document.createElement('img');
             image.className = 'reel-image';
@@ -3144,15 +3217,17 @@ document.addEventListener('DOMContentLoaded', () => {
             // But usually q.originId is sufficient.
             const fileIdForLike = q.originId || (window.activeFile ? window.activeFile.id : null);
 
+            // Shared style for image overlay action buttons
+            const _overlayBtnBase = 'position:absolute;right:10px;z-index:20;background:none;border:none;cursor:pointer;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.45));transition:transform 0.15s;';
+
             if (fileIdForLike) {
                 // Like Button
                 const likeBtn = document.createElement('button');
                 likeBtn.className = 'like-btn';
-                likeBtn.style.cssText = 'position:absolute;top:10px;right:10px;z-index:20;font-size:1.5rem;background:none;border:none;cursor:pointer;filter:drop-shadow(0 0 2px rgba(0,0,0,0.5));';
+                likeBtn.style.cssText = _overlayBtnBase + 'top:10px;font-size:1.25rem;';
                 likeBtn.innerHTML = q.isLiked ? '❤️' : '🤍';
                 likeBtn.onclick = (e) => {
                     e.stopPropagation();
-                    // If originalIndex is missing (fresh gen), use passed index
                     const idx = (q.originalIndex !== undefined) ? q.originalIndex : originalIndex;
                     toggleLike(q, likeBtn, fileIdForLike, idx);
                 };
@@ -3163,8 +3238,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 summaryBtn.className = 'summary-info-btn';
                 summaryBtn.innerHTML = '📄';
                 summaryBtn.title = "View Study Material";
-                summaryBtn.style.cssText = 'position:absolute;top:50px;right:10px;z-index:20;background:none;border:none;cursor:pointer;font-size:24px;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.3));';
-
+                summaryBtn.style.cssText = _overlayBtnBase + 'top:46px;font-size:1.15rem;';
                 summaryBtn.onclick = (e) => {
                     e.stopPropagation();
                     if (window.openOverview) window.openOverview(q.originId);
@@ -3179,20 +3253,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 const isYouTube = !!q.videoUrl;
                 const srcBtn = document.createElement('button');
                 srcBtn.className = isYouTube ? 'youtube-source-btn' : 'news-source-btn';
-
-                // Icon: YouTube Logo (Red Play) or News Paper
-                srcBtn.innerHTML = isYouTube
-                    ? '<span style="color: #FF0000; font-size: 28px; text-shadow: 0 1px 2px rgba(0,0,0,0.5);">▶️</span>'
-                    : '📰';
-
+                srcBtn.innerHTML = isYouTube ? '▶️' : '📰';
                 srcBtn.title = isYouTube ? "Watch on YouTube" : "Read Article";
-                srcBtn.style.cssText = 'position:absolute;top:90px;right:10px;z-index:20;background:none;border:none;cursor:pointer;font-size:24px;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.3));';
-
+                const topPos = fileIdForLike ? '82px' : '10px';
+                srcBtn.style.cssText = _overlayBtnBase + `top:${topPos};font-size:1.15rem;`;
                 srcBtn.onclick = (e) => {
                     e.stopPropagation();
                     window.open(sourceUrl, '_blank');
                 };
                 imgWrapper.appendChild(srcBtn);
+            }
+
+            // Material source label with upload date
+            const sourceLabel = document.createElement('div');
+            sourceLabel.className = 'reel-source-label';
+            const sourceName = q.sourceTitle || q.materialName || q.originFilename || '';
+            if (sourceName) {
+                let dateStr = '';
+                // Find the origin file to get upload date — try by ID first, then by filename
+                const _allFiles = window.allFiles || [];
+                let originFile = q.originId ? _allFiles.find(f => f.id === q.originId) : null;
+                if (!originFile) originFile = _allFiles.find(f => f.filename === sourceName);
+                if (originFile) {
+                    const rawDate = originFile.uploadedAt || originFile.createdAt || originFile.uploadDate || originFile.date;
+                    if (rawDate) {
+                        const d = new Date(rawDate);
+                        if (!isNaN(d.getTime())) {
+                            dateStr = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                        }
+                    }
+                }
+                const displayName = sourceName.length > 30 ? sourceName.substring(0, 30) + '...' : sourceName;
+                sourceLabel.innerHTML = `<span class="source-dot"></span>${displayName}${dateStr ? ' · ' + dateStr : ''}`;
             }
 
             const title = document.createElement('div');
@@ -3286,6 +3378,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         recordSRSAnswer(q.question, true); // SAQ reveal = correct
                         markQuestionasSolved(q.question);
+                        updateSessionStats(true);
+                        if (actionRow) actionRow.hidden = true;
                         content.classList.add('correct-flash');
                         if (typeof confetti === 'function') {
                             confetti({
@@ -3382,15 +3476,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
                 optionsDiv.appendChild(flashcard);
             } else {
+                const optionLetters = ['A', 'B', 'C', 'D', 'E', 'F'];
                 q.options.forEach((opt, optIdx) => {
                     const btn = document.createElement('div');
                     btn.className = 'option';
-                    btn.textContent = opt;
+                    btn.style.display = 'flex';
+                    btn.style.alignItems = 'center';
+                    const letter = document.createElement('span');
+                    letter.className = 'option-letter';
+                    letter.textContent = optionLetters[optIdx] || '';
+                    const optText = document.createElement('span');
+                    optText.textContent = opt;
+                    btn.appendChild(letter);
+                    btn.appendChild(optText);
                     btn.onclick = () => {
                         if (isAnswered) return;
                         isAnswered = true;
+                        if (actionRow) actionRow.hidden = true;
                         const isCorrect = optIdx === q.correctAnswer;
                         recordSRSAnswer(q.question, isCorrect);
+                        updateSessionStats(isCorrect);
 
                         // Refill Buffer on interaction
                         if (window.maintainEndlessBuffer) window.maintainEndlessBuffer();
@@ -3542,9 +3647,40 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
 
+            // Report action row
+            const actionRow = document.createElement('div');
+            actionRow.className = 'reel-action-row';
+
+            const reportBtn = document.createElement('button');
+            reportBtn.className = 'reel-report-btn';
+            reportBtn.innerHTML = '🚩 Report';
+            reportBtn.onclick = (e) => {
+                e.stopPropagation();
+                const reason = prompt('What\'s wrong with this question?\n\n• Wrong answer\n• Bad question\n• Other');
+                if (reason) {
+                    try {
+                        const reports = JSON.parse(localStorage.getItem('question_reports') || '[]');
+                        reports.push({
+                            question: q.question,
+                            reason,
+                            materialName: q.sourceTitle || q.originFilename || '',
+                            timestamp: new Date().toISOString()
+                        });
+                        localStorage.setItem('question_reports', JSON.stringify(reports));
+                    } catch (err) {}
+                    reportBtn.innerHTML = '✅ Reported';
+                    reportBtn.disabled = true;
+                    reportBtn.style.color = 'var(--primary)';
+                }
+            };
+
+            actionRow.appendChild(reportBtn);
+
             content.appendChild(imgWrapper);
+            if (sourceName) content.appendChild(sourceLabel);
             content.appendChild(title);
             content.appendChild(optionsDiv);
+            content.appendChild(actionRow);
             content.appendChild(explanation);
             card.appendChild(content);
 
@@ -3714,10 +3850,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const sortSelect = document.getElementById('sort-select');
         const typeSelect = document.getElementById('type-select');
         const categorySelect = document.getElementById('category-select');
+        const searchInput = document.getElementById('library-search-input');
 
         const sortBy = sortSelect ? sortSelect.value : 'date-desc';
         const filterType = typeSelect ? typeSelect.value : 'all';
         const filterCategory = categorySelect ? categorySelect.value : 'all';
+        const searchQuery = searchInput ? searchInput.value.trim().toLowerCase() : '';
+
+        if (searchQuery) {
+            files = files.filter(f => {
+                const name = (f.filename || '').toLowerCase();
+                const cats = (f.categories || []).join(' ').toLowerCase();
+                return name.includes(searchQuery) || cats.includes(searchQuery);
+            });
+        }
 
         if (filterType !== 'all') {
             files = files.filter(f => f.type === filterType);
@@ -3753,6 +3899,10 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // Pre-load SRS data once for all cards
+        const srsData = getSRSData();
+        const solvedSet = new Set(getSolvedQuestions());
+
         files.forEach(file => {
             const card = document.createElement('div');
             card.className = 'glass-card p-5 hover-scale relative';
@@ -3763,7 +3913,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Fix Date Fallback
             let dateStr = 'Unknown Date';
-            // Robust Date Parsing
             const rawDate = file.uploadedAt || file.createdAt || file.uploadDate || file.date;
             if (rawDate) {
                 const d = new Date(rawDate);
@@ -3775,7 +3924,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Categories
             let catTags = '';
             if (file.categories && file.categories.length > 0) {
-                catTags = '<div class="w-full flex justify-center items-center flex-nowrap gap-1.5 mt- 0 mb-1 px-8">';
+                catTags = '<div class="w-full flex justify-center items-center flex-nowrap gap-1.5 mt-0 mb-1 px-8">';
                 file.categories.forEach(cat => {
                     const bg = categoryColors[cat] || defaultColor;
                     catTags += `<span class="px-2 py-0.5 rounded-full text-xs font-bold text-white whitespace-nowrap" style="background: ${bg};">${cat}</span>`;
@@ -3783,28 +3932,91 @@ document.addEventListener('DOMContentLoaded', () => {
                 catTags += '</div>';
             }
 
-            // RESTORED CARD HTML (Simplified Single Card)
-            card.innerHTML = `
-                <!-- Categories -->
-                ${catTags}
+            // --- Progress ring calculation ---
+            const totalQ = file.questions ? file.questions.length : 0;
+            let solvedQ = 0;
+            if (totalQ > 0) {
+                file.questions.forEach(q => {
+                    if (solvedSet.has(q.question)) solvedQ++;
+                });
+            }
+            const progressPct = totalQ > 0 ? Math.round((solvedQ / totalQ) * 100) : 0;
+            const circumference = 2 * Math.PI * 16;
+            const dashOffset = circumference - (progressPct / 100) * circumference;
+            const ringColor = progressPct >= 80 ? '#4A6741' : progressPct >= 40 ? '#6B8C42' : '#8FB365';
 
-                <!-- Trash Bin -->
+            // --- Mastery badge ---
+            let masteryHTML = '';
+            if (totalQ === 0) {
+                masteryHTML = '<span class="mastery-badge mastery-new">🌰 New</span>';
+            } else if (progressPct >= 80) {
+                masteryHTML = '<span class="mastery-badge mastery-mastered">🌳 Mastered</span>';
+            } else if (progressPct >= 40) {
+                masteryHTML = '<span class="mastery-badge mastery-learning">🌿 Learning</span>';
+            } else {
+                masteryHTML = '<span class="mastery-badge mastery-beginner">🌱 Beginner</span>';
+            }
+
+            // --- Last reviewed ---
+            let lastReviewedHTML = '';
+            if (totalQ > 0) {
+                let latestTime = 0;
+                file.questions.forEach(q => {
+                    const entry = srsData[q.question];
+                    if (entry && entry.lastAnswered) {
+                        const t = new Date(entry.lastAnswered).getTime();
+                        if (t > latestTime) latestTime = t;
+                    }
+                });
+                if (latestTime > 0) {
+                    const diffMs = Date.now() - latestTime;
+                    const diffMins = Math.floor(diffMs / 60000);
+                    const diffHrs = Math.floor(diffMins / 60);
+                    const diffDays = Math.floor(diffHrs / 24);
+                    let agoStr;
+                    if (diffMins < 1) agoStr = 'Just now';
+                    else if (diffMins < 60) agoStr = `${diffMins}m ago`;
+                    else if (diffHrs < 24) agoStr = `${diffHrs}h ago`;
+                    else if (diffDays === 1) agoStr = 'Yesterday';
+                    else agoStr = `${diffDays}d ago`;
+                    lastReviewedHTML = `<span class="card-last-reviewed">📖 Reviewed ${agoStr}</span>`;
+                } else {
+                    lastReviewedHTML = '<span class="card-last-reviewed">Not yet reviewed</span>';
+                }
+            }
+
+            card.innerHTML = `
+                ${catTags}
                 <button class="delete-btn-abs" onclick="event.stopPropagation(); window.deleteFile('${file.id}')" title="Delete">🗑️</button>
 
-                <!-- Icon -->
                 <div class="flex items-center justify-center mb-2 mt-3 text-4xl">
                     ${icon}
                 </div>
-            
-                <h3 class="font-bold text-base mb-1 truncate pr-6" title="${file.filename}">${file.filename}</h3>
-                <p class="text-xs text-gray-400 mb-3">${file.type === 'youtube' ? t('lib_type_video') : t('lib_type_text')} • ${dateStr}</p>
-                
-                <!-- Divider -->
-                <div class="h-px bg-gray-700/30 w-full mb-3"></div>
 
-                <!-- Buttons (Concise) -->
+                <h3 class="font-bold text-base mb-1 truncate pr-6" title="${file.filename}">${file.filename}</h3>
+                <p class="text-xs text-gray-400 mb-1">${file.type === 'youtube' ? t('lib_type_video') : t('lib_type_text')} • ${dateStr}</p>
+
+                <div class="card-info-row">
+                    <div class="card-meta-left">
+                        ${masteryHTML}
+                        ${lastReviewedHTML}
+                    </div>
+                    <div class="card-progress-ring">
+                        <svg viewBox="0 0 36 36">
+                            <circle class="ring-bg" cx="18" cy="18" r="16"></circle>
+                            <circle class="ring-fill" cx="18" cy="18" r="16"
+                                stroke="${ringColor}"
+                                stroke-dasharray="${circumference}"
+                                stroke-dashoffset="${dashOffset}"></circle>
+                        </svg>
+                        <div class="ring-text">${solvedQ}/${totalQ}</div>
+                    </div>
+                </div>
+
+                <div class="h-px bg-gray-700/30 w-full mb-3" style="margin-top:8px;"></div>
+
                 <div class="flex gap-2 card-actions">
-                    <button id="btn-review-${file.id}" onclick="event.stopPropagation(); window.startReview('${file.id}')" 
+                    <button id="btn-review-${file.id}" onclick="event.stopPropagation(); window.startReview('${file.id}')"
                         class="action-btn flex-1 px-2.5 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 rounded-lg text-xs font-bold text-white transition-all">
                         ${t('lib_review')}
                     </button>
@@ -3891,12 +4103,35 @@ document.addEventListener('DOMContentLoaded', () => {
             timeSavedEl.textContent = timeSaved + 'm';
 
             // Populate Source
-            if (file.youtubeUrl) {
-                sourceLink.href = file.youtubeUrl;
-                sourceText.textContent = file.youtubeUrl;
+            const sourceTypeEl = document.getElementById('overview-source-type');
+            const sourceTypeIcon = document.getElementById('overview-source-type-icon');
+            const sourceTypeText = document.getElementById('overview-source-type-text');
+
+            const ytUrl = file.youtubeUrl || file.originalUrl || file.url;
+            if (file.type === 'youtube' && ytUrl) {
+                sourceLink.href = ytUrl;
+                sourceText.textContent = ytUrl;
                 sourceLink.style.display = 'flex';
+                if (sourceTypeEl) sourceTypeEl.style.display = 'none';
             } else {
                 sourceLink.style.display = 'none';
+                if (sourceTypeEl) {
+                    sourceTypeEl.style.display = 'flex';
+                    const typeMap = {
+                        'Movie': { icon: '🎬', label: 'Movie' },
+                        'Book': { icon: '📖', label: 'Book' },
+                        'TV Show': { icon: '📺', label: 'TV Show' },
+                        'creative': { icon: '🎨', label: 'Creative Work' },
+                        'pdf': { icon: '📑', label: 'PDF Document' },
+                        'doc': { icon: '📝', label: 'Document' },
+                        'custom': { icon: '✏️', label: 'Custom Material' },
+                    };
+                    // Use specific creativeType if set, otherwise file.type
+                    const key = file.creativeType || file.type || 'doc';
+                    const info = typeMap[key] || { icon: '📄', label: key.charAt(0).toUpperCase() + key.slice(1) };
+                    sourceTypeIcon.textContent = info.icon;
+                    sourceTypeText.textContent = info.label;
+                }
             }
 
             // Start Review Action
@@ -4051,42 +4286,66 @@ document.addEventListener('DOMContentLoaded', () => {
             const chartContainer = document.getElementById('activity-chart');
             if (chartContainer) {
                 chartContainer.innerHTML = '';
-                const days = Object.keys(data.dailyStats).sort();
 
-                days.forEach(day => {
-                    const stat = data.dailyStats[day];
-                    const height = Math.min(stat.solved * 5 + 5, 100);
+                // Build last 7 days (fill missing days with 0)
+                const last7 = [];
+                const todayStr = new Date().toISOString().split('T')[0];
+                const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                for (let i = 6; i >= 0; i--) {
+                    const d = new Date();
+                    d.setDate(d.getDate() - i);
+                    const key = d.toISOString().split('T')[0];
+                    last7.push({ day: key, solved: data.dailyStats[key]?.solved || 0, dayName: dayNames[d.getDay()] });
+                }
+                const maxSolved = Math.max(...last7.map(d => d.solved), 1);
+                const totalWeek = last7.reduce((s, d) => s + d.solved, 0);
+
+                // Update total badge
+                const totalBadge = document.getElementById('chart-total-badge');
+                if (totalBadge) totalBadge.textContent = `${totalWeek} solved`;
+
+                const maxBarHeight = 105;
+                const minBarHeight = 4;
+
+                last7.forEach(({ day, solved, dayName }) => {
+                    const isToday = day === todayStr;
+                    const barH = solved > 0
+                        ? Math.round((solved / maxSolved) * maxBarHeight * 0.82 + maxBarHeight * 0.18)
+                        : minBarHeight;
+
+                    const col = document.createElement('div');
+                    col.style.cssText = 'flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:3px;';
+
+                    // Count label above bar
+                    const countLabel = document.createElement('div');
+                    countLabel.textContent = solved > 0 ? solved : '';
+                    countLabel.style.cssText = `font-size:0.72rem; font-weight:800; color:${isToday ? 'var(--primary)' : 'var(--primary-dark)'}; font-family:var(--font-heading); height:16px; line-height:16px;`;
+
+                    // Bar
                     const bar = document.createElement('div');
-                    bar.style.width = '12%';
-                    bar.style.height = height + '%';
-                    bar.style.background = stat.solved > 0 ? '#6366f1' : 'rgba(255,255,255,0.1)';
-                    bar.style.borderRadius = '4px 4px 0 0';
-                    bar.style.position = 'relative';
-                    bar.title = `${day}: ${stat.solved} solved`;
-
-                    if (stat.solved > 0) {
-                        const countLabel = document.createElement('div');
-                        countLabel.textContent = `${stat.solved}Qs`; // simplified
-                        countLabel.style.position = 'absolute';
-                        countLabel.style.top = '-20px';
-                        countLabel.style.width = '100%';
-                        countLabel.style.textAlign = 'center';
-                        countLabel.style.fontSize = '10px';
-                        countLabel.style.color = '#a5b4fc';
-                        bar.appendChild(countLabel);
+                    bar.style.cssText = `width:65%; max-width:38px; height:${barH}px; border-radius:8px 8px 4px 4px; transition:all 0.4s ease; cursor:pointer;`;
+                    if (solved > 0) {
+                        bar.style.background = isToday
+                            ? 'linear-gradient(180deg, #f9da78 0%, #e8a838 100%)'
+                            : 'linear-gradient(180deg, #b8dc6f 0%, #6B8C42 100%)';
+                        bar.style.boxShadow = isToday
+                            ? '0 3px 10px rgba(232,168,56,0.3)'
+                            : '0 2px 8px rgba(107,140,66,0.2)';
+                    } else {
+                        bar.style.background = 'rgba(107,140,66,0.08)';
+                        bar.style.border = '1px dashed rgba(107,140,66,0.2)';
                     }
+                    bar.title = `${day}: ${solved} solved`;
 
+                    // Day name label
                     const label = document.createElement('div');
-                    label.textContent = day.slice(5);
-                    label.style.position = 'absolute';
-                    label.style.bottom = '-20px';
-                    label.style.fontSize = '10px';
-                    label.style.width = '100%';
-                    label.style.textAlign = 'center';
-                    label.style.color = '#888';
+                    label.textContent = isToday ? 'Today' : dayName;
+                    label.style.cssText = `font-size:0.62rem; font-weight:${isToday ? '800' : '600'}; color:${isToday ? 'var(--primary)' : 'var(--text-muted)'}; font-family:var(--font-heading); height:16px; line-height:16px;`;
 
-                    bar.appendChild(label);
-                    chartContainer.appendChild(bar);
+                    col.appendChild(countLabel);
+                    col.appendChild(bar);
+                    col.appendChild(label);
+                    chartContainer.appendChild(col);
                 });
             }
 
@@ -4099,7 +4358,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${t('stat_no_progress')}
                     </div>`;
                 } else {
-                    data.topSubjects.slice(0, 10).forEach(sub => {
+                    data.topSubjects
+                    .filter(sub => {
+                        const n = (sub.name || '').toLowerCase();
+                        // Filter out non-material entries
+                        if (n === 'endless review' || n === 'unknown') return false;
+                        if (/^news quiz[:\s]/i.test(sub.name)) return false;
+                        return true;
+                    })
+                    .slice(0, 10).forEach(sub => {
                         const accuracy = sub.accuracy || 0;
                         const barColor = accuracy >= 80 ? '#4ade80' : accuracy >= 50 ? '#facc15' : '#f87171';
                         const timeTxt = sub.timeSaved >= 60
@@ -6245,15 +6512,37 @@ window.openOverview = async (fileId) => {
         document.getElementById('overview-question-count').textContent = qCount;
         document.getElementById('overview-time-saved').textContent = (qCount * 2) + 'm';
 
-        // Link
+        // Source
         const linkEl = document.getElementById('overview-source-link');
         const linkText = document.getElementById('overview-source-text');
-        if (file.type === 'youtube' && file.originalUrl) {
-            linkEl.href = file.originalUrl;
-            linkEl.hidden = false;
-            linkText.textContent = file.originalUrl.length > 40 ? file.originalUrl.substring(0, 40) + '...' : file.originalUrl;
+        const srcTypeEl = document.getElementById('overview-source-type');
+        const srcTypeIcon = document.getElementById('overview-source-type-icon');
+        const srcTypeText = document.getElementById('overview-source-type-text');
+
+        const ytUrl2 = file.youtubeUrl || file.originalUrl || file.url;
+        if (file.type === 'youtube' && ytUrl2) {
+            linkEl.href = ytUrl2;
+            linkEl.style.display = 'flex';
+            linkText.textContent = ytUrl2.length > 40 ? ytUrl2.substring(0, 40) + '...' : ytUrl2;
+            if (srcTypeEl) srcTypeEl.style.display = 'none';
         } else {
-            linkEl.hidden = true;
+            linkEl.style.display = 'none';
+            if (srcTypeEl) {
+                srcTypeEl.style.display = 'flex';
+                const typeMap = {
+                    'Movie': { icon: '🎬', label: 'Movie' },
+                    'Book': { icon: '📖', label: 'Book' },
+                    'TV Show': { icon: '📺', label: 'TV Show' },
+                    'creative': { icon: '🎨', label: 'Creative Work' },
+                    'pdf': { icon: '📑', label: 'PDF Document' },
+                    'doc': { icon: '📝', label: 'Document' },
+                    'custom': { icon: '✏️', label: 'Custom Material' },
+                };
+                const key = file.creativeType || file.type || 'doc';
+                const info = typeMap[key] || { icon: '📄', label: key.charAt(0).toUpperCase() + key.slice(1) };
+                srcTypeIcon.textContent = info.icon;
+                srcTypeText.textContent = info.label;
+            }
         }
 
         // Summary
