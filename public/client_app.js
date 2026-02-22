@@ -1841,7 +1841,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // CHECK CORRECTNESS to save progress for filtering "New Question"
         const q = currentQuestions[currentQuestionIndex];
         // Ensure q exists and compare safely
-        if (q && (q.correctAnswer === selectedIndex || q.correctAnswer == selectedIndex)) { // Loose equality for safety
+        const isCorrect = q && (q.correctAnswer === selectedIndex || q.correctAnswer == selectedIndex);
+        if (q) recordSRSAnswer(q.question, !!isCorrect);
+        if (isCorrect) {
             try {
                 const solvedRaw = localStorage.getItem('solved_questions');
                 const solvedSet = new Set(solvedRaw ? JSON.parse(solvedRaw) : []);
@@ -1892,6 +1894,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.allFiles = data; // Sync global
             libraryFiles = data;    // Sync local/legacy
             if (window.renderLibrary) window.renderLibrary();
+            updateDueBadge();
         } catch (error) {
         }
 
@@ -2443,6 +2446,103 @@ document.addEventListener('DOMContentLoaded', () => {
         return solved.includes(questionText);
     }
 
+    // --- SRS (Spaced Repetition) System ---
+    const SRS_INTERVALS = [0, 1, 3, 7, 14, 30]; // days per box level
+
+    function getSRSData() {
+        try {
+            return JSON.parse(localStorage.getItem('srs_data') || '{}');
+        } catch (e) { return {}; }
+    }
+
+    function saveSRSData(data) {
+        localStorage.setItem('srs_data', JSON.stringify(data));
+    }
+
+    function getSRSEntry(questionText) {
+        const data = getSRSData();
+        return data[questionText] || null;
+    }
+
+    function recordSRSAnswer(questionText, isCorrect) {
+        const data = getSRSData();
+        const now = new Date().toISOString();
+
+        if (!data[questionText]) {
+            data[questionText] = {
+                box: 0, correctCount: 0, wrongCount: 0,
+                lastAnswered: now, nextReview: now
+            };
+        }
+
+        const entry = data[questionText];
+        entry.lastAnswered = now;
+
+        if (isCorrect) {
+            entry.correctCount++;
+            entry.box = Math.min(entry.box + 1, 5);
+        } else {
+            entry.wrongCount++;
+            entry.box = 0;
+        }
+
+        const intervalDays = SRS_INTERVALS[entry.box];
+        const next = new Date();
+        next.setDate(next.getDate() + intervalDays);
+        entry.nextReview = next.toISOString();
+
+        data[questionText] = entry;
+        saveSRSData(data);
+    }
+
+    function isQuestionDue(questionText) {
+        const entry = getSRSEntry(questionText);
+        if (!entry) return false; // Never seen = "new", not "due for re-review"
+        return new Date() >= new Date(entry.nextReview);
+    }
+
+    function migrateSolvedToSRS() {
+        if (localStorage.getItem('srs_migrated')) return;
+        const solved = getSolvedQuestions();
+        if (solved.length > 0) {
+            const data = getSRSData();
+            const now = new Date().toISOString();
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            solved.forEach(qText => {
+                if (!data[qText]) {
+                    data[qText] = {
+                        box: 1, correctCount: 1, wrongCount: 0,
+                        lastAnswered: now, nextReview: tomorrow.toISOString()
+                    };
+                }
+            });
+            saveSRSData(data);
+        }
+        localStorage.setItem('srs_migrated', 'true');
+    }
+
+    async function updateDueBadge() {
+        try {
+            const userId = localStorage.getItem('user_name') || 'guest';
+            const lib = await clientDB.getLibrary(userId);
+            const allQs = (lib.files || []).flatMap(f => f.questions || []);
+            const dueCount = allQs.filter(q => isQuestionDue(q.question)).length;
+            const badge = document.getElementById('due-badge');
+            if (badge) {
+                if (dueCount > 0) {
+                    badge.textContent = dueCount > 99 ? '99+' : dueCount;
+                    badge.hidden = false;
+                } else {
+                    badge.hidden = true;
+                }
+            }
+        } catch (e) { /* ignore */ }
+    }
+
+    // Run migration on load
+    migrateSolvedToSRS();
+
     // --- Endless Review Buffer System ---
     window.endlessBuffer = [];
     const BUFFER_TARGET = 10;
@@ -2820,19 +2920,57 @@ document.addEventListener('DOMContentLoaded', () => {
             window.endlessBuffer = [];
         }
 
-        // Shuffle the non-pregenerated questions BUT prioritize Unsolved
+        // Shuffle the non-pregenerated questions — SRS-aware ordering
         let mainPool = allCurrentQuestions.filter(q => !q._isPregenerated);
+        const _srsCache = getSRSData();
+
+        const _now = new Date();
+        const getSRSPriority = (entry) => {
+            if (!entry) return 1; // new (never answered)
+            if (_now >= new Date(entry.nextReview)) return 0; // due for re-review
+            return 2; // mastered, not yet due
+        };
 
         mainPool.sort((a, b) => {
-            const aSolved = isQuestionSolved(a.question) ? 1 : 0;
-            const bSolved = isQuestionSolved(b.question) ? 1 : 0;
+            const aEntry = _srsCache[a.question];
+            const bEntry = _srsCache[b.question];
+            const aPri = getSRSPriority(aEntry);
+            const bPri = getSRSPriority(bEntry);
+            if (aPri !== bPri) return aPri - bPri;
 
-            // Unsolved (0) before Solved (1)
-            if (aSolved !== bSolved) return aSolved - bSolved;
+            // Among due questions, lower box first (harder/weaker ones)
+            if (aPri === 0) {
+                const aBox = aEntry ? aEntry.box : 0;
+                const bBox = bEntry ? bEntry.box : 0;
+                if (aBox !== bBox) return aBox - bBox;
+            }
 
-            // Otherwise random shuffle
             return Math.random() - 0.5;
         });
+
+        // Interleave new questions with due: 1 new per 3 due, cap new at 10 per session
+        // This prevents new content from drowning out review of existing material
+        const NEW_PER_SESSION = 10;
+        const INTERLEAVE_RATIO = 3;
+        const dueQs = mainPool.filter(q => getSRSPriority(_srsCache[q.question]) === 0);
+        const newQs = mainPool.filter(q => getSRSPriority(_srsCache[q.question]) === 1);
+        const masteredQs = mainPool.filter(q => getSRSPriority(_srsCache[q.question]) === 2);
+
+        const newQsSession = newQs.slice(0, NEW_PER_SESSION);   // max 10 new per session
+        const newQsDeferred = newQs.slice(NEW_PER_SESSION);     // rest deferred to after mastered
+
+        const interleaved = [];
+        let newQIdx = 0;
+        dueQs.forEach((q, i) => {
+            interleaved.push(q);
+            if ((i + 1) % INTERLEAVE_RATIO === 0 && newQIdx < newQsSession.length) {
+                interleaved.push(newQsSession[newQIdx++]);
+            }
+        });
+        while (newQIdx < newQsSession.length) {
+            interleaved.push(newQsSession[newQIdx++]);
+        }
+        mainPool = [...interleaved, ...newQsDeferred, ...masteredQs];
 
         // Final Combine: 
         if (isExclusive) {
@@ -2851,6 +2989,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let currentIndex = 0;
+        const spawnedQuestions = new Set(); // Tracks which questions have spawned a follow-up this session
         const BATCH_SIZE = 10; // Render in batches
         let isGeneratingMore = false;
 
@@ -2946,6 +3085,29 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             imgWrapper.appendChild(image);
+
+            // SRS status badge (top-left of image)
+            const srsEntry = getSRSEntry(q.question);
+            const _badgeNow = new Date();
+            let srsBadgeLabel = null;
+            let srsBadgeStyle = '';
+            if (!srsEntry) {
+                srsBadgeLabel = 'New';
+                srsBadgeStyle = 'background:rgba(72,180,130,0.88);color:#fff;';
+            } else if (_badgeNow >= new Date(srsEntry.nextReview)) {
+                srsBadgeLabel = 'Due';
+                srsBadgeStyle = 'background:rgba(224,100,50,0.88);color:#fff;';
+            }
+            if (srsBadgeLabel) {
+                const badge = document.createElement('div');
+                badge.textContent = srsBadgeLabel;
+                badge.style.cssText = `position:absolute;top:10px;left:10px;z-index:20;
+                    padding:3px 10px;border-radius:20px;font-size:0.7rem;font-weight:700;
+                    letter-spacing:0.6px;text-transform:uppercase;
+                    backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+                    pointer-events:none;${srsBadgeStyle}`;
+                imgWrapper.appendChild(badge);
+            }
 
             // Add Buttons to Wrapper
             // Note: activeFile might be undefined in Endless/Reels mode depending on scope.
@@ -3092,6 +3254,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             })
                         }).catch(e => console.error('Tracking failed', e));
 
+                        recordSRSAnswer(q.question, true); // SAQ reveal = correct
                         markQuestionasSolved(q.question);
                         content.classList.add('correct-flash');
                         if (typeof confetti === 'function') {
@@ -3105,7 +3268,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             });
                         }
 
-                        // 3. Spawn Next Question (Inlined Logic)
+                        // 3. Spawn Next Question (first correct answer per question only)
+                        if (spawnedQuestions.has(q.question)) return;
+                        spawnedQuestions.add(q.question);
                         console.log('Flashcard Revealed! Spawning ONE similar question...');
                         const loadingToast = document.createElement('div');
                         loadingToast.className = 'spawn-toast';
@@ -3195,6 +3360,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (isAnswered) return;
                         isAnswered = true;
                         const isCorrect = optIdx === q.correctAnswer;
+                        recordSRSAnswer(q.question, isCorrect);
 
                         // Refill Buffer on interaction
                         if (window.maintainEndlessBuffer) window.maintainEndlessBuffer();
@@ -3222,7 +3388,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 console.error("Visuals failed:", e);
                             }
 
-                            // --- ENDLESS MODE SPAWNER (Single Follow-up) ---
+                            // --- ENDLESS MODE SPAWNER (first correct answer per question only) ---
+                            if (!spawnedQuestions.has(q.question)) {
+                            spawnedQuestions.add(q.question);
                             console.log('Correct Answer! Spawning ONE similar question...');
                             const loadingToast = document.createElement('div');
                             loadingToast.className = 'spawn-toast';
@@ -3308,11 +3476,25 @@ document.addEventListener('DOMContentLoaded', () => {
                                     if (loadingToast) loadingToast.remove();
                                     console.error('[Spawn] Fetch failed:', err);
                                 });
+                            } // end: one spawn per question
 
                         } else {
                             content.classList.add('shake-effect');
                             setTimeout(() => content.classList.remove('shake-effect'), 500);
                             if (navigator.vibrate) navigator.vibrate(200);
+
+                            // Re-queue wrong answer: append to end so user sees it again this session
+                            const retryCount = (q._retryCount || 0) + 1;
+                            if (retryCount <= 2) {
+                                const retryQ = { ...q, _retryCount: retryCount };
+                                allCurrentQuestions.push(retryQ);
+                                window.currentReelQs = allCurrentQuestions;
+                                const retryCard = createReelCard(retryQ, allCurrentQuestions.length - 1);
+                                if (retryCard) {
+                                    reelsContainer.appendChild(retryCard);
+                                    if (totalNum) totalNum.textContent = allCurrentQuestions.length;
+                                }
+                            }
                         }
 
                         // Disable all options and show feedback
@@ -3896,14 +4078,135 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
+            // Due for Review count
+            const dueEl = document.getElementById('stat-due-review');
+            if (dueEl) {
+                try {
+                    const userId = localStorage.getItem('user_name') || 'guest';
+                    const lib = await clientDB.getLibrary(userId);
+                    const allQs = (lib.files || []).flatMap(f => f.questions || []);
+                    const dueCount = allQs.filter(q => isQuestionDue(q.question)).length;
+                    dueEl.textContent = dueCount;
+                } catch (e2) { /* ignore */ }
+            }
+
         } catch (e) {
             console.error(e);
         }
+
+        // Initialize reminder controls
+        initReminders();
+        updateDueBadge();
     };
 
+    // --- Study Reminder Logic ---
+    let mainThreadReminderTimer = null;
 
-    // Add Notification Controls (New Feature)
-    // Reminder button removed as per user request
+    function initReminders() {
+        const toggle = document.getElementById('reminder-toggle');
+        const timeInput = document.getElementById('reminder-time');
+        const timeRow = document.getElementById('reminder-time-row');
+        const statusEl = document.getElementById('reminder-status');
+        if (!toggle) return;
+
+        const savedEnabled = localStorage.getItem('reminder_enabled') === 'true';
+        const savedTime = localStorage.getItem('reminder_time') || '20:00';
+        toggle.checked = savedEnabled;
+        timeInput.value = savedTime;
+        timeRow.style.display = savedEnabled ? 'flex' : 'none';
+
+        toggle.addEventListener('change', async () => {
+            const enabled = toggle.checked;
+            timeRow.style.display = enabled ? 'flex' : 'none';
+            localStorage.setItem('reminder_enabled', String(enabled));
+
+            if (enabled) {
+                if ('Notification' in window && Notification.permission === 'default') {
+                    const permission = await Notification.requestPermission();
+                    if (permission !== 'granted') {
+                        toggle.checked = false;
+                        localStorage.setItem('reminder_enabled', 'false');
+                        timeRow.style.display = 'none';
+                        if (statusEl) { statusEl.textContent = t('reminder_denied') || 'Notification permission denied.'; statusEl.hidden = false; }
+                        return;
+                    }
+                }
+                scheduleReminder();
+                if (statusEl) { statusEl.textContent = t('reminder_set') || 'Reminder set!'; statusEl.hidden = false; }
+            } else {
+                cancelReminder();
+                if (statusEl) { statusEl.textContent = t('reminder_off') || 'Reminders disabled.'; statusEl.hidden = false; }
+            }
+        });
+
+        timeInput.addEventListener('change', () => {
+            localStorage.setItem('reminder_time', timeInput.value);
+            if (toggle.checked) scheduleReminder();
+        });
+
+        if (savedEnabled) scheduleReminder();
+    }
+
+    async function scheduleReminder() {
+        const time = localStorage.getItem('reminder_time') || '20:00';
+        const [hour, minute] = time.split(':').map(Number);
+
+        let dueCount = 0;
+        let streak = 0;
+        try {
+            const userId = localStorage.getItem('user_name') || 'guest';
+            const lib = await clientDB.getLibrary(userId);
+            const allQs = (lib.files || []).flatMap(f => f.questions || []);
+            dueCount = allQs.filter(q => isQuestionDue(q.question)).length;
+
+            const log = await clientDB.getActivityLog(userId);
+            const today = new Date();
+            for (let i = 0; i < 365; i++) {
+                const d = new Date(today);
+                d.setDate(d.getDate() - i);
+                const key = d.toISOString().split('T')[0];
+                if (log.dailyStats && log.dailyStats[key] && log.dailyStats[key].solved > 0) { streak++; }
+                else if (i > 0) { break; }
+            }
+        } catch (e) { /* ignore */ }
+
+        // Send to service worker
+        if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({
+                type: 'SET_REMINDER',
+                data: { enabled: true, hour, minute, dueCount, streak }
+            });
+        }
+
+        // Main-thread fallback
+        clearMainThreadReminder();
+        const now = new Date();
+        let target = new Date();
+        target.setHours(hour, minute, 0, 0);
+        if (target <= now) target.setDate(target.getDate() + 1);
+        const delay = target - now;
+
+        mainThreadReminderTimer = setTimeout(() => {
+            if ('Notification' in window && Notification.permission === 'granted') {
+                let body = dueCount > 0
+                    ? `You have ${dueCount} questions due for review.`
+                    : 'Keep your knowledge fresh!';
+                if (streak > 0) body += ` ${streak}-day streak!`;
+                new Notification('Time to study!', { body, icon: '/icon-192.png' });
+            }
+        }, delay);
+    }
+
+    function clearMainThreadReminder() {
+        if (mainThreadReminderTimer) { clearTimeout(mainThreadReminderTimer); mainThreadReminderTimer = null; }
+    }
+
+    function cancelReminder() {
+        clearMainThreadReminder();
+        if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_REMINDER' });
+        }
+    }
 
     // --- Notion Logic ---
     const connectNotionBtn = document.getElementById('connect-notion-btn');
@@ -4249,11 +4552,18 @@ const translations = {
         stat_solved_label: "Solved",
         stat_saved_label: "Saved",
         stat_streak_label: "Streak",
+        stat_due_label: "Due",
         stat_days: "days",
         stat_day: "day",
         stat_saved_suffix: "saved",
         stat_no_progress: "Start solving questions to see your progress here!",
         knowledge_sources: "Knowledge Sources",
+        reminder_title: "Study Reminders",
+        reminder_daily: "Daily reminder",
+        reminder_time: "Reminder time",
+        reminder_set: "Reminder set!",
+        reminder_off: "Reminders disabled.",
+        reminder_denied: "Notification permission denied.",
         connect_notion: "📓 Connect Notion",
         personal_interests: "Personal Interests",
         setup_personal: "👤 Setup Personal",
@@ -4369,11 +4679,15 @@ const translations = {
         stat_solved_label: "已解",
         stat_saved_label: "已省",
         stat_streak_label: "连续",
+        stat_due_label: "待复习",
         stat_days: "天",
         stat_day: "天",
         stat_saved_suffix: "已省",
         stat_no_progress: "开始做题查看进度！",
         knowledge_sources: "知识来源",
+        reminder_title: "学习提醒",
+        reminder_daily: "每日提醒",
+        reminder_time: "提醒时间",
         connect_notion: "📓 连接 Notion",
         personal_interests: "个人兴趣",
         setup_personal: "👤 设置个人",
@@ -4483,11 +4797,18 @@ const translations = {
         stat_solved_label: "해결",
         stat_saved_label: "절약",
         stat_streak_label: "연속",
+        stat_due_label: "복습",
         stat_days: "일",
         stat_day: "일",
         stat_saved_suffix: "절약",
         stat_no_progress: "문제를 풀고 진행 상황을 확인하세요!",
         knowledge_sources: "지식 소스",
+        reminder_title: "학습 알림",
+        reminder_daily: "매일 알림",
+        reminder_time: "알림 시간",
+        reminder_set: "알림이 설정되었습니다!",
+        reminder_off: "알림이 해제되었습니다.",
+        reminder_denied: "알림 권한이 거부되었습니다.",
         connect_notion: "📓 Notion 연결",
         personal_interests: "관심 분야",
         setup_personal: "👤 개인 설정",
@@ -4597,11 +4918,15 @@ const translations = {
         stat_solved_label: "解答",
         stat_saved_label: "節約",
         stat_streak_label: "連続",
+        stat_due_label: "復習",
         stat_days: "日間",
         stat_day: "日",
         stat_saved_suffix: "節約",
         stat_no_progress: "問題を解いて進捗を確認しましょう！",
         knowledge_sources: "知識ソース",
+        reminder_title: "学習リマインダー",
+        reminder_daily: "毎日のリマインダー",
+        reminder_time: "リマインダー時間",
         connect_notion: "📓 Notion接続",
         personal_interests: "個人の関心",
         setup_personal: "👤 個人設定",
@@ -4711,11 +5036,15 @@ const translations = {
         stat_solved_label: "Résolu",
         stat_saved_label: "Gagné",
         stat_streak_label: "Série",
+        stat_due_label: "À revoir",
         stat_days: "jours",
         stat_day: "jour",
         stat_saved_suffix: "gagné",
         stat_no_progress: "Commencez à résoudre des questions !",
         knowledge_sources: "Sources de connaissances",
+        reminder_title: "Rappels d'étude",
+        reminder_daily: "Rappel quotidien",
+        reminder_time: "Heure du rappel",
         connect_notion: "📓 Connecter Notion",
         personal_interests: "Centres d'intérêt",
         setup_personal: "👤 Configurer",
@@ -4825,11 +5154,15 @@ const translations = {
         stat_solved_label: "Gelöst",
         stat_saved_label: "Gespart",
         stat_streak_label: "Serie",
+        stat_due_label: "Fällig",
         stat_days: "Tage",
         stat_day: "Tag",
         stat_saved_suffix: "gespart",
         stat_no_progress: "Lösen Sie Fragen, um Ihren Fortschritt zu sehen!",
         knowledge_sources: "Wissensquellen",
+        reminder_title: "Lern-Erinnerungen",
+        reminder_daily: "Tägliche Erinnerung",
+        reminder_time: "Erinnerungszeit",
         connect_notion: "📓 Notion verbinden",
         personal_interests: "Persönliche Interessen",
         setup_personal: "👤 Einrichten",
@@ -4939,11 +5272,15 @@ const translations = {
         stat_solved_label: "Resueltas",
         stat_saved_label: "Ahorrado",
         stat_streak_label: "Racha",
+        stat_due_label: "Pendiente",
         stat_days: "días",
         stat_day: "día",
         stat_saved_suffix: "ahorrado",
         stat_no_progress: "¡Resuelve preguntas para ver tu progreso!",
         knowledge_sources: "Fuentes de conocimiento",
+        reminder_title: "Recordatorios de estudio",
+        reminder_daily: "Recordatorio diario",
+        reminder_time: "Hora del recordatorio",
         connect_notion: "📓 Conectar Notion",
         personal_interests: "Intereses personales",
         setup_personal: "👤 Configurar",
@@ -5053,11 +5390,15 @@ const translations = {
         stat_solved_label: "Resolvidas",
         stat_saved_label: "Economizado",
         stat_streak_label: "Sequência",
+        stat_due_label: "Pendente",
         stat_days: "dias",
         stat_day: "dia",
         stat_saved_suffix: "economizado",
         stat_no_progress: "Resolva questões para ver seu progresso!",
         knowledge_sources: "Fontes de conhecimento",
+        reminder_title: "Lembretes de estudo",
+        reminder_daily: "Lembrete diário",
+        reminder_time: "Hora do lembrete",
         connect_notion: "📓 Conectar Notion",
         personal_interests: "Interesses pessoais",
         setup_personal: "👤 Configurar",
@@ -5167,11 +5508,15 @@ const translations = {
         stat_solved_label: "Đã giải",
         stat_saved_label: "Đã tiết kiệm",
         stat_streak_label: "Chuỗi",
+        stat_due_label: "Cần ôn",
         stat_days: "ngày",
         stat_day: "ngày",
         stat_saved_suffix: "đã lưu",
         stat_no_progress: "Giải câu hỏi để xem tiến độ!",
         knowledge_sources: "Nguồn kiến thức",
+        reminder_title: "Nhắc nhở học tập",
+        reminder_daily: "Nhắc nhở hàng ngày",
+        reminder_time: "Thời gian nhắc nhở",
         connect_notion: "📓 Kết nối Notion",
         personal_interests: "Sở thích cá nhân",
         setup_personal: "👤 Cài đặt",
@@ -5281,11 +5626,15 @@ const translations = {
         stat_solved_label: "हल किए",
         stat_saved_label: "बचाया",
         stat_streak_label: "लगातार",
+        stat_due_label: "बाकी",
         stat_days: "दिन",
         stat_day: "दिन",
         stat_saved_suffix: "बचाया",
         stat_no_progress: "प्रगति देखने के लिए प्रश्न हल करें!",
         knowledge_sources: "ज्ञान स्रोत",
+        reminder_title: "अध्ययन अनुस्मारक",
+        reminder_daily: "दैनिक अनुस्मारक",
+        reminder_time: "अनुस्मारक समय",
         connect_notion: "📓 Notion जोड़ें",
         personal_interests: "व्यक्तिगत रुचियाँ",
         setup_personal: "👤 सेटअप",
@@ -5395,11 +5744,15 @@ const translations = {
         stat_solved_label: "محلولة",
         stat_saved_label: "موفر",
         stat_streak_label: "سلسلة",
+        stat_due_label: "مراجعة",
         stat_days: "أيام",
         stat_day: "يوم",
         stat_saved_suffix: "موفر",
         stat_no_progress: "ابدأ بحل الأسئلة لرؤية تقدمك!",
         knowledge_sources: "مصادر المعرفة",
+        reminder_title: "تذكيرات الدراسة",
+        reminder_daily: "تذكير يومي",
+        reminder_time: "وقت التذكير",
         connect_notion: "📓 ربط Notion",
         personal_interests: "الاهتمامات الشخصية",
         setup_personal: "👤 إعداد",

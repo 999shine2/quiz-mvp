@@ -18,7 +18,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&family=Patrick+Hand&family=Quicksand:wght@500;600;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=2">
+    <link rel="stylesheet" href="style.css?v=3">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <!-- Client-Side Libraries (PDF.js + mammoth.js) -->
@@ -339,6 +339,10 @@
                         </div>
                         <div class="stat-label" data-i18n="stat_streak_label">Streak</div>
                     </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-due-review">0</div>
+                        <div class="stat-label" data-i18n="stat_due_label">Due</div>
+                    </div>
                 </div>
 
                 <!-- Knowledge Sources Card -->
@@ -434,6 +438,26 @@
                     </p>
                 </div>
 
+                <!-- Study Reminders Card -->
+                <div class="chart-card"
+                    style="background: var(--card-bg); border-radius: 20px; padding: 20px; border: 1px solid var(--border-light); box-shadow: var(--shadow-soft); margin-top: 1rem;">
+                    <h3 style="margin-bottom:0.5rem; color:var(--text-muted); font-size:1rem; font-family:var(--font-heading);">
+                        <span data-i18n="reminder_title">Study Reminders</span></h3>
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+                        <label style="font-size:0.9rem; color:var(--text-primary);" data-i18n="reminder_daily">Daily reminder</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="reminder-toggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div id="reminder-time-row" style="display:none; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                        <label style="font-size:0.85rem; color:var(--text-muted);" data-i18n="reminder_time">Reminder time</label>
+                        <input type="time" id="reminder-time" value="20:00"
+                            style="font-size:0.85rem; padding:4px 8px; border:1px solid var(--border-light); border-radius:8px; background:var(--card-bg); color:var(--text-primary);">
+                    </div>
+                    <p id="reminder-status" style="font-size:0.75rem; color:var(--text-muted); margin-top:5px;" hidden></p>
+                </div>
+
                 <!-- Data Management Card -->
                 <div class="chart-card"
                     style="background: var(--card-bg); border-radius: 20px; padding: 20px; border: 1px solid var(--border-light); box-shadow: var(--shadow-soft); margin-top: 1rem; text-align: center;">
@@ -468,6 +492,7 @@
                     d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" />
             </svg>
             <span data-i18n="nav_review">Review</span>
+            <span id="due-badge" class="due-badge" hidden>0</span>
         </button>
 
         <!-- 2. Upload -->
@@ -506,7 +531,14 @@
     <script src="clientImage.js?v=2"></script>
     <script src="clientParser.js?v=2"></script>
     <script src="clientBridge.js?v=2"></script>
-    <script src="client_app.js?v=2"></script>
+    <script src="client_app.js?v=3"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js')
+                .then(reg => console.log('[SW] Registered:', reg.scope))
+                .catch(err => console.error('[SW] Registration failed:', err));
+        }
+    </script>
 
     <!-- Just checking if we need the modal logic from before, probably yes, keeping it minimal -->
     <div id="summary-modal" class="modal-overlay" hidden
