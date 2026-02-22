@@ -18,7 +18,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&family=Patrick+Hand&family=Quicksand:wght@500;600;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=5">
+    <link rel="stylesheet" href="style.css?v=6">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <!-- Client-Side Libraries (PDF.js + mammoth.js) -->
@@ -266,7 +266,10 @@
                 <div class="library-header">
                     <h2 data-i18n="library_title_html">Your <span class="gradient-text">Study Library</span></h2>
                     <div class="library-actions">
-                        <button id="create-material-btn" class="small-btn">
+                        <button id="liked-filter-btn" class="small-btn" style="border-color: var(--accent); color: var(--accent);">
+                            <span data-i18n="lib_liked">❤️ Liked</span>
+                        </button>
+                        <button id="create-material-btn" class="small-btn" hidden>
                             <span>📚</span> <span data-i18n="create_material">Material</span>
                         </button>
                         <button id="endless-mode-btn" hidden></button>
@@ -279,48 +282,33 @@
                 </div>
 
                 <div class="library-filters">
-                    <div class="filter-group">
-                        <label data-i18n="sort_by">Sort:</label>
-                        <select id="sort-select">
-                            <option value="date_desc" data-i18n="date_newest">Date (Newest)</option>
-                            <option value="date_asc" data-i18n="date_oldest">Date (Oldest)</option>
+                    <div class="filter-row">
+                        <select id="sort-select" class="filter-chip">
+                            <option value="date_desc" data-i18n="date_newest">Newest</option>
+                            <option value="date_asc" data-i18n="date_oldest">Oldest</option>
                             <option value="solved_desc" data-i18n="sort_solved_desc">Most Solved</option>
                             <option value="solved_asc" data-i18n="sort_solved_asc">Least Solved</option>
-                            <option value="time_desc" data-i18n="sort_time_desc">Most Time Saved</option>
-                            <option value="time_asc" data-i18n="sort_time_asc">Least Time Saved</option>
+                        </select>
+                        <select id="category-select" class="filter-chip">
+                            <option value="all">📚 All Categories</option>
+                            <option value="Business">💼 Business</option>
+                            <option value="Finance / Investing">📈 Finance</option>
+                            <option value="Science">🔬 Science</option>
+                            <option value="Technology">💻 Technology</option>
+                            <option value="Health / Medicine">🏥 Health</option>
+                            <option value="Engineering">⚙️ Engineering</option>
+                            <option value="Design">🎨 Design</option>
+                            <option value="Philosophy / Thinking">🧠 Philosophy</option>
+                            <option value="Career / Education">🎓 Education</option>
+                            <option value="Politics / Society">🏛️ Society</option>
+                        </select>
+                        <select id="filter-select" class="filter-chip">
+                            <option value="all">📁 All Sources</option>
+                            <option value="youtube">🎬 YouTube</option>
+                            <option value="creative">🎨 Creative</option>
+                            <option value="pdf">📄 Document</option>
                         </select>
                     </div>
-                    <div class="filter-group">
-                        <label data-i18n="filter_category">Category:</label>
-                        <select id="category-select">
-                            <option value="all" data-i18n="all_materials">All</option>
-                            <option value="Business" data-i18n="cat_business">Business</option>
-                            <option value="Finance / Investing" data-i18n="cat_finance">Finance</option>
-                            <option value="Science" data-i18n="cat_science">Science</option>
-                            <option value="Technology" data-i18n="cat_technology">Technology</option>
-                            <option value="Health / Medicine" data-i18n="cat_health">Health</option>
-                            <option value="Engineering" data-i18n="cat_engineering">Engineering</option>
-                            <option value="Design" data-i18n="cat_design">Design</option>
-                            <option value="Philosophy / Thinking" data-i18n="cat_philosophy">Philosophy</option>
-                            <option value="Career / Education" data-i18n="cat_education">Education</option>
-                            <option value="Politics / Society" data-i18n="cat_politics">Society</option>
-                        </select>
-                    </div>
-                    <div class="filter-group">
-                        <label data-i18n="filter_type">Type:</label>
-                        <select id="filter-select">
-                            <option value="all" data-i18n="all_materials">All</option>
-                            <option value="youtube">Video</option>
-                            <option value="pdf">PDF</option>
-                            <option value="doc">Doc</option>
-                            <option value="custom">Custom</option>
-                        </select>
-                    </div>
-                    <!-- Liked Button Placeholder - JS will attach listener -->
-                    <button id="liked-filter-btn" class="small-btn"
-                        style="border-color: var(--accent); color: var(--accent);">
-                        <span data-i18n="lib_liked">❤️ Liked</span>
-                    </button>
                 </div>
 
                 <div class="library-grid" id="library-grid">
@@ -553,7 +541,7 @@
     <script src="clientImage.js?v=3"></script>
     <script src="clientParser.js?v=3"></script>
     <script src="clientBridge.js?v=3"></script>
-    <script src="client_app.js?v=5"></script>
+    <script src="client_app.js?v=6"></script>
     <script>
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js')

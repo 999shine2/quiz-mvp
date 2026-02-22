@@ -503,7 +503,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeFilter !== 'all') {
             likedQuestions = likedQuestions.filter(item => {
                 if (typeFilter === 'youtube') return item.file.type === 'youtube';
-                if (typeFilter === 'pdf') return item.file.type !== 'youtube';
+                if (typeFilter === 'creative') return item.file.type === 'creative';
+                if (typeFilter === 'pdf') return item.file.type !== 'youtube' && item.file.type !== 'creative';
                 return true;
             });
         }
@@ -565,8 +566,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         onclick="event.stopPropagation(); this.closest('.card').remove(); window._toggleLikeExternal('${file.id}', ${idx})">❤️</button>
                 </div>
                 <p style="font-family:var(--font-body); font-size:0.95rem; font-weight:600; color:var(--text-main); line-height:1.6; margin-bottom:12px; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;">${q.question}</p>
-                <div style="background:rgba(107,140,66,0.06); border-radius:10px; padding:10px 14px; border:1px solid var(--border-light);">
-                    <span style="font-size:0.75rem; color:var(--text-muted);">Tap to view answer</span>
+                <div style="background:rgba(107,140,66,0.08); border-radius:10px; padding:10px 14px; border:1px solid var(--border-light); text-align:center;">
+                    <span style="font-size:0.8rem; color:var(--primary); font-weight:600;">Tap to view answer →</span>
                 </div>
             `;
             libraryGrid.appendChild(card);
@@ -589,20 +590,36 @@ document.addEventListener('DOMContentLoaded', () => {
     window.showExpandedQuestion = function (q, filename, fileId, idx) {
         const overlay = document.createElement('div');
         overlay.className = 'modal-overlay';
-        overlay.style.cssText = 'display:flex; align-items:center; justify-content:center; z-index:10000;';
+        overlay.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; z-index:10000;';
         overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
 
-        const options = (q.options || []).map((opt, i) => {
-            const isCorrect = i === q.correctAnswer;
-            const bg = isCorrect ? 'rgba(107,140,66,0.12)' : 'rgba(0,0,0,0.02)';
-            const border = isCorrect ? 'var(--primary)' : 'var(--border-light)';
-            const badgeColor = isCorrect ? 'var(--primary); color:#fff' : 'var(--border-light); color:var(--text-muted)';
-            const textColor = isCorrect ? 'var(--primary-dark)' : 'var(--text-main)';
-            return `<div style="padding:12px 14px; border-radius:12px; border:1.5px solid ${border}; background:${bg}; display:flex; align-items:center; gap:10px;">
-                <span style="width:24px; height:24px; display:flex; align-items:center; justify-content:center; border-radius:50%; font-size:0.7rem; font-weight:700; background:${badgeColor}; flex-shrink:0;">${['A','B','C','D'][i] || (i+1)}</span>
-                <span style="font-size:0.9rem; color:${textColor}; font-weight:${isCorrect ? '600' : '400'};">${opt}</span>
-            </div>`;
-        }).join('');
+        // MCQ options
+        const isMCQ = q.options && q.options.length > 0;
+        let answerHTML = '';
+
+        if (isMCQ) {
+            const options = q.options.map((opt, i) => {
+                const isCorrect = i === q.correctAnswer;
+                const bg = isCorrect ? 'rgba(107,140,66,0.12)' : 'rgba(0,0,0,0.02)';
+                const border = isCorrect ? 'var(--primary)' : 'var(--border-light)';
+                const badgeColor = isCorrect ? 'var(--primary); color:#fff' : 'var(--border-light); color:var(--text-muted)';
+                const textColor = isCorrect ? 'var(--primary-dark)' : 'var(--text-main)';
+                return `<div style="padding:12px 14px; border-radius:12px; border:1.5px solid ${border}; background:${bg}; display:flex; align-items:center; gap:10px;">
+                    <span style="width:24px; height:24px; display:flex; align-items:center; justify-content:center; border-radius:50%; font-size:0.7rem; font-weight:700; background:${badgeColor}; flex-shrink:0;">${['A','B','C','D'][i] || (i+1)}</span>
+                    <span style="font-size:0.9rem; color:${textColor}; font-weight:${isCorrect ? '600' : '400'};">${opt}</span>
+                </div>`;
+            }).join('');
+            answerHTML = `<div style="display:flex; flex-direction:column; gap:8px; margin-bottom:20px;">${options}</div>`;
+        } else {
+            // SAQ / Flashcard — show the answer text
+            const answerText = q.correctAnswer || q.answer || q.sampleAnswer || '';
+            if (answerText) {
+                answerHTML = `<div style="background:rgba(107,140,66,0.08); border-radius:14px; padding:16px; border:1.5px solid var(--primary-light); margin-bottom:20px;">
+                    <div style="font-size:0.7rem; font-weight:700; color:var(--primary-dark); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:8px;">Answer</div>
+                    <p style="font-size:0.92rem; color:var(--text-main); line-height:1.7;">${answerText}</p>
+                </div>`;
+            }
+        }
 
         const modal = document.createElement('div');
         modal.style.cssText = 'background:var(--card-bg); border-radius:24px; padding:28px 24px; border:2px solid #fff; box-shadow:var(--shadow-hover); max-width:560px; width:calc(100% - 32px); position:relative; max-height:90vh; overflow-y:auto;';
@@ -616,9 +633,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             <p style="font-family:var(--font-heading); font-size:1.1rem; font-weight:700; color:var(--text-main); line-height:1.6; margin-bottom:20px;">${q.question}</p>
 
-            <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:20px;">
-                ${options}
-            </div>
+            ${answerHTML}
 
             ${q.explanation ? `<div style="background:rgba(107,140,66,0.06); border-radius:14px; padding:16px; border:1px solid var(--border-light);">
                 <div style="font-size:0.7rem; font-weight:700; color:var(--primary-dark); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:6px;">Explanation</div>
@@ -3854,7 +3869,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let files = (window.allFiles || []).filter(f => !f.isHidden);
 
         const sortSelect = document.getElementById('sort-select');
-        const typeSelect = document.getElementById('type-select');
+        const typeSelect = document.getElementById('filter-select');
         const categorySelect = document.getElementById('category-select');
         const searchInput = document.getElementById('library-search-input');
 
@@ -3872,7 +3887,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (filterType !== 'all') {
-            files = files.filter(f => f.type === filterType);
+            files = files.filter(f => {
+                if (filterType === 'youtube') return f.type === 'youtube';
+                if (filterType === 'creative') return f.type === 'creative';
+                if (filterType === 'pdf') return f.type !== 'youtube' && f.type !== 'creative';
+                return true;
+            });
         }
 
         if (filterCategory !== 'all') {

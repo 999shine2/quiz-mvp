@@ -1048,16 +1048,7 @@ body.reels-mode .nav-item.active {
 
 /* Library Filters Bar */
 .library-filters {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    background: rgba(255, 255, 255, 0.6);
-    padding: 10px 15px;
-    border-radius: 20px;
-    margin-bottom: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.8);
-    flex-wrap: wrap;
+    margin-bottom: 16px;
 }
 
 .filter-scroll-container {
@@ -1075,37 +1066,52 @@ body.reels-mode .nav-item.active {
     /* Hide scrollbar Chrome */
 }
 
-.filter-group {
+.filter-row {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 
-.filter-group label {
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--text-muted);
-    font-family: var(--font-heading);
-    margin-left: 4px;
-}
-
-.filter-group select {
+.filter-chip {
     appearance: none;
     -webkit-appearance: none;
-    background: #FFF;
-    border: 1px solid var(--border-light);
-    padding: 6px 12px;
-    border-radius: 12px;
+    background: rgba(255,255,255,0.85);
+    border: 1.5px solid rgba(107, 140, 66, 0.15);
+    padding: 7px 14px;
+    border-radius: 20px;
     font-family: var(--font-body);
-    font-size: 0.9rem;
-    color: var(--primary-dark);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-muted);
     cursor: pointer;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B8C42' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    transition: all 0.2s;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237A7566' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
     background-repeat: no-repeat;
-    background-position: right 8px center;
-    background-size: 12px;
-    min-width: 100px;
-    padding-right: 25px;
+    background-position: right 10px center;
+    background-size: 10px;
+    padding-right: 26px;
+}
+
+.filter-chip:focus,
+.filter-chip:active {
+    border-color: var(--primary);
+    color: var(--primary-dark);
+    outline: none;
+}
+
+button.filter-chip {
+    background-image: none;
+    padding-right: 14px;
+}
+
+.filter-chip-liked {
+    color: var(--accent);
+    border-color: rgba(242, 166, 166, 0.3);
+}
+
+.filter-chip-liked:hover {
+    background: rgba(242, 166, 166, 0.08);
+    border-color: var(--accent);
 }
 
 /* Stats Grid (Horizontal) */
