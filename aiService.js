@@ -326,9 +326,10 @@ async function generateQuestions(text, apiKey, count = 5, title = "", relatedCon
             jsonString = textResponse
                 .replace(/```json/g, '')
                 .replace(/```/g, '')
-                .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
                 .trim();
         }
+        // Fix unescaped newlines/tabs inside JSON string values
+        jsonString = fixJsonStringNewlines(jsonString);
 
         let parsedResponse;
         try {
@@ -397,6 +398,26 @@ async function generateQuestions(text, apiKey, count = 5, title = "", relatedCon
 
         throw error;
     }
+}
+
+// Helper: Fix unescaped newlines/tabs inside JSON string values
+function fixJsonStringNewlines(jsonStr) {
+    let fixed = '';
+    let inString = false;
+    let escape = false;
+    for (let i = 0; i < jsonStr.length; i++) {
+        const ch = jsonStr[i];
+        if (escape) { fixed += ch; escape = false; continue; }
+        if (ch === '\\' && inString) { fixed += ch; escape = true; continue; }
+        if (ch === '"') { inString = !inString; fixed += ch; continue; }
+        if (inString) {
+            if (ch === '\n') { fixed += '\\n'; continue; }
+            if (ch === '\r') { continue; }
+            if (ch === '\t') { fixed += ' '; continue; }
+        }
+        fixed += ch;
+    }
+    return fixed;
 }
 
 // Helper: Repair Truncated JSON
@@ -539,7 +560,7 @@ async function generateQuestionsForCreativeWork(title, author, type, apiKey, cou
         const genAI = new GoogleGenerativeAI(key);
         const model = genAI.getGenerativeModel({
             model: "gemini-2.0-flash",
-            generationConfig: { maxOutputTokens: 8192 }
+            generationConfig: { maxOutputTokens: 16384 }
         });
 
         const prompt = `
@@ -548,7 +569,7 @@ async function generateQuestionsForCreativeWork(title, author, type, apiKey, cou
       
       **TASK:**
       1. Recall details, themes, characters, and plot points of this work.
-      2. Write a "summary" field: 2-3 sentences describing the work's plot, core themes, and significance. MUST be in the SAME language as the title.
+      2. Write a detailed "summary" field (250-400 words) with 3 sections using [H]...[/H] headers (see MANDATORY summary section below). MUST be in the SAME language as the title.
       3. Generate ${count} high-quality study/trivia questions.
       
       **TONE & STYLE GUIDE (CRITICAL):**
@@ -568,12 +589,8 @@ async function generateQuestionsForCreativeWork(title, author, type, apiKey, cou
          - ✅ GOOD: "What does [1984] say about X?"
 
       **CRITICAL: LANGUAGE CONSTRAINT**
-
-      **CRITICAL: LANGUAGE CONSTRAINT**
       - The questions/options MUST match the user's input language (e.g. Korean if title is Korean).
       - **EXCEPTION:** The 'imagePrompt' AND 'categories' fields MUST ALWAYS be in English, regardless of the source language. This is for the image generator.
-
-      **STRICT QUESTION DISTRIBUTION (Target: ${count} Questions):**
 
       **STRICT QUESTION DISTRIBUTION (Target: ${count} Questions):**
       
@@ -617,18 +634,36 @@ async function generateQuestionsForCreativeWork(title, author, type, apiKey, cou
       - ONLY pick "Design" if the work is literally ABOUT visual art, graphic design, or UI/UX
 
       **MANDATORY "summary" FIELD (DO NOT SKIP):**
-      You MUST write a "summary" field with 2-3 real sentences about THIS specific work.
-      - Describe the plot/premise, core themes, and why it is significant.
-      - MUST be in the SAME language as the title (Korean title → Korean summary, English title → English summary).
-      - DO NOT write generic text like "A study set about..." — write a REAL description.
-      - Example for "1984": "조지 오웰의 1984는 전체주의 정권 하의 감시 사회를 그린 디스토피아 소설입니다. 빅 브라더의 통제 아래 개인의 자유와 사상이 억압되는 과정을 통해, 권력의 본질과 언어 조작의 위험성을 경고합니다."
+      You MUST write a detailed "summary" field (250-400 words) about THIS specific work.
+      Structure it as **3 sections** with headers, using the format below:
+
+      Each section MUST start with a header tag: [H]Section Title[/H] followed by the paragraph content.
+
+      **Section 1 — Story & Characters (longest section):**
+      Start with [H]📖 Story & Characters[/H] (use language-appropriate header if non-English, e.g. [H]📖 줄거리와 등장인물[/H])
+      Describe the plot, setting, and main characters in detail. What is the premise? What happens to the protagonist? Include specific plot points, character names, and narrative arc.
+
+      **Section 2 — Themes & Ideas:**
+      Start with [H]💡 Themes & Ideas[/H] (or [H]💡 주제와 아이디어[/H] etc.)
+      What are the core themes this work explores? (e.g., power, freedom, identity, morality, social inequality). Explain HOW the work explores these themes through its story or arguments.
+
+      **Section 3 — Significance & Legacy:**
+      Start with [H]🌟 Significance & Legacy[/H] (or [H]🌟 의의와 영향[/H] etc.)
+      Why is this work important? What influence has it had on culture, literature, or society? What key concepts or phrases has it introduced?
+
+      RULES:
+      - MUST be in the SAME language as the title (Korean title → Korean summary, including section headers).
+      - Use **bold** markdown for character names, key terms, and important concepts.
+      - DO NOT write generic text like "A study set about..." — write a REAL, DETAILED description.
+      - IMPORTANT: Separate the 3 sections with [PARA] between them (NOT literal newlines, which break JSON).
+      - Each section MUST begin with [H]emoji Title[/H] header tag.
 
       **OUTPUT FORMAT:**
       Strictly valid JSON.
       {
         "subjectEmoji": "🎬 (or 📖/📺/🎵)",
         "suggestedTitle": "${title}",
-        "summary": "(MANDATORY — 2-3 real sentences about this work, in the same language as the title)",
+        "summary": "[H]📖 Story & Characters[/H] Plot and characters paragraph... [PARA] [H]💡 Themes & Ideas[/H] Themes paragraph... [PARA] [H]🌟 Significance & Legacy[/H] Significance paragraph...",
         "categories": ["Philosophy / Thinking"],
         "questions": [
            {
@@ -669,22 +704,25 @@ async function generateQuestionsForCreativeWork(title, author, type, apiKey, cou
             jsonString = text
                 .replace(/```json/g, '')
                 .replace(/```/g, '')
-                .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
                 .trim();
         }
+
+        // Fix unescaped newlines/tabs inside JSON string values
+        jsonString = fixJsonStringNewlines(jsonString);
 
         let parsed;
         try {
             parsed = JSON.parse(jsonString);
         } catch (e) {
-            console.error("JSON Parse Error in Creative Work:", e);
+            console.error("JSON Parse Error in Creative Work:", e.message);
+            console.error("JSON snippet (first 500 chars):", jsonString.substring(0, 500));
             // Try repair
             try {
                 const repaired = repairTruncatedJSON(jsonString);
                 parsed = JSON.parse(repaired);
                 console.log("Creative Work JSON repaired successfully.");
             } catch (repairError) {
-                console.error("Failed to repair creative work JSON:", repairError);
+                console.error("Failed to repair creative work JSON:", repairError.message);
                 throw new Error("AI returned invalid JSON format.");
             }
         }
@@ -742,7 +780,8 @@ async function generateQuestionsForCreativeWork(title, author, type, apiKey, cou
             throw new Error('Invalid API key. Please check your configuration.');
         }
 
-        throw new Error('Failed to generate questions. Please try again.');
+        console.error('[Creative] Full error details:', error.message, error.status);
+        throw new Error(`Failed to generate questions. Please try again. (${error.message?.substring(0, 100) || 'Unknown error'})`);
     }
 }
 

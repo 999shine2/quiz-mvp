@@ -412,7 +412,7 @@ const clientAI = (() => {
       
       **TASK:**
       1. Recall details, themes, characters, and plot points of this work.
-      2. Write a "summary" field: 2-3 sentences describing the work's plot, core themes, and significance. MUST be in the SAME language as the title.
+      2. Write a detailed "summary" field (150-250 words) covering: the main plot/premise, key characters, core themes and arguments, and why this work is significant. MUST be in the SAME language as the title.
       3. Generate ${count} high-quality study/trivia questions.
       
       **TONE & STYLE GUIDE (CRITICAL):**
@@ -462,16 +462,22 @@ const clientAI = (() => {
       - ONLY pick "Design" if the work is literally ABOUT visual art, graphic design, or UI/UX
 
       **MANDATORY "summary" FIELD (DO NOT SKIP):**
-      You MUST write a "summary" field with 2-3 real sentences about THIS specific work.
-      - Describe the plot/premise, core themes, and why it is significant.
-      - MUST be in the SAME language as the title.
-      - DO NOT write generic text like "A study set about..." — write a REAL description.
+      You MUST write a detailed "summary" field (250-400 words) about THIS specific work.
+      Structure it as **3 sections** with headers using [H]emoji Title[/H] format:
+      **Section 1:** [H]📖 Story & Characters[/H] then plot, setting, main characters, narrative arc.
+      **Section 2:** [H]💡 Themes & Ideas[/H] then core themes and how the work explores them.
+      **Section 3:** [H]🌟 Significance & Legacy[/H] then why this work matters, its influence.
+      - MUST be in the SAME language as the title (including section headers).
+      - Use **bold** markdown for character names and key terms.
+      - DO NOT write generic text like "A study set about..."
+      - IMPORTANT: Use [PARA] between sections (NOT literal newlines, which break JSON).
+      - Each section MUST begin with [H]emoji Title[/H] header tag.
 
       **OUTPUT FORMAT:** Strictly valid JSON.
       {
         "subjectEmoji": "🎬",
         "suggestedTitle": "${title}",
-        "summary": "(MANDATORY — 2-3 real sentences about this work, in the same language as the title)",
+        "summary": "[H]📖 Story & Characters[/H] Plot and characters paragraph... [PARA] [H]💡 Themes & Ideas[/H] Themes paragraph... [PARA] [H]🌟 Significance & Legacy[/H] Significance paragraph...",
         "categories": ["Philosophy / Thinking"],
         "questions": [
            {

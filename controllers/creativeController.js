@@ -18,23 +18,27 @@ export const generateCreativeQuiz = async (req, res) => {
         const aiResult = await generateQuestionsForCreativeWork(title, author, type, apiKey, 10);
         console.log(`Creative Gen time: ${Date.now() - startAI}ms`);
 
-        // Always generate a proper summary from questions context
-        // (AI's inline summary field is unreliable)
-        let creativeSummary;
-        try {
-            const questionContext = aiResult.questions.slice(0, 8).map(q => {
-                let parts = [q.question];
-                if (q.explanation) parts.push(q.explanation);
-                if (q.idealAnswer) parts.push(q.idealAnswer);
-                return parts.join(' — ');
-            }).join('\n');
-            const contextText = `Title: ${title} (${type})${author ? ` by ${author}` : ''}\n\nKey topics and themes explored:\n${questionContext}`;
-            console.log('[Creative] Generating summary from questions context...');
-            creativeSummary = await generateSummary(contextText, apiKey, title);
-            console.log(`[Creative] Summary generated: "${creativeSummary?.substring(0, 80)}..."`);
-        } catch (e) {
-            console.warn('[Creative] Summary generation failed:', e.message);
-            creativeSummary = aiResult.summary || `Creative study set for ${title}`;
+        // Use AI-generated summary from the creative work prompt (detailed, 150-250 words)
+        // Only fall back to separate generateSummary call if the prompt didn't return one
+        let creativeSummary = aiResult.summary;
+        const isTemplate = !creativeSummary || /^(A study set about|Creative study set)/i.test(creativeSummary);
+        console.log(`[Creative] AI summary: ${isTemplate ? 'MISSING/TEMPLATE' : `"${creativeSummary?.substring(0, 80)}..."`}`);
+
+        if (isTemplate) {
+            try {
+                const questionContext = aiResult.questions.slice(0, 8).map(q => {
+                    let parts = [q.question];
+                    if (q.explanation) parts.push(q.explanation);
+                    if (q.idealAnswer) parts.push(q.idealAnswer);
+                    return parts.join(' — ');
+                }).join('\n');
+                const contextText = `Title: ${title} (${type})${author ? ` by ${author}` : ''}\n\nKey topics and themes explored:\n${questionContext}`;
+                creativeSummary = await generateSummary(contextText, apiKey, title);
+                console.log(`[Creative] Fallback summary: "${creativeSummary?.substring(0, 80)}..."`);
+            } catch (e) {
+                console.warn('[Creative] Summary generation failed:', e.message);
+                creativeSummary = `Creative study set for ${title}`;
+            }
         }
 
         const db = await getDB(req);

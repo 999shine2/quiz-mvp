@@ -11,6 +11,36 @@ function apiUrl(path) {
 
 console.log(`[API Config] Running in ${IS_CAPACITOR ? 'Capacitor' : 'Browser'} mode. Base URL: ${API_BASE_URL || 'relative'}`);
 
+/** Format a raw summary string (with [H]...[/H] headers and [PARA] markers) into styled HTML */
+function formatSummaryHTML(raw) {
+    let formatted = raw
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/^- (.*)/gm, '• $1');
+
+    const sections = formatted.split(/\[PARA\]|\n\n+/).filter(p => p.trim());
+    if (sections.length > 1) {
+        return sections.map((section, idx) => {
+            let content = section.trim();
+            const headerMatch = content.match(/^\[H\](.*?)\[\/H\]\s*/);
+            let headerHtml = '';
+            if (headerMatch) {
+                content = content.replace(headerMatch[0], '').trim();
+                headerHtml = `<h4 style="margin: 0 0 8px 0; font-size: 15px; font-weight: 700; color: var(--primary-dark, #6366f1); letter-spacing: 0.02em;">${headerMatch[1]}</h4>`;
+            }
+            const divider = idx > 0 ? '<hr style="border: none; border-top: 1px solid rgba(0,0,0,0.08); margin: 0 0 16px 0;">' : '';
+            return `${divider}<div style="margin: 0 0 18px 0;">${headerHtml}<p style="margin: 0; line-height: 1.8; font-size: 14px; color: var(--text-secondary, #475569);">${content.replace(/\n/g, '<br>')}</p></div>`;
+        }).join('');
+    }
+    // Single block
+    let content = formatted;
+    const headerMatch = content.match(/^\[H\](.*?)\[\/H\]\s*/);
+    if (headerMatch) {
+        content = content.replace(headerMatch[0], '').trim();
+        return `<h4 style="margin: 0 0 8px 0; font-size: 15px; font-weight: 700; color: var(--primary-dark, #6366f1);">${headerMatch[1]}</h4><p style="line-height: 1.8; font-size: 14px; color: var(--text-secondary, #475569);">${content.replace(/\n/g, '<br>')}</p>`;
+    }
+    return `<p style="line-height: 1.8;">${content.replace(/\n/g, '<br>')}</p>`;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- Dynamic CSS Injection for Like Button ---
     const style = document.createElement('style');
@@ -3924,14 +3954,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 summaryContent.dataset.rawSummary = summaryText;
-
-                // Format text
-                let formatted = summaryText
-                    .replace(/\*\*(.*?)\*\*/g, '<strong style="color: var(--primary-dark);">$1</strong>')
-                    .replace(/\n/g, '<br>')
-                    .replace(/^- (.*)/gm, '• $1');
-
-                summaryContent.innerHTML = formatted;
+                summaryContent.innerHTML = formatSummaryHTML(summaryText);
             }
         } catch (err) {
             console.error(err);
@@ -6240,11 +6263,7 @@ window.openOverview = async (fileId) => {
 
         if (file.summary) {
             summaryEl.dataset.rawSummary = file.summary; // Store raw for editing
-            let formatted = file.summary
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\n/g, '<br>')
-                .replace(/- /g, '&bull; ');
-            summaryEl.innerHTML = formatted;
+            summaryEl.innerHTML = formatSummaryHTML(file.summary);
 
             // Show edit button
             const editBtn = document.getElementById('edit-summary-btn');
