@@ -132,6 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginScreen = document.getElementById('login-screen');
     const loginUserId = document.getElementById('login-userid');
     const loginPassword = document.getElementById('login-password');
+    const loginPasswordConfirm = document.getElementById('login-password-confirm');
     const loginNickname = document.getElementById('login-nickname');
     const loginBtn = document.getElementById('login-btn');
     const registerBtn = document.getElementById('register-btn');
@@ -163,12 +164,15 @@ document.addEventListener('DOMContentLoaded', () => {
             isRegisterMode = !isRegisterMode;
             if (isRegisterMode) {
                 authTitle.textContent = "Create Account";
+                loginPasswordConfirm.hidden = false;
                 loginNickname.hidden = false;
                 loginBtn.style.display = 'none';
                 registerBtn.style.display = 'block';
                 authToggleLink.textContent = "Already have an account? Log In";
             } else {
                 authTitle.textContent = "Welcome Back";
+                loginPasswordConfirm.hidden = true;
+                loginPasswordConfirm.value = '';
                 loginNickname.hidden = true;
                 loginBtn.style.display = 'block';
                 registerBtn.style.display = 'none';
@@ -226,8 +230,10 @@ document.addEventListener('DOMContentLoaded', () => {
         registerBtn.addEventListener('click', async () => {
             const userId = loginUserId.value.trim();
             const password = loginPassword.value.trim();
+            const confirmPw = loginPasswordConfirm.value.trim();
             const nickname = loginNickname.value.trim();
-            if (!userId || !password || !nickname) return alert("Please fill all fields.");
+            if (!userId || !password || !confirmPw || !nickname) return alert("Please fill all fields.");
+            if (password !== confirmPw) return alert("Passwords do not match.");
             await performAuth('/api/auth/register', { userId, password, nickname });
         });
     }
