@@ -286,6 +286,125 @@ h4 {
     border-color: var(--primary);
 }
 
+/* Drop Zone Drag-Over */
+.drop-zone {
+    cursor: pointer;
+    transition: all 0.3s;
+    border-radius: 16px;
+    padding: 2rem;
+}
+
+.drop-zone.drag-over {
+    background: rgba(107, 140, 66, 0.08);
+    border-color: var(--primary) !important;
+    transform: scale(1.02);
+    box-shadow: 0 0 0 4px rgba(107, 140, 66, 0.1);
+}
+
+/* Generation Progress Status */
+.gen-status {
+    text-align: center;
+    margin-top: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--primary);
+    font-family: var(--font-body);
+    animation: genPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes genPulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+}
+
+/* Input Validation Error */
+.url-input-wrapper.input-error {
+    border-color: #e74c3c !important;
+    animation: inputShake 0.4s ease;
+}
+
+.url-input-wrapper.input-error input::placeholder {
+    color: #e74c3c;
+}
+
+@keyframes inputShake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+}
+
+/* Recent Uploads */
+.recent-uploads {
+    margin-top: 20px;
+}
+
+.recent-uploads-title {
+    font-family: var(--font-heading);
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.recent-uploads-list {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+}
+
+.recent-uploads-list::-webkit-scrollbar { display: none; }
+
+.recent-upload-chip {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--card-bg);
+    border: 1.5px solid rgba(107, 140, 66, 0.15);
+    border-radius: 14px;
+    padding: 10px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    max-width: 200px;
+}
+
+.recent-upload-chip:hover {
+    border-color: var(--primary);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(107, 140, 66, 0.1);
+}
+
+.recent-upload-emoji {
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.recent-upload-info {
+    min-width: 0;
+}
+
+.recent-upload-name {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: var(--font-heading);
+}
+
+.recent-upload-meta {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
 /* Tabs */
 .tabs {
     background: rgba(255, 255, 255, 0.5);
@@ -1290,11 +1409,40 @@ button.filter-chip {
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 10px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.profile-avatar-ring:hover {
+    transform: scale(1.08);
+    box-shadow: 0 4px 16px rgba(107,140,66,0.25);
 }
 
 .profile-avatar-emoji {
     font-size: 1.7rem;
+}
+
+/* Rank Badge */
+.rank-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: linear-gradient(135deg, rgba(107,140,66,0.12), rgba(249,218,120,0.18));
+    border: 1px solid rgba(107,140,66,0.2);
+    border-radius: 20px;
+    padding: 3px 12px 3px 8px;
+    margin-bottom: 8px;
+    font-family: var(--font-heading);
+    animation: rankShine 3s ease-in-out infinite;
+}
+
+.rank-icon { font-size: 0.9rem; }
+.rank-label { font-size: 0.72rem; font-weight: 700; color: var(--primary-dark); }
+
+@keyframes rankShine {
+    0%, 100% { box-shadow: 0 0 0 rgba(249,218,120,0); }
+    50% { box-shadow: 0 0 12px rgba(249,218,120,0.3); }
 }
 
 .profile-title {
@@ -1857,4 +2005,318 @@ body.reels-mode .option.selected {
         opacity: 0;
         transform: translate(-50%, -20px);
     }
+}
+
+/* --- Profile Features --- */
+
+.profile-card-section {
+    background: var(--card-bg);
+    border-radius: 20px;
+    padding: 20px;
+    border: 1px solid var(--border-light);
+    box-shadow: var(--shadow-soft);
+    margin-top: 1rem;
+}
+
+/* Weekly Goal Ring */
+.weekly-goal-content {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 8px 0;
+}
+
+.goal-ring-container {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    flex-shrink: 0;
+}
+
+.goal-ring {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.goal-ring-bg {
+    fill: none;
+    stroke: rgba(107,140,66,0.1);
+    stroke-width: 12;
+}
+
+.goal-ring-fill {
+    fill: none;
+    stroke: var(--primary);
+    stroke-width: 12;
+    stroke-linecap: round;
+    stroke-dasharray: 326.73;
+    stroke-dashoffset: 326.73;
+    transition: stroke-dashoffset 1s ease;
+}
+
+.goal-ring-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    line-height: 1;
+}
+
+.goal-ring-value {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--primary-dark);
+    font-family: var(--font-heading);
+    display: block;
+}
+
+.goal-ring-total {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    font-family: var(--font-heading);
+}
+
+.goal-info {
+    flex: 1;
+}
+
+.goal-label {
+    font-size: 0.85rem;
+    color: var(--text-main);
+    font-weight: 600;
+    margin: 0 0 8px;
+}
+
+.goal-days {
+    display: flex;
+    gap: 4px;
+}
+
+.goal-day {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6rem;
+    font-weight: 700;
+    font-family: var(--font-heading);
+    color: var(--text-muted);
+    background: rgba(107,140,66,0.06);
+    border: 1px solid rgba(107,140,66,0.1);
+}
+
+.goal-day.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+
+.goal-day.today {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(107,140,66,0.2);
+}
+
+.goal-edit-btn {
+    background: none;
+    border: none;
+    color: var(--primary);
+    font-size: 0.75rem;
+    font-weight: 700;
+    font-family: var(--font-heading);
+    cursor: pointer;
+}
+
+.goal-edit-panel {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-light);
+}
+
+/* Category Donut */
+.donut-container {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 0;
+}
+
+.donut-chart {
+    width: 120px;
+    height: 120px;
+    flex-shrink: 0;
+}
+
+.donut-legend {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.donut-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.78rem;
+    font-family: var(--font-body);
+    color: var(--text-main);
+}
+
+.donut-legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.donut-legend-pct {
+    margin-left: auto;
+    font-weight: 700;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+}
+
+/* Achievements */
+.achievement-count {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    font-family: var(--font-heading);
+}
+
+.achievements-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+    padding-top: 4px;
+}
+
+.achievement-card {
+    padding: 12px 10px;
+    border-radius: 14px;
+    text-align: center;
+    background: rgba(107,140,66,0.04);
+    border: 1px solid rgba(107,140,66,0.1);
+    transition: transform 0.2s;
+}
+
+.achievement-card.unlocked {
+    background: linear-gradient(135deg, rgba(249,218,120,0.12), rgba(107,140,66,0.08));
+    border-color: rgba(249,218,120,0.4);
+}
+
+.achievement-card.locked {
+    opacity: 0.45;
+    filter: grayscale(0.6);
+}
+
+.achievement-card:hover {
+    transform: translateY(-2px);
+}
+
+.achievement-emoji {
+    font-size: 1.6rem;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.achievement-name {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-main);
+    font-family: var(--font-heading);
+}
+
+.achievement-desc {
+    font-size: 0.62rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+/* Study Heatmap */
+.heatmap-container {
+    display: grid;
+    grid-template-columns: repeat(53, 1fr);
+    grid-template-rows: repeat(7, 1fr);
+    gap: 2px;
+    overflow-x: auto;
+    padding: 4px 0;
+}
+
+.heatmap-cell {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    background: rgba(107,140,66,0.08);
+}
+
+.heatmap-months {
+    display: flex;
+    justify-content: space-between;
+    padding: 0 2px;
+    margin-bottom: 4px;
+}
+
+.heatmap-months span {
+    font-size: 0.58rem;
+    color: var(--text-muted);
+    font-family: var(--font-heading);
+    font-weight: 600;
+}
+
+.heatmap-legend {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    justify-content: flex-end;
+    margin-top: 6px;
+}
+
+.heatmap-legend .heatmap-cell {
+    width: 10px;
+    height: 10px;
+}
+
+.heatmap-year {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    font-family: var(--font-heading);
+}
+
+/* Avatar Picker */
+.avatar-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+    padding: 8px 0;
+}
+
+.avatar-option {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 14px;
+    border: 2px solid transparent;
+    background: rgba(107,140,66,0.04);
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.avatar-option:hover {
+    background: rgba(107,140,66,0.1);
+    transform: scale(1.1);
+}
+
+.avatar-option.selected {
+    border-color: var(--primary);
+    background: rgba(107,140,66,0.12);
+    box-shadow: 0 0 0 3px rgba(107,140,66,0.15);
 }

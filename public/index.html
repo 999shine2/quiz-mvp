@@ -18,7 +18,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&family=Patrick+Hand&family=Quicksand:wght@500;600;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=6">
+    <link rel="stylesheet" href="style.css?v=8">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <!-- Client-Side Libraries (PDF.js + mammoth.js) -->
@@ -113,20 +113,13 @@
                 <div class="hero-text">
                     <h2 data-i18n="hero_title_html">Capture <span class="gradient-text">Insights</span></h2>
                     <p data-i18n="hero_desc">Turn videos and notes into mastery.</p>
-
-                    <!-- Daily Quiz Feature -->
-                    <div style="margin-top: 15px; margin-bottom: 10px;">
-                        <button id="start-news-quiz-btn" class="secondary-btn"
-                            style="background: rgba(255,255,255,0.8); backdrop-filter: blur(4px);">
-                            <span data-i18n="btn_news_quiz">📰 Start News Quiz</span>
-                        </button>
-                    </div>
                 </div>
 
                 <div class="tabs">
                     <button class="tab-btn active" data-tab="creative" data-i18n="tab_creative">🎨 Creative</button>
                     <button class="tab-btn" data-tab="youtube" data-i18n="tab_youtube">▶ YouTube</button>
                     <button class="tab-btn" data-tab="file" data-i18n="tab_file">📄 Document</button>
+                    <button class="tab-btn" data-tab="news" data-i18n="tab_news">📰 News</button>
                 </div>
 
                 <!-- File Upload Tab -->
@@ -151,6 +144,7 @@
                         <span class="btn-text" data-i18n="btn_generate">Generate Quiz</span>
                         <div class="loader" hidden></div>
                     </button>
+                    <div class="gen-status" id="gen-status-file" hidden></div>
                 </div>
 
                 <!-- YouTube Tab -->
@@ -168,6 +162,7 @@
                             <span class="btn-text" data-i18n="btn_generate">Generate Quiz</span>
                             <div class="loader" hidden></div>
                         </button>
+                        <div class="gen-status" id="gen-status-yt" hidden></div>
                     </div>
                 </div>
 
@@ -214,9 +209,26 @@
                         <span class="btn-text" data-i18n="btn_generate">Generate Quiz</span>
                         <div class="loader" hidden></div>
                     </button>
+                    <div class="gen-status" id="gen-status-creative" hidden></div>
                 </div>
 
-                <!-- API Key section removed -->
+                <!-- News Quiz Tab -->
+                <div class="upload-container tab-content" id="tab-news" style="display: none;">
+                    <div style="text-align: center; padding: 1.5rem 1rem;">
+                        <span style="font-size:3rem; display:block; margin-bottom:0.8rem;">📰</span>
+                        <p style="font-family:var(--font-heading); font-weight:700; font-size:1.05rem; color:var(--text-main); margin-bottom:6px;">Daily News Quiz</p>
+                        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:20px; line-height:1.5;">Test your knowledge on today's trending topics and current events.</p>
+                        <button id="start-news-quiz-btn" class="primary-btn" style="width:100%;">
+                            <span class="btn-text" data-i18n="btn_news_quiz">Start News Quiz</span>
+                            <div class="loader" hidden></div>
+                        </button>
+                        <div class="gen-status" id="gen-status-news" hidden></div>
+                    </div>
+                </div>
+
+                <!-- Recent Uploads -->
+                <div id="recent-uploads" class="recent-uploads" hidden></div>
+
             </section>
 
             <!-- Quiz Section -->
@@ -323,8 +335,12 @@
                 <div class="profile-hero">
                     <div class="profile-hero-bg"></div>
                     <div class="profile-hero-content">
-                        <div class="profile-avatar-ring">
-                            <span class="profile-avatar-emoji">🌿</span>
+                        <div class="profile-avatar-ring" id="profile-avatar-ring">
+                            <span class="profile-avatar-emoji" id="profile-avatar-emoji">🌿</span>
+                        </div>
+                        <div class="rank-badge" id="rank-badge">
+                            <span class="rank-icon" id="rank-icon">🌱</span>
+                            <span class="rank-label" id="rank-label">Seedling</span>
                         </div>
                         <h2 data-i18n="profile_title_html" class="profile-title">Your <span class="gradient-text">Learning Journey</span></h2>
                         <p data-i18n="profile_desc" class="profile-subtitle">Track your progress and stats across all materials.</p>
@@ -352,6 +368,60 @@
                         <div class="stat-icon">📋</div>
                         <div class="stat-value" id="stat-due-review">0</div>
                         <div class="stat-label" data-i18n="stat_due_label">Due</div>
+                    </div>
+                </div>
+
+                <!-- Weekly Goal Tracker -->
+                <div class="chart-card profile-card-section" id="weekly-goal-card">
+                    <div class="chart-header">
+                        <h3>🎯 Weekly Goal</h3>
+                        <button class="goal-edit-btn" id="goal-edit-btn">Edit</button>
+                    </div>
+                    <div class="weekly-goal-content">
+                        <div class="goal-ring-container">
+                            <svg class="goal-ring" viewBox="0 0 120 120">
+                                <circle class="goal-ring-bg" cx="60" cy="60" r="52" />
+                                <circle class="goal-ring-fill" id="goal-ring-fill" cx="60" cy="60" r="52" />
+                            </svg>
+                            <div class="goal-ring-text">
+                                <span class="goal-ring-value" id="goal-ring-value">0</span>
+                                <span class="goal-ring-total" id="goal-ring-total">/ 20</span>
+                            </div>
+                        </div>
+                        <div class="goal-info">
+                            <p class="goal-label" id="goal-label">Questions this week</p>
+                            <div class="goal-days" id="goal-days"></div>
+                        </div>
+                    </div>
+                    <div class="goal-edit-panel" id="goal-edit-panel" hidden>
+                        <label style="font-size:0.8rem; color:var(--text-muted);">Weekly target</label>
+                        <div style="display:flex; gap:8px; align-items:center; margin-top:4px;">
+                            <input type="number" id="goal-input" min="1" max="500" value="20" class="text-input" style="width:80px; text-align:center;">
+                            <button id="goal-save-btn" class="primary-btn" style="padding:6px 16px; font-size:0.8rem;">Save</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Category Breakdown Donut -->
+                <div class="chart-card profile-card-section" id="category-donut-card">
+                    <div class="chart-header">
+                        <h3>📊 Category Breakdown</h3>
+                    </div>
+                    <div class="donut-container">
+                        <svg class="donut-chart" viewBox="0 0 160 160" id="donut-chart">
+                            <circle cx="80" cy="80" r="60" fill="none" stroke="rgba(107,140,66,0.1)" stroke-width="20" />
+                        </svg>
+                        <div class="donut-legend" id="donut-legend"></div>
+                    </div>
+                </div>
+
+                <!-- Achievement Badges -->
+                <div class="chart-card profile-card-section" id="achievements-card">
+                    <div class="chart-header">
+                        <h3>🏆 Achievements</h3>
+                        <span class="achievement-count" id="achievement-count">0/0</span>
+                    </div>
+                    <div class="achievements-grid" id="achievements-grid">
                     </div>
                 </div>
 
@@ -540,7 +610,7 @@
     <script src="clientImage.js?v=3"></script>
     <script src="clientParser.js?v=3"></script>
     <script src="clientBridge.js?v=3"></script>
-    <script src="client_app.js?v=6"></script>
+    <script src="client_app.js?v=10"></script>
     <script>
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js')

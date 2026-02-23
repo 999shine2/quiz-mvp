@@ -252,6 +252,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     checkAuth();
 
+    // Load library data early for recent uploads on home page
+    if (currentUser) {
+        setTimeout(() => {
+            if (window.loadLibraryData) window.loadLibraryData().catch(() => {});
+        }, 500);
+    }
+
     // Intercept Fetch to add Header
     const originalFetch = window.fetch;
     window.fetch = async function (url, options) {
@@ -420,7 +427,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabContents = {
         file: document.getElementById('tab-file'),
         youtube: document.getElementById('tab-youtube'),
-        creative: document.getElementById('tab-creative')
+        creative: document.getElementById('tab-creative'),
+        news: document.getElementById('tab-news')
     };
 
     // Upload Elements
@@ -943,7 +951,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const type = creativeTypeSelect.value;
 
             if (!title) {
-                alert("Please enter a title.");
+                const titleWrapper = creativeTitleInput.closest('.url-input-wrapper');
+                if (titleWrapper) {
+                    titleWrapper.classList.add('input-error');
+                    creativeTitleInput.placeholder = 'Please enter a title';
+                    setTimeout(() => {
+                        titleWrapper.classList.remove('input-error');
+                        creativeTitleInput.placeholder = 'e.g. Inception, 1984, Friends...';
+                    }, 2000);
+                }
+                creativeTitleInput.focus();
                 return;
             }
 
@@ -954,6 +971,8 @@ document.addEventListener('DOMContentLoaded', () => {
             btnText.hidden = true;
             loader.hidden = false;
             loader.style.display = 'block';
+
+            const creativeStatus = startGenStatus('gen-status-creative', ['Looking up "' + title + '"...', 'Analyzing content...', 'Generating questions...', 'Loading images...']);
 
             try {
                 // Call API
@@ -979,6 +998,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!window.allFiles) window.allFiles = [];
                 window.allFiles.unshift(data);
 
+                // Wait for ALL question images before starting quiz
+                const cqWithImages = (data.questions || []).filter(q => q.imageUrl && !q.imageUrl.startsWith('blob:'));
+                if (cqWithImages.length > 0) {
+                    const statusEl = document.getElementById('gen-status-creative');
+                    if (statusEl) statusEl.textContent = `Loading images (0/${cqWithImages.length})...`;
+                    let cLoaded = 0;
+                    await Promise.all(cqWithImages.map(q => new Promise(resolve => {
+                        const img = new Image();
+                        img.onload = () => { cLoaded++; if (statusEl) statusEl.textContent = `Loading images (${cLoaded}/${cqWithImages.length})...`; resolve(); };
+                        img.onerror = () => { cLoaded++; if (statusEl) statusEl.textContent = `Loading images (${cLoaded}/${cqWithImages.length})...`; resolve(); };
+                        img.src = q.imageUrl;
+                        setTimeout(resolve, 15000);
+                    })));
+                }
+
                 // Start Quiz directly
                 window.startQuiz(data.questions);
 
@@ -990,6 +1024,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error(error);
                 alert("Failed to generate: " + error.message);
             } finally {
+                creativeStatus.stop();
                 generateCreativeBtn.disabled = false;
                 btnText.hidden = false;
                 loader.hidden = true;
@@ -1138,6 +1173,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // --- Generation Progress Status ---
+    function startGenStatus(statusId, steps) {
+        const el = document.getElementById(statusId);
+        if (!el) return { stop() {} };
+        el.hidden = false;
+        let stepIdx = 0;
+        el.textContent = steps[0];
+        const interval = setInterval(() => {
+            stepIdx++;
+            if (stepIdx < steps.length) {
+                el.textContent = steps[stepIdx];
+            }
+        }, 3500);
+        return {
+            stop() {
+                clearInterval(interval);
+                el.hidden = true;
+                el.textContent = '';
+            }
+        };
+    }
+
     // --- Shared Generation Logic ---
 
     async function handleGeneration(endpoint, formDataCallback, btnElement, jsonBody = null) {
@@ -1146,6 +1203,14 @@ document.addEventListener('DOMContentLoaded', () => {
         btnText.style.display = 'none';
         loader.hidden = false;
         btnElement.disabled = true;
+
+        // Determine which status element to use
+        const isYT = endpoint.includes('youtube');
+        const statusId = isYT ? 'gen-status-yt' : 'gen-status-file';
+        const steps = isYT
+            ? ['Extracting transcript...', 'Analyzing content...', 'Generating questions...', 'Loading images...']
+            : ['Reading document...', 'Analyzing content...', 'Generating questions...', 'Loading images...'];
+        const status = startGenStatus(statusId, steps);
 
         try {
             let options = { method: 'POST' };
@@ -1201,6 +1266,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert('⚠️ No API Key Provided\n\nGenerated questions using generic MOCK DATA. To get real questions.');
             }
 
+            // Wait for ALL question images to load before starting quiz
+            const questionsWithImages = (data.questions || []).filter(q => q.imageUrl && !q.imageUrl.startsWith('blob:'));
+            if (questionsWithImages.length > 0) {
+                const statusEl = document.getElementById(statusId);
+                if (statusEl) statusEl.textContent = `Loading images (0/${questionsWithImages.length})...`;
+                let loaded = 0;
+                await Promise.all(questionsWithImages.map(q => new Promise(resolve => {
+                    const img = new Image();
+                    img.onload = () => { loaded++; if (statusEl) statusEl.textContent = `Loading images (${loaded}/${questionsWithImages.length})...`; resolve(); };
+                    img.onerror = () => { loaded++; if (statusEl) statusEl.textContent = `Loading images (${loaded}/${questionsWithImages.length})...`; resolve(); };
+                    img.src = q.imageUrl;
+                    setTimeout(resolve, 15000);
+                })));
+            }
+
             startQuiz(data.questions);
             return true; // Success
 
@@ -1208,6 +1288,7 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Error: ' + error.message);
             return false; // Failure
         } finally {
+            status.stop();
             btnText.style.display = 'block';
             loader.hidden = true;
             btnElement.disabled = false;
@@ -1276,7 +1357,6 @@ document.addEventListener('DOMContentLoaded', () => {
         userAnswers = {};
 
         // Preload all question images in the background so they're cached
-        // by the time the user navigates to them
         questions.forEach(q => {
             if (q.imageUrl && !q.imageUrl.startsWith('blob:')) {
                 const preload = new Image();
@@ -4426,15 +4506,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Due for Review count
             const dueEl = document.getElementById('stat-due-review');
+            let libFiles = [];
             if (dueEl) {
                 try {
                     const userId = localStorage.getItem('user_name') || 'guest';
                     const lib = await clientDB.getLibrary(userId);
-                    const allQs = (lib.files || []).flatMap(f => f.questions || []);
+                    libFiles = lib.files || [];
+                    const allQs = libFiles.flatMap(f => f.questions || []);
                     const dueCount = allQs.filter(q => isQuestionDue(q.question)).length;
                     dueEl.textContent = dueCount;
                 } catch (e2) { /* ignore */ }
             }
+
+            // === 1. RANK BADGE ===
+            renderRankBadge(data.totalQuestionsSolved || 0);
+
+            // === 2. WEEKLY GOAL ===
+            renderWeeklyGoal(data.dailyStats || {});
+
+            // === 3. CATEGORY DONUT ===
+            renderCategoryDonut(libFiles);
+
+            // === 4. ACHIEVEMENTS ===
+            renderAchievements(data, libFiles);
 
         } catch (e) {
             console.error(e);
@@ -4444,6 +4538,242 @@ document.addEventListener('DOMContentLoaded', () => {
         initReminders();
         updateDueBadge();
     };
+
+    // === PROFILE FEATURE FUNCTIONS ===
+
+    // 1. RANK BADGE
+    function renderRankBadge(totalSolved) {
+        const ranks = [
+            { min: 0,    icon: '🌱', label: 'Seedling' },
+            { min: 10,   icon: '🌿', label: 'Sprout' },
+            { min: 50,   icon: '🌻', label: 'Bloomer' },
+            { min: 100,  icon: '🌳', label: 'Scholar' },
+            { min: 250,  icon: '⭐', label: 'Star' },
+            { min: 500,  icon: '🏔️', label: 'Master' },
+            { min: 1000, icon: '👑', label: 'Legend' },
+        ];
+        let rank = ranks[0];
+        for (const r of ranks) {
+            if (totalSolved >= r.min) rank = r;
+        }
+        const iconEl = document.getElementById('rank-icon');
+        const labelEl = document.getElementById('rank-label');
+        if (iconEl) iconEl.textContent = rank.icon;
+        if (labelEl) labelEl.textContent = rank.label;
+
+        // Update avatar emoji to match rank
+        const avatarEl = document.getElementById('profile-avatar-emoji');
+        if (avatarEl) avatarEl.textContent = rank.icon;
+    }
+
+    // 2. WEEKLY GOAL
+    function renderWeeklyGoal(dailyStats) {
+        const goal = parseInt(localStorage.getItem('weekly_goal') || '20', 10);
+        const goalInput = document.getElementById('goal-input');
+        if (goalInput) goalInput.value = goal;
+
+        // Calculate this week's solved (Mon-Sun)
+        const now = new Date();
+        const dayOfWeek = now.getDay(); // 0=Sun
+        const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        const monday = new Date(now);
+        monday.setDate(now.getDate() - mondayOffset);
+
+        let weekSolved = 0;
+        const dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+        const dayData = [];
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(monday);
+            d.setDate(monday.getDate() + i);
+            const key = d.toISOString().split('T')[0];
+            const solved = dailyStats[key]?.solved || 0;
+            weekSolved += solved;
+            const isToday = key === now.toISOString().split('T')[0];
+            dayData.push({ label: dayLabels[i], solved, isToday });
+        }
+
+        // Update ring
+        const pct = Math.min(weekSolved / goal, 1);
+        const circumference = 2 * Math.PI * 52; // r=52
+        const ringFill = document.getElementById('goal-ring-fill');
+        if (ringFill) {
+            ringFill.style.strokeDasharray = circumference;
+            ringFill.style.strokeDashoffset = circumference * (1 - pct);
+            // Color changes based on progress
+            if (pct >= 1) ringFill.style.stroke = '#f9da78';
+            else if (pct >= 0.7) ringFill.style.stroke = 'var(--primary)';
+            else ringFill.style.stroke = 'var(--primary-light)';
+        }
+
+        const valueEl = document.getElementById('goal-ring-value');
+        const totalEl = document.getElementById('goal-ring-total');
+        if (valueEl) valueEl.textContent = weekSolved;
+        if (totalEl) totalEl.textContent = `/ ${goal}`;
+
+        // Day dots
+        const daysContainer = document.getElementById('goal-days');
+        if (daysContainer) {
+            daysContainer.innerHTML = '';
+            dayData.forEach(d => {
+                const dot = document.createElement('div');
+                dot.className = 'goal-day' + (d.solved > 0 ? ' active' : '') + (d.isToday ? ' today' : '');
+                dot.textContent = d.label;
+                if (d.solved > 0) dot.title = `${d.solved} solved`;
+                daysContainer.appendChild(dot);
+            });
+        }
+
+        // Edit button
+        const editBtn = document.getElementById('goal-edit-btn');
+        const editPanel = document.getElementById('goal-edit-panel');
+        if (editBtn && editPanel) {
+            editBtn.onclick = () => {
+                editPanel.hidden = !editPanel.hidden;
+                editBtn.textContent = editPanel.hidden ? 'Edit' : 'Cancel';
+            };
+        }
+        const saveBtn = document.getElementById('goal-save-btn');
+        if (saveBtn) {
+            saveBtn.onclick = () => {
+                const val = parseInt(document.getElementById('goal-input')?.value || '20', 10);
+                if (val > 0 && val <= 500) {
+                    localStorage.setItem('weekly_goal', val);
+                    editPanel.hidden = true;
+                    editBtn.textContent = 'Edit';
+                    renderWeeklyGoal(dailyStats);
+                }
+            };
+        }
+    }
+
+    // 3. CATEGORY DONUT
+    function renderCategoryDonut(files) {
+        const categoryCounts = {};
+        const categoryEmojiMap = {
+            'business': '💼', 'finance': '📈', 'investing': '📈', 'technology': '💻', 'tech': '💻',
+            'science': '🔬', 'health': '🏥', 'medical': '🏥', 'education': '📖', 'learning': '📖',
+            'history': '🏛️', 'language': '🗣️', 'mathematics': '🔢', 'math': '🔢',
+            'art': '🎨', 'creative': '🎨', 'music': '🎵', 'sports': '⚽', 'fitness': '💪',
+            'politics': '⚖️', 'society': '🌍', 'philosophy': '🧠', 'thinking': '🧠', 'psychology': '🧠',
+            'entertainment': '🎬', 'cooking': '🍳', 'food': '🍳', 'travel': '✈️',
+            'programming': '👨‍💻', 'coding': '👨‍💻', 'design': '🎨', 'marketing': '📣',
+            'economics': '📊', 'law': '⚖️', 'nature': '🌿', 'environment': '🌍',
+            'self-help': '✨', 'productivity': '⚡', 'career': '💼', 'other': '📂'
+        };
+        function getCategoryEmoji(cat) {
+            const lower = cat.toLowerCase();
+            // Direct match
+            if (categoryEmojiMap[lower]) return categoryEmojiMap[lower];
+            // Partial match — check if any key is contained in the category name
+            for (const [key, emoji] of Object.entries(categoryEmojiMap)) {
+                if (lower.includes(key)) return emoji;
+            }
+            return '📂';
+        }
+        const donutColors = ['#6B8C42', '#8FB365', '#4A6741', '#F9DA78', '#E8A838', '#F2A6A6', '#74b9ff', '#a29bfe', '#fd79a8', '#00cec9'];
+
+        files.forEach(f => {
+            const cat = (f.categories && f.categories.length > 0) ? f.categories[0] : 'Other';
+            const qCount = (f.questions || []).length;
+            categoryCounts[cat] = (categoryCounts[cat] || 0) + qCount;
+        });
+
+        const entries = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+        const total = entries.reduce((s, [, c]) => s + c, 0);
+
+        const chart = document.getElementById('donut-chart');
+        const legend = document.getElementById('donut-legend');
+        if (!chart || !legend) return;
+
+        // Clear previous
+        chart.innerHTML = '<circle cx="80" cy="80" r="60" fill="none" stroke="rgba(107,140,66,0.08)" stroke-width="20" />';
+        legend.innerHTML = '';
+
+        if (total === 0) {
+            legend.innerHTML = '<div style="color:var(--text-muted); font-size:0.8rem; padding:20px 0;">No data yet</div>';
+            return;
+        }
+
+        let offset = 0;
+        const circumference = 2 * Math.PI * 60;
+        entries.forEach(([cat, count], i) => {
+            const pct = count / total;
+            const dashLen = circumference * pct;
+            const dashGap = circumference - dashLen;
+            const color = donutColors[i % donutColors.length];
+
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', '80');
+            circle.setAttribute('cy', '80');
+            circle.setAttribute('r', '60');
+            circle.setAttribute('fill', 'none');
+            circle.setAttribute('stroke', color);
+            circle.setAttribute('stroke-width', '20');
+            circle.setAttribute('stroke-dasharray', `${dashLen} ${dashGap}`);
+            circle.setAttribute('stroke-dashoffset', `${-offset}`);
+            circle.style.transform = 'rotate(-90deg)';
+            circle.style.transformOrigin = '80px 80px';
+            chart.appendChild(circle);
+            offset += dashLen;
+
+            // Legend item
+            const item = document.createElement('div');
+            item.className = 'donut-legend-item';
+            item.innerHTML = `
+                <div class="donut-legend-dot" style="background:${color}"></div>
+                <span>${getCategoryEmoji(cat)} ${cat}</span>
+                <span class="donut-legend-pct">${Math.round(pct * 100)}%</span>
+            `;
+            legend.appendChild(item);
+        });
+    }
+
+    // 4. ACHIEVEMENTS
+    function renderAchievements(profileData, files) {
+        const totalSolved = profileData.totalQuestionsSolved || 0;
+        const streak = profileData.currentStreak || 0;
+        const totalFiles = files.length;
+        const dailyStats = profileData.dailyStats || {};
+
+        // Check for night owl (solved after 10pm)
+        const nowHour = new Date().getHours();
+
+        const achievements = [
+            { id: 'first_upload', emoji: '📤', name: 'First Upload', desc: 'Upload your first material', check: totalFiles >= 1 },
+            { id: 'ten_solved', emoji: '🎯', name: 'Quick Ten', desc: 'Solve 10 questions', check: totalSolved >= 10 },
+            { id: 'fifty_solved', emoji: '💪', name: 'Half Century', desc: 'Solve 50 questions', check: totalSolved >= 50 },
+            { id: 'hundred_solved', emoji: '💯', name: 'Centurion', desc: 'Solve 100 questions', check: totalSolved >= 100 },
+            { id: 'five_hundred', emoji: '🌟', name: 'Star Student', desc: 'Solve 500 questions', check: totalSolved >= 500 },
+            { id: 'streak_3', emoji: '🔥', name: 'On Fire', desc: '3-day streak', check: streak >= 3 },
+            { id: 'streak_7', emoji: '⚡', name: 'Week Warrior', desc: '7-day streak', check: streak >= 7 },
+            { id: 'streak_30', emoji: '🏆', name: 'Monthly Master', desc: '30-day streak', check: streak >= 30 },
+            { id: 'five_materials', emoji: '📚', name: 'Bookworm', desc: 'Upload 5 materials', check: totalFiles >= 5 },
+            { id: 'ten_materials', emoji: '🗄️', name: 'Librarian', desc: 'Upload 10 materials', check: totalFiles >= 10 },
+            { id: 'night_owl', emoji: '🦉', name: 'Night Owl', desc: 'Study after 10 PM', check: nowHour >= 22 || nowHour < 4 },
+            { id: 'early_bird', emoji: '🐦', name: 'Early Bird', desc: 'Study before 7 AM', check: nowHour >= 5 && nowHour < 7 },
+        ];
+
+        const unlocked = achievements.filter(a => a.check).length;
+        const countEl = document.getElementById('achievement-count');
+        if (countEl) countEl.textContent = `${unlocked}/${achievements.length}`;
+
+        const grid = document.getElementById('achievements-grid');
+        if (!grid) return;
+        grid.innerHTML = '';
+
+        // Show unlocked first, then locked
+        const sorted = [...achievements].sort((a, b) => (b.check ? 1 : 0) - (a.check ? 1 : 0));
+        sorted.forEach(a => {
+            const card = document.createElement('div');
+            card.className = `achievement-card ${a.check ? 'unlocked' : 'locked'}`;
+            card.innerHTML = `
+                <span class="achievement-emoji">${a.emoji}</span>
+                <div class="achievement-name">${a.name}</div>
+                <div class="achievement-desc">${a.desc}</div>
+            `;
+            grid.appendChild(card);
+        });
+    }
 
     // --- Study Reminder Logic ---
     let mainThreadReminderTimer = null;
@@ -6234,8 +6564,38 @@ window.loadLibraryData = async () => {
     });
     const files = await res.json();
     window.allFiles = files;
+    renderRecentUploads(files);
     return files;
 };
+
+function renderRecentUploads(files) {
+    const container = document.getElementById('recent-uploads');
+    if (!container || !files || files.length === 0) {
+        if (container) container.hidden = true;
+        return;
+    }
+    const recent = files.slice(0, 3);
+    const typeIcons = { youtube: '🎬', creative: '🎨', pdf: '📄', doc: '📝', custom: '📋' };
+    container.hidden = false;
+    container.innerHTML = `
+        <div class="recent-uploads-title">Recent Materials</div>
+        <div class="recent-uploads-list">
+            ${recent.map(f => {
+                const icon = f.subjectEmoji || typeIcons[f.type] || '📄';
+                const qCount = f.questions ? f.questions.length : 0;
+                const name = f.filename || 'Untitled';
+                const displayName = name.length > 22 ? name.substring(0, 22) + '...' : name;
+                return `<div class="recent-upload-chip" onclick="window.openOverview && window.openOverview('${f.id}')">
+                    <span class="recent-upload-emoji">${icon}</span>
+                    <div class="recent-upload-info">
+                        <div class="recent-upload-name">${displayName}</div>
+                        <div class="recent-upload-meta">${qCount} questions</div>
+                    </div>
+                </div>`;
+            }).join('')}
+        </div>
+    `;
+}
 
 // 1. Start Review
 window.startReview = async (fileId) => {

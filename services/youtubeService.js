@@ -81,7 +81,9 @@ async function tryInnertubeTranscript(videoId) {
     }));
 
     const fullText = segments.map(s => s.text).join(' ');
-    return { text: fullText, segments, language: 'en', isGenerated: false };
+    // Detect language from transcript content rather than hardcoding 'en'
+    const detectedLang = transcriptData.transcript?.content?.body?.initial_segments?.[0]?.snippet?.language || 'unknown';
+    return { text: fullText, segments, language: detectedLang, isGenerated: false };
 }
 
 // Strategy 3: Direct YouTube page scraping (extract captions from page HTML)
@@ -120,8 +122,13 @@ async function tryPageScrapeTranscript(videoId) {
     const captions = playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
     if (!captions || captions.length === 0) throw new Error('No caption tracks found in page');
 
-    // Prefer manual captions over auto-generated
-    let track = captions.find(c => c.kind !== 'asr') || captions[0];
+    // Pick best caption track:
+    // 1. Prefer the video's default language track (marked vssId starting with '.')
+    // 2. Then manual captions in any language
+    // 3. Fall back to first available (usually auto-generated in original language)
+    let track = captions.find(c => c.vssId && c.vssId.startsWith('.'))
+        || captions.find(c => c.kind !== 'asr')
+        || captions[0];
     const captionUrl = track.baseUrl;
 
     // Fetch the actual caption XML
@@ -197,7 +204,10 @@ async function tryInnertubePlayerAPI(videoId) {
     const captions = playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
     if (!captions || captions.length === 0) throw new Error('No captions from player API');
 
-    let track = captions.find(c => c.kind !== 'asr') || captions[0];
+    // Pick best track: default language > manual > first available
+    let track = captions.find(c => c.vssId && c.vssId.startsWith('.'))
+        || captions.find(c => c.kind !== 'asr')
+        || captions[0];
     const captionUrl = track.baseUrl + '&fmt=json3';
 
     const captionRes = await proxiedFetch(captionUrl, {
