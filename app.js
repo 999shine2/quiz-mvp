@@ -18,6 +18,7 @@ import reelsRoutes from './routes/reelsRoutes.js';
 import notionRoutes from './routes/notionRoutes.js';
 import imageRoutes from './routes/imageRoutes.js';
 import aiRoutes from './routes/aiRoutes.js';
+import adminRoutes from './routes/adminRoutes.js';
 
 import connectDB from './config/db.js';
 import { syncNotion } from './controllers/notionController.js';
@@ -84,6 +85,9 @@ app.use('/api/', globalLimiter);
 // 6. Static Files
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Admin & Analytics (no auth — uses its own key check)
+app.use('/', adminRoutes);
 
 // 7. Auth middleware (runs on all /api/* routes, extracts user from JWT or x-user-id)
 app.use('/api/', authMiddleware);

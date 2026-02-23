@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Insighter Admin</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f0f2f5;
+            color: #1a1a2e;
+            padding: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h1 { font-size: 1.5rem; margin-bottom: 4px; }
+        .subtitle { color: #666; font-size: 0.85rem; margin-bottom: 20px; }
+        .login-box {
+            background: #fff;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 360px;
+            margin: 80px auto;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            text-align: center;
+        }
+        .login-box h2 { margin-bottom: 16px; font-size: 1.2rem; }
+        .login-box input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1.5px solid #ddd;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            margin-bottom: 12px;
+        }
+        .login-box button {
+            width: 100%;
+            padding: 10px;
+            background: #6B8C42;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .login-box .error { color: #e74c3c; font-size: 0.8rem; margin-top: 8px; display: none; }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .stat-card .label { font-size: 0.75rem; color: #888; text-transform: uppercase; letter-spacing: 0.05em; }
+        .stat-card .value { font-size: 1.8rem; font-weight: 800; color: #1a1a2e; margin: 4px 0; }
+        .stat-card .sub { font-size: 0.75rem; color: #6B8C42; font-weight: 600; }
+
+        /* Tables */
+        .section { margin-bottom: 24px; }
+        .section h2 { font-size: 1.1rem; margin-bottom: 10px; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        th {
+            background: #f8f9fa;
+            text-align: left;
+            padding: 10px 12px;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #888;
+            border-bottom: 1px solid #eee;
+        }
+        td {
+            padding: 10px 12px;
+            font-size: 0.85rem;
+            border-bottom: 1px solid #f5f5f5;
+        }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: #f8fdf5; }
+
+        /* Event badges */
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+        .badge-register { background: #e8f5e9; color: #2e7d32; }
+        .badge-login { background: #e3f2fd; color: #1565c0; }
+        .badge-upload { background: #fff3e0; color: #e65100; }
+        .badge-solve { background: #f3e5f5; color: #7b1fa2; }
+
+        .refresh-info {
+            font-size: 0.72rem;
+            color: #aaa;
+            text-align: right;
+            margin-bottom: 16px;
+        }
+
+        #dashboard { display: none; }
+
+        @media (max-width: 600px) {
+            body { padding: 12px; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            table { font-size: 0.78rem; }
+            td, th { padding: 8px 8px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login-screen" class="login-box">
+    <h2>Insighter Admin</h2>
+    <input type="password" id="admin-key" placeholder="Admin key" autocomplete="off">
+    <button onclick="tryLogin()">Enter</button>
+    <div class="error" id="login-error">Invalid key</div>
+</div>
+
+<!-- Dashboard -->
+<div id="dashboard">
+    <h1>Insighter Beta Dashboard</h1>
+    <p class="subtitle">Real-time analytics for beta testing</p>
+    <div class="refresh-info">Auto-refreshes every 30s &middot; <span id="last-refresh">-</span></div>
+
+    <!-- Overview -->
+    <div class="stats-grid" id="stats-grid"></div>
+
+    <!-- Users -->
+    <div class="section">
+        <h2>Users</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Signed Up</th>
+                    <th>Uploads</th>
+                    <th>Solves</th>
+                    <th>Logins</th>
+                    <th>Last Active</th>
+                </tr>
+            </thead>
+            <tbody id="users-body"></tbody>
+        </table>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="section">
+        <h2>Recent Activity</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>User</th>
+                    <th>Event</th>
+                    <th>Detail</th>
+                </tr>
+            </thead>
+            <tbody id="events-body"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    let adminKey = sessionStorage.getItem('admin_key') || '';
+
+    // Auto-login if key saved
+    if (adminKey) {
+        fetchData().then(ok => {
+            if (ok) showDashboard();
+        });
+    }
+
+    function tryLogin() {
+        adminKey = document.getElementById('admin-key').value.trim();
+        if (!adminKey) return;
+        fetchData().then(ok => {
+            if (ok) {
+                sessionStorage.setItem('admin_key', adminKey);
+                showDashboard();
+            } else {
+                document.getElementById('login-error').style.display = 'block';
+            }
+        });
+    }
+
+    // Enter key to login
+    document.getElementById('admin-key').addEventListener('keydown', e => {
+        if (e.key === 'Enter') tryLogin();
+    });
+
+    function showDashboard() {
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'block';
+    }
+
+    async function fetchData() {
+        try {
+            const res = await fetch(`/api/admin/stats?key=${encodeURIComponent(adminKey)}`);
+            if (!res.ok) return false;
+            const data = await res.json();
+            renderDashboard(data);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function renderDashboard(data) {
+        const { stats, users, recent } = data;
+
+        // Stats cards
+        const grid = document.getElementById('stats-grid');
+        grid.innerHTML = `
+            <div class="stat-card">
+                <div class="label">Total Users</div>
+                <div class="value">${stats.totalUsers}</div>
+                <div class="sub">${stats.activeToday} active today</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Total Uploads</div>
+                <div class="value">${stats.totalUploads}</div>
+                <div class="sub">${stats.todayUploads} today</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Total Solves</div>
+                <div class="value">${stats.totalSolves}</div>
+                <div class="sub">${stats.todaySolves} today</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Total Logins</div>
+                <div class="value">${stats.totalLogins}</div>
+                <div class="sub">${stats.todayLogins} today</div>
+            </div>
+        `;
+
+        // Users table
+        const tbody = document.getElementById('users-body');
+        tbody.innerHTML = '';
+        users.forEach(u => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>${esc(u.userId)}</strong></td>
+                <td>${formatDate(u.signupDate)}</td>
+                <td>${u.uploads}</td>
+                <td>${u.solveEvents}</td>
+                <td>${u.logins}</td>
+                <td>${timeAgo(u.lastActive)}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        if (users.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#aaa;padding:20px;">No users yet</td></tr>';
+        }
+
+        // Recent events
+        const ebody = document.getElementById('events-body');
+        ebody.innerHTML = '';
+        recent.forEach(ev => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${formatTime(ev.timestamp)}</td>
+                <td>${esc(ev.userId)}</td>
+                <td><span class="badge badge-${ev.event}">${ev.event}</span></td>
+                <td>${esc(ev.detail || '-')}</td>
+            `;
+            ebody.appendChild(tr);
+        });
+
+        if (recent.length === 0) {
+            ebody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#aaa;padding:20px;">No events yet</td></tr>';
+        }
+
+        document.getElementById('last-refresh').textContent = new Date().toLocaleTimeString();
+    }
+
+    // Helpers
+    function esc(s) {
+        const d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
+    function formatDate(iso) {
+        if (!iso) return '-';
+        const d = new Date(iso);
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function formatTime(iso) {
+        if (!iso) return '-';
+        const d = new Date(iso);
+        const now = new Date();
+        const isToday = d.toDateString() === now.toDateString();
+        if (isToday) {
+            return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        }
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
+            ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function timeAgo(iso) {
+        if (!iso) return '-';
+        const diff = Date.now() - new Date(iso).getTime();
+        const mins = Math.floor(diff / 60000);
+        if (mins < 1) return 'Just now';
+        if (mins < 60) return `${mins}m ago`;
+        const hrs = Math.floor(mins / 60);
+        if (hrs < 24) return `${hrs}h ago`;
+        const days = Math.floor(hrs / 24);
+        return `${days}d ago`;
+    }
+
+    // Auto-refresh
+    setInterval(() => {
+        if (adminKey) fetchData();
+    }, 30000);
+</script>
+</body>
+</html>

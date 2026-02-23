@@ -27,6 +27,18 @@
         return _originalFetch(url, { ...options, headers });
     }
 
+    // Helper: fire-and-forget analytics ping to server
+    function pingAnalytics(event, detail) {
+        try {
+            const userId = localStorage.getItem('study_user') || localStorage.getItem('user_name') || 'unknown';
+            _originalFetch('/api/analytics/track', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, event, detail: String(detail || '') })
+            }).catch(() => {});
+        } catch (e) { /* silent */ }
+    }
+
     // Helper: get API key from settings
     function getApiKey() {
         return localStorage.getItem('gemini_api_key') || '';
@@ -234,6 +246,7 @@
             if (path === '/api/auth/login' && method === 'POST') {
                 try {
                     const result = await clientAuth.login(body.userId, body.password);
+                    pingAnalytics('login', result.userId);
                     return jsonResponse({ message: 'Login successful!', userId: result.userId, nickname: result.nickname });
                 } catch (err) {
                     return jsonResponse({ error: err.message }, 401);
@@ -243,6 +256,7 @@
             if (path === '/api/auth/register' && method === 'POST') {
                 try {
                     const result = await clientAuth.register(body.userId, body.password, body.nickname);
+                    pingAnalytics('register', body.nickname || body.userId);
                     return jsonResponse({ message: 'Account created!', userId: result.userId, nickname: result.nickname });
                 } catch (err) {
                     return jsonResponse({ error: err.message }, 400);
@@ -316,6 +330,7 @@
                     userId
                 };
                 await clientDB.saveLibraryItem(userId, newMaterial);
+                pingAnalytics('upload', body.name || 'Untitled');
                 return jsonResponse(newMaterial);
             }
 
@@ -413,6 +428,7 @@
                 if (body.subject) log.materials[materialName].emoji = body.subject;
 
                 await clientDB.saveActivityLog(userId, log);
+                pingAnalytics('solve', `${count} (${materialName})`);
                 return jsonResponse({ success: true });
             }
 
