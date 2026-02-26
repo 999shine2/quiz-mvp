@@ -28,9 +28,9 @@
     }
 
     // Helper: fire-and-forget analytics ping to server
-    function pingAnalytics(event, detail) {
+    function pingAnalytics(event, detail, explicitUserId) {
         try {
-            const userId = localStorage.getItem('study_user') || localStorage.getItem('user_name') || 'unknown';
+            const userId = explicitUserId || localStorage.getItem('study_user') || localStorage.getItem('user_name') || 'unknown';
             _originalFetch('/api/analytics/track', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -246,7 +246,7 @@
             if (path === '/api/auth/login' && method === 'POST') {
                 try {
                     const result = await clientAuth.login(body.userId, body.password);
-                    pingAnalytics('login', result.userId);
+                    pingAnalytics('login', result.userId, result.userId);
                     return jsonResponse({ message: 'Login successful!', userId: result.userId, nickname: result.nickname });
                 } catch (err) {
                     return jsonResponse({ error: err.message }, 401);
@@ -256,7 +256,7 @@
             if (path === '/api/auth/register' && method === 'POST') {
                 try {
                     const result = await clientAuth.register(body.userId, body.password, body.nickname);
-                    pingAnalytics('register', body.nickname || body.userId);
+                    pingAnalytics('register', body.nickname || body.userId, body.userId);
                     return jsonResponse({ message: 'Account created!', userId: result.userId, nickname: result.nickname });
                 } catch (err) {
                     return jsonResponse({ error: err.message }, 400);

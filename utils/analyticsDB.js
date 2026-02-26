@@ -67,6 +67,16 @@ export function getStats() {
     todayStart.setHours(0, 0, 0, 0);
     const todayStr = todayStart.toISOString();
 
+    // Yesterday
+    const yesterdayStart = new Date(todayStart);
+    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+    const yesterdayStr = yesterdayStart.toISOString();
+
+    // 7 days ago
+    const weekAgo = new Date(todayStart);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const weekAgoStr = weekAgo.toISOString();
+
     const totalUsers = countDistinctUsers.get().count;
     const totalUploads = countByEvent.get('upload').count;
     const totalSolves = countByEvent.get('solve').count;
@@ -80,9 +90,31 @@ export function getStats() {
         `SELECT COUNT(DISTINCT userId) as count FROM events WHERE timestamp >= ?`
     ).get(todayStr).count;
 
+    // New users today
+    const newUsersToday = db.prepare(
+        `SELECT COUNT(*) as count FROM events WHERE event = 'register' AND timestamp >= ?`
+    ).get(todayStr).count;
+
+    // Active users in the last 7 days
+    const activeWeek = db.prepare(
+        `SELECT COUNT(DISTINCT userId) as count FROM events WHERE timestamp >= ?`
+    ).get(weekAgoStr).count;
+
+    // Average solves per active user (last 7 days)
+    const weekSolves = db.prepare(
+        `SELECT COUNT(*) as count FROM events WHERE event = 'solve' AND timestamp >= ?`
+    ).get(weekAgoStr).count;
+    const avgSolvesPerUser = activeWeek > 0 ? Math.round((weekSolves / activeWeek) * 10) / 10 : 0;
+
+    // Returning users (logged in more than once)
+    const returningUsers = db.prepare(
+        `SELECT COUNT(*) as count FROM (SELECT userId FROM events WHERE event = 'login' GROUP BY userId HAVING COUNT(*) > 1)`
+    ).get().count;
+
     return {
         totalUsers, totalUploads, totalSolves, totalLogins,
-        todaySolves, todayUploads, todayLogins, activeToday
+        todaySolves, todayUploads, todayLogins, activeToday,
+        newUsersToday, activeWeek, avgSolvesPerUser, returningUsers
     };
 }
 

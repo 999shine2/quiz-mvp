@@ -11,7 +11,7 @@
             background: #f0f2f5;
             color: #1a1a2e;
             padding: 20px;
-            max-width: 900px;
+            max-width: 960px;
             margin: 0 auto;
         }
         h1 { font-size: 1.5rem; margin-bottom: 4px; }
@@ -49,23 +49,37 @@
         /* Stats Cards */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 12px;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
             margin-bottom: 24px;
         }
         .stat-card {
             background: #fff;
             border-radius: 12px;
-            padding: 16px;
+            padding: 14px;
             box-shadow: 0 1px 4px rgba(0,0,0,0.06);
         }
-        .stat-card .label { font-size: 0.75rem; color: #888; text-transform: uppercase; letter-spacing: 0.05em; }
-        .stat-card .value { font-size: 1.8rem; font-weight: 800; color: #1a1a2e; margin: 4px 0; }
-        .stat-card .sub { font-size: 0.75rem; color: #6B8C42; font-weight: 600; }
+        .stat-card.highlight {
+            background: linear-gradient(135deg, #6B8C42 0%, #8aad5a 100%);
+            color: #fff;
+        }
+        .stat-card.highlight .label { color: rgba(255,255,255,0.8); }
+        .stat-card.highlight .value { color: #fff; }
+        .stat-card.highlight .sub { color: rgba(255,255,255,0.9); }
+        .stat-card .label { font-size: 0.7rem; color: #888; text-transform: uppercase; letter-spacing: 0.05em; }
+        .stat-card .value { font-size: 1.6rem; font-weight: 800; color: #1a1a2e; margin: 4px 0; }
+        .stat-card .sub { font-size: 0.72rem; color: #6B8C42; font-weight: 600; }
 
         /* Tables */
         .section { margin-bottom: 24px; }
-        .section h2 { font-size: 1.1rem; margin-bottom: 10px; }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .section-header h2 { font-size: 1.1rem; }
+        .section-header .count { font-size: 0.75rem; color: #888; background: #f0f2f5; padding: 2px 8px; border-radius: 10px; }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -111,12 +125,41 @@
             text-align: right;
             margin-bottom: 16px;
         }
+        .refresh-info button {
+            background: none;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 2px 8px;
+            font-size: 0.72rem;
+            color: #666;
+            cursor: pointer;
+            margin-left: 8px;
+        }
+        .refresh-info button:hover { background: #f0f2f5; }
+
+        /* User detail row */
+        .user-detail { font-size: 0.72rem; color: #888; }
+        .user-uploads-list { font-size: 0.72rem; color: #666; margin-top: 2px; }
+
+        /* Status dot */
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+        .status-dot.online { background: #4caf50; }
+        .status-dot.recent { background: #ff9800; }
+        .status-dot.offline { background: #ccc; }
 
         #dashboard { display: none; }
 
         @media (max-width: 600px) {
             body { padding: 12px; }
-            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+            .stat-card { padding: 10px; }
+            .stat-card .value { font-size: 1.3rem; }
             table { font-size: 0.78rem; }
             td, th { padding: 8px 8px; }
         }
@@ -136,14 +179,20 @@
 <div id="dashboard">
     <h1>Insighter Beta Dashboard</h1>
     <p class="subtitle">Real-time analytics for beta testing</p>
-    <div class="refresh-info">Auto-refreshes every 30s &middot; <span id="last-refresh">-</span></div>
+    <div class="refresh-info">
+        Auto-refreshes every 30s &middot; <span id="last-refresh">-</span>
+        <button onclick="fetchData()">Refresh now</button>
+    </div>
 
     <!-- Overview -->
     <div class="stats-grid" id="stats-grid"></div>
 
     <!-- Users -->
     <div class="section">
-        <h2>Users</h2>
+        <div class="section-header">
+            <h2>Users</h2>
+            <span class="count" id="user-count">-</span>
+        </div>
         <table>
             <thead>
                 <tr>
@@ -161,7 +210,10 @@
 
     <!-- Recent Activity -->
     <div class="section">
-        <h2>Recent Activity</h2>
+        <div class="section-header">
+            <h2>Recent Activity</h2>
+            <span class="count" id="event-count">-</span>
+        </div>
         <table>
             <thead>
                 <tr>
@@ -224,13 +276,18 @@
     function renderDashboard(data) {
         const { stats, users, recent } = data;
 
-        // Stats cards
+        // Stats cards — 2 rows
         const grid = document.getElementById('stats-grid');
         grid.innerHTML = `
-            <div class="stat-card">
+            <div class="stat-card highlight">
                 <div class="label">Total Users</div>
                 <div class="value">${stats.totalUsers}</div>
-                <div class="sub">${stats.activeToday} active today</div>
+                <div class="sub">+${stats.newUsersToday} today</div>
+            </div>
+            <div class="stat-card highlight">
+                <div class="label">Active Today</div>
+                <div class="value">${stats.activeToday}</div>
+                <div class="sub">${stats.activeWeek} this week</div>
             </div>
             <div class="stat-card">
                 <div class="label">Total Uploads</div>
@@ -247,15 +304,32 @@
                 <div class="value">${stats.totalLogins}</div>
                 <div class="sub">${stats.todayLogins} today</div>
             </div>
+            <div class="stat-card">
+                <div class="label">Returning Users</div>
+                <div class="value">${stats.returningUsers}</div>
+                <div class="sub">${stats.totalUsers > 0 ? Math.round((stats.returningUsers / stats.totalUsers) * 100) : 0}% retention</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Avg Solves/User</div>
+                <div class="value">${stats.avgSolvesPerUser}</div>
+                <div class="sub">last 7 days</div>
+            </div>
         `;
 
         // Users table
+        document.getElementById('user-count').textContent = `${users.length} users`;
         const tbody = document.getElementById('users-body');
         tbody.innerHTML = '';
-        users.forEach(u => {
+
+        // Filter out "unknown" users by merging them if they have no real data
+        const validUsers = users.filter(u => u.userId && u.userId !== 'unknown');
+        const unknownUser = users.find(u => u.userId === 'unknown');
+
+        validUsers.forEach(u => {
             const tr = document.createElement('tr');
+            const statusClass = getStatusClass(u.lastActive);
             tr.innerHTML = `
-                <td><strong>${esc(u.userId)}</strong></td>
+                <td><span class="status-dot ${statusClass}"></span><strong>${esc(u.userId)}</strong></td>
                 <td>${formatDate(u.signupDate)}</td>
                 <td>${u.uploads}</td>
                 <td>${u.solveEvents}</td>
@@ -265,11 +339,26 @@
             tbody.appendChild(tr);
         });
 
-        if (users.length === 0) {
+        if (unknownUser && unknownUser.totalEvents > 0) {
+            const tr = document.createElement('tr');
+            tr.style.opacity = '0.5';
+            tr.innerHTML = `
+                <td><em>unknown (pre-fix)</em></td>
+                <td>${formatDate(unknownUser.signupDate)}</td>
+                <td>${unknownUser.uploads}</td>
+                <td>${unknownUser.solveEvents}</td>
+                <td>${unknownUser.logins}</td>
+                <td>${timeAgo(unknownUser.lastActive)}</td>
+            `;
+            tbody.appendChild(tr);
+        }
+
+        if (validUsers.length === 0 && !unknownUser) {
             tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#aaa;padding:20px;">No users yet</td></tr>';
         }
 
         // Recent events
+        document.getElementById('event-count').textContent = `${recent.length} events`;
         const ebody = document.getElementById('events-body');
         ebody.innerHTML = '';
         recent.forEach(ev => {
@@ -295,6 +384,14 @@
         const d = document.createElement('div');
         d.textContent = s;
         return d.innerHTML;
+    }
+
+    function getStatusClass(lastActive) {
+        if (!lastActive) return 'offline';
+        const diff = Date.now() - new Date(lastActive).getTime();
+        if (diff < 5 * 60 * 1000) return 'online';   // <5 min
+        if (diff < 60 * 60 * 1000) return 'recent';    // <1 hour
+        return 'offline';
     }
 
     function formatDate(iso) {
