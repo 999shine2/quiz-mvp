@@ -118,6 +118,12 @@ const compatRouter = express.Router();
 compatRouter.post('/sync-notion', requireAuth, syncNotion);
 app.use('/api', compatRouter);
 
+// Share Target — receives YouTube URLs from OS share sheet
+app.get('/share', (req, res) => {
+    const sharedUrl = req.query.url || req.query.text || '';
+    res.redirect(`/?shared_url=${encodeURIComponent(sharedUrl)}`);
+});
+
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });

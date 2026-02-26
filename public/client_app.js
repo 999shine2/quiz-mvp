@@ -11,6 +11,17 @@ function apiUrl(path) {
 
 console.log(`[API Config] Running in ${IS_CAPACITOR ? 'Capacitor' : 'Browser'} mode. Base URL: ${API_BASE_URL || 'relative'}`);
 
+// Share Target: capture shared URL early (before any reload clears it)
+(function captureSharedUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const sharedUrl = params.get('shared_url');
+    if (sharedUrl) {
+        sessionStorage.setItem('pending_share_url', sharedUrl);
+        // Clean URL without reload
+        history.replaceState(null, '', '/');
+    }
+})();
+
 /** Format a raw summary string (with [H]...[/H] headers and [PARA] markers) into styled HTML */
 function formatSummaryHTML(raw) {
     let formatted = raw
@@ -252,6 +263,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
     checkAuth();
 
+    // Handle shared YouTube URL (from Share Target API)
+    if (currentUser) {
+        const pendingUrl = sessionStorage.getItem('pending_share_url');
+        if (pendingUrl && (pendingUrl.includes('youtube.com') || pendingUrl.includes('youtu.be'))) {
+            sessionStorage.removeItem('pending_share_url');
+            // Delay slightly to ensure DOM is ready
+            setTimeout(() => {
+                // Switch to upload view
+                if (window.switchView) window.switchView('upload');
+                // Switch to YouTube tab
+                const ytTab = document.querySelector('[data-tab="youtube"]');
+                if (ytTab) ytTab.click();
+                // Fill the URL
+                const ytInput = document.getElementById('youtube-input');
+                if (ytInput) {
+                    ytInput.value = pendingUrl;
+                    ytInput.dispatchEvent(new Event('input'));
+                }
+                console.log('[Share Target] YouTube URL loaded:', pendingUrl);
+            }, 300);
+        }
+    }
+
     // Load library data early for recent uploads on home page
     if (currentUser) {
         setTimeout(() => {
@@ -428,7 +462,7 @@ document.addEventListener('DOMContentLoaded', () => {
         file: document.getElementById('tab-file'),
         youtube: document.getElementById('tab-youtube'),
         creative: document.getElementById('tab-creative'),
-        news: document.getElementById('tab-news')
+        news: null
     };
 
     // Upload Elements
@@ -1037,7 +1071,7 @@ document.addEventListener('DOMContentLoaded', () => {
     tabBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             tabBtns.forEach(b => b.classList.remove('active'));
-            Object.values(tabContents).forEach(c => c.style.display = 'none');
+            Object.values(tabContents).forEach(c => c && (c.style.display = 'none'));
 
             btn.classList.add('active');
             const tabName = btn.dataset.tab;
@@ -4521,9 +4555,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // === 1. RANK BADGE ===
             renderRankBadge(data.totalQuestionsSolved || 0);
 
-            // === 2. WEEKLY GOAL ===
-            renderWeeklyGoal(data.dailyStats || {});
-
             // === 3. CATEGORY DONUT ===
             renderCategoryDonut(libFiles);
 
@@ -4564,86 +4595,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update avatar emoji to match rank
         const avatarEl = document.getElementById('profile-avatar-emoji');
         if (avatarEl) avatarEl.textContent = rank.icon;
-    }
-
-    // 2. WEEKLY GOAL
-    function renderWeeklyGoal(dailyStats) {
-        const goal = parseInt(localStorage.getItem('weekly_goal') || '20', 10);
-        const goalInput = document.getElementById('goal-input');
-        if (goalInput) goalInput.value = goal;
-
-        // Calculate this week's solved (Mon-Sun)
-        const now = new Date();
-        const dayOfWeek = now.getDay(); // 0=Sun
-        const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-        const monday = new Date(now);
-        monday.setDate(now.getDate() - mondayOffset);
-
-        let weekSolved = 0;
-        const dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-        const dayData = [];
-        for (let i = 0; i < 7; i++) {
-            const d = new Date(monday);
-            d.setDate(monday.getDate() + i);
-            const key = d.toISOString().split('T')[0];
-            const solved = dailyStats[key]?.solved || 0;
-            weekSolved += solved;
-            const isToday = key === now.toISOString().split('T')[0];
-            dayData.push({ label: dayLabels[i], solved, isToday });
-        }
-
-        // Update ring
-        const pct = Math.min(weekSolved / goal, 1);
-        const circumference = 2 * Math.PI * 52; // r=52
-        const ringFill = document.getElementById('goal-ring-fill');
-        if (ringFill) {
-            ringFill.style.strokeDasharray = circumference;
-            ringFill.style.strokeDashoffset = circumference * (1 - pct);
-            // Color changes based on progress
-            if (pct >= 1) ringFill.style.stroke = '#f9da78';
-            else if (pct >= 0.7) ringFill.style.stroke = 'var(--primary)';
-            else ringFill.style.stroke = 'var(--primary-light)';
-        }
-
-        const valueEl = document.getElementById('goal-ring-value');
-        const totalEl = document.getElementById('goal-ring-total');
-        if (valueEl) valueEl.textContent = weekSolved;
-        if (totalEl) totalEl.textContent = `/ ${goal}`;
-
-        // Day dots
-        const daysContainer = document.getElementById('goal-days');
-        if (daysContainer) {
-            daysContainer.innerHTML = '';
-            dayData.forEach(d => {
-                const dot = document.createElement('div');
-                dot.className = 'goal-day' + (d.solved > 0 ? ' active' : '') + (d.isToday ? ' today' : '');
-                dot.textContent = d.label;
-                if (d.solved > 0) dot.title = `${d.solved} solved`;
-                daysContainer.appendChild(dot);
-            });
-        }
-
-        // Edit button
-        const editBtn = document.getElementById('goal-edit-btn');
-        const editPanel = document.getElementById('goal-edit-panel');
-        if (editBtn && editPanel) {
-            editBtn.onclick = () => {
-                editPanel.hidden = !editPanel.hidden;
-                editBtn.textContent = editPanel.hidden ? 'Edit' : 'Cancel';
-            };
-        }
-        const saveBtn = document.getElementById('goal-save-btn');
-        if (saveBtn) {
-            saveBtn.onclick = () => {
-                const val = parseInt(document.getElementById('goal-input')?.value || '20', 10);
-                if (val > 0 && val <= 500) {
-                    localStorage.setItem('weekly_goal', val);
-                    editPanel.hidden = true;
-                    editBtn.textContent = 'Edit';
-                    renderWeeklyGoal(dailyStats);
-                }
-            };
-        }
     }
 
     // 3. CATEGORY DONUT

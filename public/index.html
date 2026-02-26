@@ -119,7 +119,6 @@
                     <button class="tab-btn active" data-tab="creative" data-i18n="tab_creative">🎨 Creative</button>
                     <button class="tab-btn" data-tab="youtube" data-i18n="tab_youtube">▶ YouTube</button>
                     <button class="tab-btn" data-tab="file" data-i18n="tab_file">📄 Document</button>
-                    <button class="tab-btn" data-tab="news" data-i18n="tab_news">📰 News</button>
                 </div>
 
                 <!-- File Upload Tab -->
@@ -212,19 +211,6 @@
                     <div class="gen-status" id="gen-status-creative" hidden></div>
                 </div>
 
-                <!-- News Quiz Tab -->
-                <div class="upload-container tab-content" id="tab-news" style="display: none;">
-                    <div style="text-align: center; padding: 1.5rem 1rem;">
-                        <span style="font-size:3rem; display:block; margin-bottom:0.8rem;">📰</span>
-                        <p style="font-family:var(--font-heading); font-weight:700; font-size:1.05rem; color:var(--text-main); margin-bottom:6px;">Daily News Quiz</p>
-                        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:20px; line-height:1.5;">Test your knowledge on today's trending topics and current events.</p>
-                        <button id="start-news-quiz-btn" class="primary-btn" style="width:100%;">
-                            <span class="btn-text" data-i18n="btn_news_quiz">Start News Quiz</span>
-                            <div class="loader" hidden></div>
-                        </button>
-                        <div class="gen-status" id="gen-status-news" hidden></div>
-                    </div>
-                </div>
 
                 <!-- Recent Uploads -->
                 <div id="recent-uploads" class="recent-uploads" hidden></div>
@@ -371,37 +357,6 @@
                     </div>
                 </div>
 
-                <!-- Weekly Goal Tracker -->
-                <div class="chart-card profile-card-section" id="weekly-goal-card">
-                    <div class="chart-header">
-                        <h3>🎯 Weekly Goal</h3>
-                        <button class="goal-edit-btn" id="goal-edit-btn">Edit</button>
-                    </div>
-                    <div class="weekly-goal-content">
-                        <div class="goal-ring-container">
-                            <svg class="goal-ring" viewBox="0 0 120 120">
-                                <circle class="goal-ring-bg" cx="60" cy="60" r="52" />
-                                <circle class="goal-ring-fill" id="goal-ring-fill" cx="60" cy="60" r="52" />
-                            </svg>
-                            <div class="goal-ring-text">
-                                <span class="goal-ring-value" id="goal-ring-value">0</span>
-                                <span class="goal-ring-total" id="goal-ring-total">/ 20</span>
-                            </div>
-                        </div>
-                        <div class="goal-info">
-                            <p class="goal-label" id="goal-label">Questions this week</p>
-                            <div class="goal-days" id="goal-days"></div>
-                        </div>
-                    </div>
-                    <div class="goal-edit-panel" id="goal-edit-panel" hidden>
-                        <label style="font-size:0.8rem; color:var(--text-muted);">Weekly target</label>
-                        <div style="display:flex; gap:8px; align-items:center; margin-top:4px;">
-                            <input type="number" id="goal-input" min="1" max="500" value="20" class="text-input" style="width:80px; text-align:center;">
-                            <button id="goal-save-btn" class="primary-btn" style="padding:6px 16px; font-size:0.8rem;">Save</button>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- Category Breakdown Donut -->
                 <div class="chart-card profile-card-section" id="category-donut-card">
                     <div class="chart-header">
@@ -423,52 +378,6 @@
                     </div>
                     <div class="achievements-grid" id="achievements-grid">
                     </div>
-                </div>
-
-                <!-- Knowledge Sources Card -->
-                <div class="chart-card"
-                    style="background: var(--card-bg); border-radius: 20px; padding: 20px; border: 1px solid var(--border-light); box-shadow: var(--shadow-soft); margin-top: 1rem; text-align: center;">
-                    <h3
-                        style="margin-bottom:0.5rem; color:var(--text-muted); font-size:1rem; font-family:var(--font-heading);">
-                        <span data-i18n="knowledge_sources">Knowledge Sources</span></h3>
-
-                    <div id="notion-connect-container">
-                        <button id="connect-notion-btn" class="secondary-btn"
-                            style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                            <span data-i18n="connect_notion">📓 Connect Notion</span>
-                        </button>
-                    </div>
-
-                    <div id="notion-connected-container" hidden>
-                        <div style="margin-bottom: 10px; color: var(--primary-dark); font-weight: 600;">
-                            ✅ Connected to <span id="notion-workspace-name">Workspace</span>
-                        </div>
-                        <button id="sync-notion-btn" class="primary-btn"
-                            style="width: 100%; font-size: 0.9rem; padding: 8px;">
-                            🔄 Sync Now
-                        </button>
-                        <p id="notion-last-synced"
-                            style="font-size: 0.7rem; color: var(--text-muted); margin-top: 5px;">Last synced: Never</p>
-                    </div>
-                </div>
-
-                <!-- Personal Interests Card -->
-                <div class="chart-card"
-                    style="background: var(--card-bg); border-radius: 20px; padding: 20px; border: 1px solid var(--border-light); box-shadow: var(--shadow-soft); margin-top: 1rem; text-align: center;">
-                    <h3
-                        style="margin-bottom:0.5rem; color:var(--text-muted); font-size:1rem; font-family:var(--font-heading);">
-                        <span data-i18n="personal_interests">Personal Interests</span></h3>
-
-                    <div id="selected-interests-preview"
-                        style="display:flex; flex-wrap:wrap; justify-content:center; gap:5px; margin-bottom:10px;">
-                        <!-- Selected interests will appear here -->
-                        <span style="font-size: 0.8rem; color: var(--text-muted);" data-i18n="no_interests">No interests selected</span>
-                    </div>
-
-                    <button id="personal-btn" class="secondary-btn"
-                        style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                        <span data-i18n="setup_personal">👤 Setup Personal</span>
-                    </button>
                 </div>
 
                 <!-- Charts container ends here -->
@@ -495,48 +404,6 @@
                         </div>
                     </div>
                 </div>
-                <!-- Settings Card (API Key) -->
-                <div class="chart-card"
-                    style="background: var(--card-bg); border-radius: 20px; padding: 20px; border: 1px solid var(--border-light); box-shadow: var(--shadow-soft); margin-top: 1rem; text-align: center;">
-                    <h3
-                        style="margin-bottom:0.5rem; color:var(--text-muted); font-size:1rem; font-family:var(--font-heading);">
-                        ⚙️ Settings</h3>
-                    <div style="margin-bottom: 10px;">
-                        <label
-                            style="display:block; text-align:left; font-size:0.8rem; color:var(--text-muted); margin-bottom:5px;">Gemini
-                            API Key</label>
-                        <input type="password" id="settings-gemini-key" placeholder="Enter your Gemini API key"
-                            class="text-input" style="width:100%; margin-bottom:5px;">
-                        <p style="font-size: 0.7rem; color: var(--text-muted); text-align: left;">Get your free key at
-                            <a href="https://aistudio.google.com/app/apikey" target="_blank"
-                                style="color: var(--primary);">Google AI Studio</a></p>
-                    </div>
-                    <button id="save-settings-btn" class="primary-btn"
-                        style="width:100%; font-size:0.9rem; padding:8px;">💾 Save Settings</button>
-                    <p id="settings-status" style="font-size: 0.75rem; color: var(--primary); margin-top: 5px;" hidden>
-                    </p>
-                </div>
-
-                <!-- Study Reminders Card -->
-                <div class="chart-card"
-                    style="background: var(--card-bg); border-radius: 20px; padding: 20px; border: 1px solid var(--border-light); box-shadow: var(--shadow-soft); margin-top: 1rem;">
-                    <h3 style="margin-bottom:0.5rem; color:var(--text-muted); font-size:1rem; font-family:var(--font-heading);">
-                        <span data-i18n="reminder_title">Study Reminders</span></h3>
-                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
-                        <label style="font-size:0.9rem; color:var(--text-primary);" data-i18n="reminder_daily">Daily reminder</label>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="reminder-toggle">
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-                    <div id="reminder-time-row" style="display:none; align-items:center; justify-content:space-between; margin-bottom:8px;">
-                        <label style="font-size:0.85rem; color:var(--text-muted);" data-i18n="reminder_time">Reminder time</label>
-                        <input type="time" id="reminder-time" value="20:00"
-                            style="font-size:0.85rem; padding:4px 8px; border:1px solid var(--border-light); border-radius:8px; background:var(--card-bg); color:var(--text-primary);">
-                    </div>
-                    <p id="reminder-status" style="font-size:0.75rem; color:var(--text-muted); margin-top:5px;" hidden></p>
-                </div>
-
                 <!-- Data Management Card -->
                 <div class="chart-card"
                     style="background: var(--card-bg); border-radius: 20px; padding: 20px; border: 1px solid var(--border-light); box-shadow: var(--shadow-soft); margin-top: 1rem; text-align: center;">

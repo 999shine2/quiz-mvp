@@ -62,6 +62,16 @@ self.addEventListener('notificationclick', (event) => {
     );
 });
 
+// Share Target — intercept /share requests and redirect to main app with URL param
+self.addEventListener('fetch', (event) => {
+    const url = new URL(event.request.url);
+    if (url.pathname === '/share') {
+        const sharedUrl = url.searchParams.get('url') || url.searchParams.get('text') || '';
+        event.respondWith(Response.redirect(`/?shared_url=${encodeURIComponent(sharedUrl)}`));
+        return;
+    }
+});
+
 // Install & activate immediately
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', () => self.clients.claim());

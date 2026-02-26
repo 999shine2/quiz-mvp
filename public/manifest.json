@@ -6,6 +6,15 @@
     "background_color": "#F2F7E6",
     "theme_color": "#6B8C42",
     "orientation": "portrait-primary",
+    "share_target": {
+        "action": "/share",
+        "method": "GET",
+        "params": {
+            "url": "url",
+            "text": "text",
+            "title": "title"
+        }
+    },
     "icons": [
         {
             "src": "/icon-192.png",
