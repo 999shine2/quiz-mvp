@@ -1032,22 +1032,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!window.allFiles) window.allFiles = [];
                 window.allFiles.unshift(data);
 
-                // Wait for ALL question images before starting quiz
-                const cqWithImages = (data.questions || []).filter(q => q.imageUrl && !q.imageUrl.startsWith('blob:'));
-                if (cqWithImages.length > 0) {
-                    const statusEl = document.getElementById('gen-status-creative');
-                    if (statusEl) statusEl.textContent = `Loading images (0/${cqWithImages.length})...`;
+                // Wait for ALL images before showing quiz
+                const cImgQs = (data.questions || []).filter(q => q.imageUrl && !q.imageUrl.startsWith('blob:'));
+                if (cImgQs.length > 0) {
+                    const cStatusEl = document.getElementById('gen-status-creative');
+                    if (cStatusEl) cStatusEl.textContent = `Loading images (0/${cImgQs.length})...`;
                     let cLoaded = 0;
-                    await Promise.all(cqWithImages.map(q => new Promise(resolve => {
+                    await Promise.all(cImgQs.map(q => new Promise(resolve => {
                         const img = new Image();
-                        img.onload = () => { cLoaded++; if (statusEl) statusEl.textContent = `Loading images (${cLoaded}/${cqWithImages.length})...`; resolve(); };
-                        img.onerror = () => { cLoaded++; if (statusEl) statusEl.textContent = `Loading images (${cLoaded}/${cqWithImages.length})...`; resolve(); };
+                        const done = () => { cLoaded++; if (cStatusEl) cStatusEl.textContent = `Loading images (${cLoaded}/${cImgQs.length})...`; resolve(); };
+                        img.onload = done;
+                        img.onerror = done;
                         img.src = q.imageUrl;
-                        setTimeout(resolve, 15000);
+                        setTimeout(resolve, 20000);
                     })));
                 }
 
-                // Start Quiz directly
                 window.startQuiz(data.questions);
 
                 // Auto-Clear Form
@@ -1300,18 +1300,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert('⚠️ No API Key Provided\n\nGenerated questions using generic MOCK DATA. To get real questions.');
             }
 
-            // Wait for ALL question images to load before starting quiz
-            const questionsWithImages = (data.questions || []).filter(q => q.imageUrl && !q.imageUrl.startsWith('blob:'));
-            if (questionsWithImages.length > 0) {
+            // Wait for ALL images to load before leaving upload page
+            const imgQuestions = (data.questions || []).filter(q => q.imageUrl && !q.imageUrl.startsWith('blob:'));
+            if (imgQuestions.length > 0) {
                 const statusEl = document.getElementById(statusId);
-                if (statusEl) statusEl.textContent = `Loading images (0/${questionsWithImages.length})...`;
-                let loaded = 0;
-                await Promise.all(questionsWithImages.map(q => new Promise(resolve => {
+                if (statusEl) statusEl.textContent = `Loading images (0/${imgQuestions.length})...`;
+                let imgLoaded = 0;
+                await Promise.all(imgQuestions.map(q => new Promise(resolve => {
                     const img = new Image();
-                    img.onload = () => { loaded++; if (statusEl) statusEl.textContent = `Loading images (${loaded}/${questionsWithImages.length})...`; resolve(); };
-                    img.onerror = () => { loaded++; if (statusEl) statusEl.textContent = `Loading images (${loaded}/${questionsWithImages.length})...`; resolve(); };
+                    const done = () => { imgLoaded++; if (statusEl) statusEl.textContent = `Loading images (${imgLoaded}/${imgQuestions.length})...`; resolve(); };
+                    img.onload = done;
+                    img.onerror = done;
                     img.src = q.imageUrl;
-                    setTimeout(resolve, 15000);
+                    setTimeout(resolve, 20000);
                 })));
             }
 
@@ -1390,13 +1391,47 @@ document.addEventListener('DOMContentLoaded', () => {
         currentQuestionIndex = 0;
         userAnswers = {};
 
-        // Preload all question images in the background so they're cached
-        questions.forEach(q => {
-            if (q.imageUrl && !q.imageUrl.startsWith('blob:')) {
-                const preload = new Image();
-                preload.src = q.imageUrl;
+        // Preload images — only show overlay if they aren't cached yet
+        const imgQs = questions.filter(q => q.imageUrl && !q.imageUrl.startsWith('blob:'));
+        if (imgQs.length > 0) {
+            // Quick check: try loading first image to see if it's already cached
+            const isCached = await new Promise(resolve => {
+                const test = new Image();
+                let settled = false;
+                test.onload = () => { if (!settled) { settled = true; resolve(true); } };
+                test.onerror = () => { if (!settled) { settled = true; resolve(true); } };
+                test.src = imgQs[0].imageUrl;
+                // If not cached, it won't fire onload within 100ms
+                setTimeout(() => { if (!settled) { settled = true; resolve(false); } }, 100);
+            });
+
+            if (!isCached) {
+                // Images not cached — show overlay and wait
+                const overlay = document.createElement('div');
+                overlay.id = 'quiz-image-loader';
+                overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg-main, #F2F7E6);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10000;';
+                overlay.innerHTML = `
+                    <div style="width:44px;height:44px;border:3px solid #d4dcc4;border-top-color:#6B8C42;border-radius:50%;animation:ql-spin 0.8s linear infinite;margin-bottom:16px;"></div>
+                    <div style="font-size:0.95rem;color:#444;font-weight:600;">Loading images...</div>
+                    <div id="ql-progress" style="font-size:0.8rem;color:#888;margin-top:6px;">0 / ${imgQs.length}</div>
+                    <style>@keyframes ql-spin{to{transform:rotate(360deg)}}</style>
+                `;
+                document.body.appendChild(overlay);
+
+                let loaded = 0;
+                const progEl = overlay.querySelector('#ql-progress');
+                await Promise.all(imgQs.map(q => new Promise(resolve => {
+                    const img = new Image();
+                    const done = () => { loaded++; if (progEl) progEl.textContent = `${loaded} / ${imgQs.length}`; resolve(); };
+                    img.onload = done;
+                    img.onerror = done;
+                    img.src = q.imageUrl;
+                    setTimeout(resolve, 20000);
+                })));
+
+                overlay.remove();
             }
-        });
+        }
 
         totalNum.textContent = questions.length;
         renderQuestion();
@@ -1419,31 +1454,23 @@ document.addEventListener('DOMContentLoaded', () => {
             header.style.position = 'relative';
         }
 
-        // --- Image Generation Logic (Enabled for Standard Quiz) ---
+        // --- Image Logic (images already preloaded/cached before quiz starts) ---
         const questionContainer = document.querySelector('.question-container');
-        // Clear ALL existing images (Fix for "piling up" issue)
+        // Clear existing images
         questionContainer.querySelectorAll('.reel-image').forEach(el => el.remove());
         questionContainer.querySelectorAll('.image-placeholder').forEach(el => el.remove());
+        questionContainer.querySelectorAll('.image-wrapper').forEach(el => el.remove());
 
         const activeApiKey = localStorage.getItem('gemini_api_key') || '';
 
         // Function to load image
         const loadImage = async () => {
-            // 1. ALWAYS Generate Fresh "Nano Banana" Prompt
-            // USER REQUEST: "Only use question... do not use title, category, summary"
-            // STRICTLY use the question text only.
-            const promptQuestion = q.question;
-
-            // [Optimization] We skip client-side prompt generation.
-            // We send the raw question directly to the server's /api/generate-image endpoint.
-            // This ensures consistency with Endless Review logic.
-            // 1. Create Wrapper & Image (Synchronous)
             const wrapper = document.createElement('div');
             wrapper.className = 'image-wrapper';
             wrapper.id = 'current-image-wrapper';
-            wrapper.style.position = 'relative'; // Anchor for Like Button
+            wrapper.style.position = 'relative';
             wrapper.style.width = '100%';
-            wrapper.style.display = 'block'; // RESTORED: Show images
+            wrapper.style.display = 'block';
             wrapper.style.marginBottom = '20px';
             wrapper.style.borderRadius = '12px';
             wrapper.style.overflow = 'hidden';
@@ -1456,49 +1483,25 @@ document.addEventListener('DOMContentLoaded', () => {
             image.style.width = '100%';
             image.style.objectFit = 'cover';
             image.style.aspectRatio = '3/4';
-            image.src = '/placeholder.png'; // Immediate placeholder
 
             wrapper.appendChild(image);
-
-            // 2. Inject into DOM immediately (so Like Button can find it)
-            // Use questionContainer (variable in scope for renderQuestion)
-            questionContainer.querySelectorAll('.image-wrapper').forEach(el => el.remove());
-            questionContainer.querySelectorAll('.reel-image').forEach(el => el.remove());
-            questionContainer.querySelectorAll('.image-placeholder').forEach(el => el.remove());
-
             questionContainer.insertBefore(wrapper, questionContainer.firstChild);
 
-            // Load pre-generated image from backend (if available)
+            // Set image src (should load instantly from browser cache)
             if (q.imageUrl) {
-                // FAIL-SAFE: If the imageUrl is an ephemeral blob or was an error, replace it with a persistent proxy URL
-                // Note: blob: URLs become invalid on refresh.
                 if (q.imageUrl.startsWith('blob:') || q.imageUrl.includes('Pollinations Error') || !q.imageUrl) {
-                    const basePrompt = q.question;
-                    const encodedPrompt = encodeURIComponent(basePrompt);
-                    // Use a consistent seed based on the question text for reliability
+                    const encodedPrompt = encodeURIComponent(q.question);
                     const seed = q.seed || Math.abs(q.question.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a }, 0)) % 1000000;
-                    const persistentUrl = `/api/proxy/image?prompt=${encodedPrompt}&seed=${seed}`;
-                    q.imageUrl = persistentUrl;
-                    image.src = persistentUrl;
-                    console.log("[Standard Quiz] Replaced volatile URL with persistent proxy:", persistentUrl);
-                } else {
-                    image.src = q.imageUrl;
-                    console.log("[Standard Quiz] Loaded Persistent Image:", q.imageUrl);
+                    q.imageUrl = `/api/proxy/image?prompt=${encodedPrompt}&seed=${seed}`;
                 }
-                image.style.opacity = '1';
+                image.src = q.imageUrl;
 
-                // Retry on error (e.g. 404 if generated but not synced yet)
+                // Retry on error
                 image.onerror = function () {
-                    console.warn("Image load failed, retrying with cache buster...");
                     this.onerror = null;
-                    setTimeout(() => {
-                        this.src = q.imageUrl + '?t=' + new Date().getTime();
-                    }, 1000);
+                    setTimeout(() => { this.src = q.imageUrl + '?t=' + Date.now(); }, 1000);
                 };
             } else {
-                // No image yet - show placeholder and poll
-                console.log("[Standard Quiz] Image not ready yet, polling...");
-                image.style.opacity = '0.5';
 
                 // POLLING LOGIC (Optimized: Single Poller per File)
                 const fileId = q.originId || (activeFile ? activeFile.id : null);
@@ -2645,7 +2648,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- SRS (Spaced Repetition) System ---
-    const SRS_INTERVALS = [0, 1, 3, 7, 14, 30]; // days per box level
+    // Box 1=2d, 2=5d, 3=7d, 4=14d, 5=30d (index 0 unused — boxes start at 1)
+    const SRS_INTERVALS = [0, 2, 5, 7, 14, 30];
 
     function getSRSData() {
         try {
@@ -2668,7 +2672,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!data[questionText]) {
             data[questionText] = {
-                box: 0, correctCount: 0, wrongCount: 0,
+                box: 1, correctCount: 0, wrongCount: 0,
                 lastAnswered: now, nextReview: now
             };
         }
@@ -2681,7 +2685,7 @@ document.addEventListener('DOMContentLoaded', () => {
             entry.box = Math.min(entry.box + 1, 5);
         } else {
             entry.wrongCount++;
-            entry.box = 0;
+            entry.box = Math.max(entry.box - 1, 1); // drop one box, never below 1
         }
 
         const intervalDays = SRS_INTERVALS[entry.box];

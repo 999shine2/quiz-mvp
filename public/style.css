@@ -1811,6 +1811,32 @@ button.filter-chip {
     border: 2px solid #FFF;
 }
 
+/* Shimmer skeleton for loading images & text */
+.image-shimmer {
+    width: 100%;
+    aspect-ratio: 3/4;
+    border-radius: 12px;
+    background: linear-gradient(110deg, #e8edd8 30%, #f2f7e6 50%, #e8edd8 70%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.text-shimmer {
+    border-radius: 8px;
+    background: linear-gradient(110deg, #e8edd8 30%, #f2f7e6 50%, #e8edd8 70%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.quiz-loading-shimmer {
+    padding: 0;
+}
+
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
 /* Text Readability in Light Mode */
 body.reels-mode .quiz-question-text {
     color: var(--text-main);

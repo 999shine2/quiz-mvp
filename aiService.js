@@ -168,7 +168,14 @@ async function generateQuestions(text, apiKey, count = 5, title = "", relatedCon
       **STRICT NEGATIVE CONSTRAINTS (DO NOT IGNORE):**
       1. **NO META-REFERENCES:** NEVER use phrases like "According to the text", "In the video", "As mentioned in the lecture", "The speaker says", "At the end of the clip", "In this incident".
       2. **NO LOCATION-BASED TRIVIA:** Do NOT ask what happened "at the beginning", "in the middle", or "at the end".
-      3. **NO NONSENSE OPTIONS:** Distractors must be plausible.
+      3. **HIGH-QUALITY DISTRACTORS (CRITICAL):**
+         - Every wrong option MUST be plausible and related to the topic. A student who didn't study should genuinely hesitate.
+         - Wrong options should be common misconceptions, partial truths, or things that SOUND right but are subtly wrong.
+         - All 4 options must be similar in length, tone, and specificity. Do NOT make the correct answer obviously longer or more detailed.
+         - ❌ BAD: Correct="Supply and demand imbalance" vs Wrong="Bananas", "The color blue", "A random guess" (obviously nonsensical)
+         - ❌ BAD: Correct="By analyzing market trends and consumer behavior patterns" vs Wrong="Yes", "No", "Maybe" (length mismatch)
+         - ✅ GOOD: All 4 options are realistic strategies/concepts that someone might confuse.
+         - The student should need to THINK to pick the right answer, not just eliminate absurd options.
       4. **STANDALONE:** Questions must test understanding, not rote memorization.
       5. **NO TRIVIAL FACTS:** Do NOT ask about meaningless numbers, dates, or durations that don't provide insight.
       6. **NO TITLE DUMPING:** Do NOT paste the entire video title into the question. Use a short, natural description of the event/topic (e.g. "The Apple Antitrust Case" instead of "Breaking News: Apple Sued by DOJ for...").
@@ -576,7 +583,8 @@ async function generateQuestionsForCreativeWork(title, author, type, apiKey, cou
       - The "correctAnswer" index MUST point to the option that is ACTUALLY correct based on the real work.
       - DOUBLE-CHECK every question: re-read the question, look at all 4 options, and verify the correctAnswer index (0-3) matches the truly correct option.
       - Wrong answers are UNACCEPTABLE. If you are unsure about a fact, do NOT make a question about it.
-      - The wrong options (distractors) must be clearly wrong — do NOT make distractors that could also be considered correct.
+      - Wrong options must be WRONG but still PLAUSIBLE — they should sound like something a person who half-remembers the material might pick.
+      - All 4 options must be similar in length and specificity. Do NOT make the correct answer obviously more detailed than the others.
       - The "explanation" field must clearly explain WHY the correct answer is right and why others are wrong.
 
       **TONE & STYLE GUIDE (CRITICAL):**
@@ -991,7 +999,12 @@ async function generateSimilarQuestions(seedQuestion, context, type, apiKey, exi
     **STRICT RULES:**
     - Same TYPE: ${typeLabel}
     - Add type marker: ${type === 'SAQ' ? '- T4' : type === 1 ? '- T1' : '- T2'}
-    
+
+    **HIGH-QUALITY DISTRACTORS (CRITICAL):**
+    - All 4 options must be plausible, similar in length, and related to the topic.
+    - Wrong options should be common misconceptions or things that SOUND right but are subtly wrong.
+    - The student should need to THINK to pick the right answer, not just eliminate absurd options.
+
     **OUTPUT FORMAT (JSON ARRAY):**
     [
         {
