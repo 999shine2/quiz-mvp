@@ -1,216 +1,188 @@
-# Insighter — AI-Powered Study Assistant
+# Insighter — AI-Powered Study Assistant (Repository Deep Dive)
 
 > **"quiz-mvp"** is the internal repo name. The product is called **Insighter**: upload any learning material and let AI instantly generate a personalized quiz from it.
 
+This README serves as an exhaustive, standalone guide to the codebase's architecture, data models, APIs, and frontend internals as of the Vanilla JS MVP stage.
+
 ---
 
-## What It Does
+## 1. What It Does
 
 Insighter lets users:
-
 - **Upload** PDFs, DOCX, images, plain text, or Markdown
 - **Paste a YouTube URL** to generate a quiz from the video transcript
 - **Import news articles** or **creative works** (books, movies) as study sets
-- **Sync from Notion** pages
-- **Get AI-generated questions** (multiple choice + written) powered by Google Gemini 1.5 Flash
+- **Get AI-generated questions** (multiple choice + written) powered by Google Gemini 1.5/2.0 Flash
 - **Swipe through a "Reels" feed** — TikTok-style flash card mode
 - **Track progress** — profile stats, liked questions, solve counts
 - **Install as a PWA or native iOS app** via Capacitor
 
 ---
 
-## Tech Stack
+## 2. Tech Stack
 
 | Layer | Technology |
 |---|---|
 | Runtime | Node.js (ES Modules) |
 | Framework | Express.js |
-| Database | MongoDB (Mongoose) with JSON flat-file fallback |
-| AI | Google Gemini 1.5 Flash (`@google/generative-ai`) |
+| Database | MongoDB (Mongoose) with IndexedDB/JSON flat-file active fallbacks |
+| AI | Google Gemini API (`@google/generative-ai`) |
 | Auth | JWT (`jsonwebtoken`) + bcrypt |
 | File Uploads | Multer |
 | Frontend | Vanilla HTML/CSS/JS (SPA) |
 | Mobile | Capacitor (iOS wrapper) |
-| Hosting | Render.com (`render.yaml`) |
 
 ---
 
-## Architecture
+## 3. Architecture & Data Flow
 
 ```
-Browser (SPA in /public)
-    ↕  REST API calls
-Express.js Server (app.js / server.js)
-    ↕                  ↕
-MongoDB          JSON file fallback
-(via dbShim)     (utils/fileStore.js)
-    ↕
-Google Gemini AI API  (aiService.js)
+Browser SPA (Vanilla JS)  ←→  Express.js Server  ←→  MongoDB / FileStore fallback
+    ↓                              ↓
+clientDB.js (IndexedDB)         aiService.js (Gemini API)
 ```
 
-The backend follows a clean **MVC pattern**: Routes → Controllers → Models/Services.  
-The frontend is a **Single Page Application**: one `index.html` with JS-toggled sections.
+### The "Resilient API" Pattern
+A unique feature of this architecture is its extreme resilience. 
+1. **Server Resilience:** `utils/dbShim.js` wraps all database calls. If MongoDB is down or `SKIP_MONGO=true`, it transparently reads/writes to local JSON files (`utils/fileStore.js`).
+2. **Client Resilience:** `public/clientBridge.js` monkey-patches `window.fetch`. It intercepts API calls. If it detects the user is offline, or if the server goes down, it can route requests to `clientDB.js` (an IndexedDB local database) and `clientAI.js` (direct-to-browser Gemini calls), allowing the app to function entirely without a backend if necessary.
 
 ---
 
-## Project Structure
+## 4. Data Models (Schemas)
 
+All data is modeled around the `Material` (a study set) and its embedded `Questions`.
+
+### 1. `Material` (The Core Study Set)
+Represents an uploaded document, a compiled YouTube video, or a creative work study set.
+```javascript
+{
+  userId: String,
+  id: String, // Unique timestamp ID
+  type: String, // 'youtube', 'pdf', 'doc', 'custom', 'creative'
+  filename: String, // e.g. "The Great Gatsby"
+  originalUrl: String, // (Optional) YouTube URL
+  transcript: String, // Extracted parsed text (up to 20,000 chars)
+  summary: String, // AI-generated summary paragraph
+  categories: [String], // Subject categories (e.g. "Philosophy / Thinking")
+  subjectEmoji: String,
+  uploadedAt: Date,
+  questions: [QuestionSchema] // Embedded array
+}
 ```
-quiz-mvp/
-├── server.js            # Entry point — starts Express on port 3001
-├── app.js               # App config — middleware, all routes, DB init
-├── aiService.js         # Google Gemini integration (generateQuestions, generateSummary, …)
-├── documentParser.js    # Parses PDFs (pdfreader), DOCX (mammoth), plain text
-│
-├── routes/              # Thin Express routers — map URLs to controller functions
-│   ├── authRoutes.js    # POST /api/auth/register, /login
-│   ├── uploadRoutes.js  # POST /api/files (file upload pipeline)
-│   ├── libraryRoutes.js # GET/DELETE/PUT material library endpoints
-│   ├── youtubeRoutes.js # POST /api/youtube/generate
-│   ├── newsRoutes.js    # POST /api/news/generate
-│   ├── creativeRoutes.js# POST /api/creative/generate
-│   ├── aiRoutes.js      # AI proxy endpoints (translate, image prompt, etc.)
-│   ├── reelsRoutes.js   # Swipeable quiz feed
-│   ├── notionRoutes.js  # Notion import/sync
-│   ├── imageRoutes.js   # External image proxy
-│   ├── userRoutes.js    # Profile stats, solve tracking
-│   └── adminRoutes.js   # Admin dashboard (own key auth)
-│
-├── controllers/         # Business logic
-│   ├── authController.js     # Register/login with bcrypt + Mongo→File fallback
-│   ├── uploadController.js   # Parse → AI generate → fetch images → save
-│   ├── libraryController.js  # Library CRUD, summaries, "generate more", reels
-│   ├── youtubeController.js  # Fetch transcript → AI generate
-│   ├── newsController.js     # Fetch article → AI generate
-│   ├── creativeController.js # Creative works quiz generation
-│   ├── aiController.js       # Server-side AI proxy (uses server API key)
-│   ├── notionController.js   # Notion page sync
-│   ├── imageController.js    # Image generation/proxy
-│   ├── reelsController.js    # Reels feed management
-│   └── userController.js     # Profile aggregation, activity logging
-│
-├── models/              # MongoDB schemas
-│   ├── Material.js      # Uploaded materials + embedded question schema
-│   ├── User.js          # User accounts (userId, hashed password, nickname)
-│   ├── ActivityLog.js   # Per-user action log (uploads, solves)
-│   └── ReelsBuffer.js   # Swipeable question queue per user
-│
-├── services/            # External integrations
-│   ├── youtubeService.js # Fetch YouTube transcripts
-│   ├── notionService.js  # Fetch Notion page content
-│   ├── newsService.js    # Fetch/parse news articles
-│   └── imageService.js   # Question background image generation
-│
-├── middleware/
-│   └── auth.js          # JWT auth middleware + generateToken helper
-│
-├── utils/
-│   ├── dbShim.js        # getDB/saveDB — tries MongoDB, falls back to file store
-│   ├── fileStore.js     # JSON flat-file persistence (no DB needed)
-│   ├── logger.js        # Activity logging utility
-│   ├── user.js          # getUserID helper (reads from req.user)
-│   ├── log.js           # Console logging wrapper
-│   └── analyticsDB.js   # Analytics helpers
-│
-├── config/
-│   └── db.js            # MongoDB connection setup
-│
-└── public/              # Frontend SPA
-    ├── index.html       # Single HTML file with all screen sections
-    ├── client_app.js    # Main SPA logic (~316KB) — views, quiz gameplay, API calls
-    ├── clientAI.js      # Client-side Gemini calls (user's own API key)
-    ├── clientAuth.js    # Login/register form logic
-    ├── clientDB.js      # IndexedDB wrapper for offline caching
-    ├── clientBridge.js  # Capacitor bridge for iOS native features
-    ├── clientParser.js  # Client-side PDF/DOCX parsing (pdf.js + mammoth.js)
-    ├── style.css        # Studio Ghibli-inspired nature palette
-    ├── sw.js            # Service worker (PWA offline support)
-    ├── manifest.json    # PWA manifest
-    └── admin.html       # Admin dashboard page
+
+### 2. `Question` (Embedded in Material)
+```javascript
+{
+  type: String, // "MCQ" or "SAQ" (Short Answer)
+  question: String, // The generated question text
+  options: [String], // Array of 4 options (for MCQ)
+  correctAnswer: Number, // Index (0-3) of the correct option
+  idealAnswer: String, // For SAQ type
+  explanation: String, // Why the answer is correct
+  imagePrompt: String, // Prompt used to generate the background image
+  imageUrl: String, // Generated via /api/proxy/image
+  isLiked: Boolean
+}
+```
+
+### 3. `ActivityLog`
+Tracks user interaction for the Profile dashboard.
+```javascript
+{
+  userId: String,
+  action: String, // 'solve_question', 'upload', 'rename_file'
+  details: Mixed (Object), // e.g., { count: 5, correct: 3, materialName: "Biology 101" }
+  timestamp: Date
+}
+```
+
+### 4. `ReelsBuffer`
+Stores the queue of upcoming "swipeable" flashcards for a specific user.
+```javascript
+{
+  userId: String,
+  questions: [Mixed], // Precalculated array of question objects mixed from different Materials
+  updatedAt: Date
+}
 ```
 
 ---
 
-## Key Data Flows
+## 5. Core API Endpoints
 
-### Upload → Quiz
-```
-User uploads file
-  → POST /api/files  (uploadRoutes.js + Multer)
-  → uploadController.js
-      ├── documentParser.js  extracts raw text
-      ├── aiService.js       generateQuestions() + generateSummary() in parallel
-      └── Picsum Photos      fetches a background image per question
-  → dbShim.js  saves Material to MongoDB (or flat-file fallback)
-  → Response: material object with questions array
-  → client_app.js  starts quiz session in browser
-```
+All endpoints are prefixed with `/api` and (except Auth/Admin) require a `Bearer <token>` JWT in the `Authorization` header.
 
-### YouTube → Quiz
-```
-User pastes YouTube URL
-  → POST /api/youtube/generate
-  → youtubeController.js
-      ├── youtubeService.js  fetches transcript
-      └── aiService.js       generateQuestions() from transcript
-  → saved to Material model
-```
+### Authentication
+- `POST /api/auth/register` — Expects `{ userId, password, nickname }`.
+- `POST /api/auth/login` — Expects `{ userId, password }`. Returns `{ success, token, userId, nickname }`.
 
-### Auth Flow
-```
-Register/Login → POST /api/auth/*
-  → authController.js
-      ├── bcrypt hash/verify
-      ├── MongoDB User.findOne/create
-      └── flat-file fileUser fallback if DB unavailable
-  → generateToken() → JWT returned to client
-  → client stores token, sends as Authorization: Bearer <token>
-  → authMiddleware extracts user on every /api/ request
-```
+### Content Ingestion
+- `POST /api/files` — Upload a document via multipart/form-data (`file`). Parses via `documentParser.js` (pdfreader/mammoth), generates AI questions/summary, returns the created `Material`.
+- `POST /api/youtube/generate` — Expects `{ url }`. Uses `youtube-transcript` to scrape captions, feeds to AI, returns `Material`.
+- `POST /api/creative/generate` — Expects `{ title, author, type }`. Generates a trivia set purely from AI knowledge.
+
+### Library Management
+- `GET /api/library` — Returns an array of all `Material` objects for the logged-in user, augmented with `questionsSolved` stats.
+- `GET /api/materials/:id` — Get a specific material.
+- `POST /api/generate-more/:id` — Feeds the material's transcript back into the AI to generate 5 additional questions, avoiding duplicates.
+
+### Activity & Profile
+- `POST /api/track/solve` — Logs that a user answered a question (correctly or incorrectly). Updates `ActivityLog`.
+- `GET /api/profile` — Aggregates `ActivityLog` to return `totalQuestionsSolved`, `streak`, and `topSubjects`.
 
 ---
 
-## Dual-Storage Resilience
+## 6. Frontend Internals (Current Vanilla JS State)
 
-The `utils/dbShim.js` `getDB()` / `saveDB()` pattern is central to the app's design. Every controller calls these helpers instead of touching Mongoose directly. If MongoDB is unreachable (or `SKIP_MONGO=true`), the app silently falls back to reading/writing per-user JSON files — meaning **the app works with zero infrastructure**, just Node.js.
+The frontend lives entirely in `public/`. It is a complex Monolith designed to work primarily as a Capacitor mobile app wrapper.
+
+### Key Files
+1. **`index.html`**: The single HTML file. Contains structurally hidden `<section>` tags for every screen (`#login-screen`, `#library-section`, `#quiz-section`, `#upload-section`).
+2. **`client_app.js`**: A massive (~316KB) controller file. It manages:
+   - **Routing:** manually toggling `style.display = 'block' / 'none'` on sections.
+   - **Quiz Engine:** The state machine containing `currentQuizData`, `currentQuestionIndex`, and `score`. 
+   - **DOM Manipulation:** Manually injecting HTML for question cards, parsing Markdown via Regex, and attaching event listeners to options.
+3. **`clientBridge.js`**: The network interceptor. It overrides `window.fetch`. It intercepts calls to `/api/*`, attaches the JWT automatically, and routes failing calls to local storage (`clientDB.js`) if offline.
+4. **`clientDB.js`**: An IndexedDB wrapper. Databases: `users`, `library`, `activityLog`, `settings`, `imageCache`. This is the exact client-side mirror of the server's MongoDB models.
+5. **`clientAI.js`**: Can talk directly to Google Gemini API from the browser if the user supplies their own API key in Settings, bypassing server rate limits.
 
 ---
 
-## Dual AI Key Strategy
+## 7. AI Logic & Prompts (`aiService.js`)
 
-- **Server key** (`GEMINI_API_KEY` env var): used by all server-side controllers, rate-limited to 5 requests/minute per IP
-- **Client key**: power users can enter their own Gemini API key in the UI; `clientAI.js` calls the AI directly from the browser, bypassing the server limit
-- **Server proxy** (`/api/proxy/generate-questions`, etc.): fallback path for client-side AI calls that still want to use the server key
+All AI interactions use the **Gemini 1.5/2.0 Flash** models. 
+
+### Question Generation Strategy
+The AI is instructed with an extremely strict prompt (over 100 lines) to return exactly structured JSON. Key constraints forced on the AI:
+- **Tone:** "Expert coach and curious study buddy."
+- **Structure:** Targets specific question ratios:
+  - **Type 2:** Conceptual Understanding (Focus: Core concepts, "Why" and "How").
+  - **Type 1:** Scenario/Application (Focus: Real-world application).
+  - **Type 4:** Short Answer Reflection (Focus: Open-ended thought experiment).
+- **Format:** Strict JSON output without Markdown formatting (` ```json ... ``` ` is stripped out explicitly via regex). 
+- **Resilience:** Has a custom `repairTruncatedJSON()` function that attempts to fix JSON strings that get cut off by AI token limits.
 
 ---
 
-## Running Locally
+## 8. Development & Deployment
 
+### Environment Setup (`.env`)
 ```bash
-# Install dependencies
-npm install
-
-# Copy and fill in environment variables
-cp .env.example .env
-
-# Start dev server (with hot reload)
-npm run dev
-# → http://localhost:3001
-```
-
-### Environment Variables (`.env`)
-
-```
 PORT=3001
-MONGODB_URI=mongodb://localhost:27017/quiz-mvp   # Optional — app works without it
-NODE_ENV=development
+MONGODB_URI=mongodb://localhost:27017/quiz-mvp
 SKIP_MONGO=false
-GEMINI_API_KEY=your_google_gemini_api_key
-JWT_SECRET=your_jwt_secret
+GEMINI_API_KEY=your_google_ai_key
+JWT_SECRET=production_secret_here
 ```
 
----
+### Running Locally
+```bash
+npm install
+npm run dev
+```
 
-## Deployment
-
-Configured for **Render.com** via `render.yaml`. The app is also packaged for **iOS** via Capacitor (see `ios/` and `capacitor.config.json`). The `Dockerfile` is provided for container-based deploys.
+### Known Technical Debt / Bottlenecks
+- **Frontend Monolith:** `client_app.js` is too large for easy feature addition. Modifying the quiz UI state requires heavily coupled DOM lookups.
+- **`dbShim.js` Data Sync:** The local file-store fallback in production can cause data loss if multiple ephemeral containers are spinning up (e.g. on Render/Heroku).
+- **Client Bridge Complexity:** The `window.fetch` overriding in `clientBridge.js` makes tracking actual network requests difficult in standard DevTools.
