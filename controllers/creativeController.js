@@ -1,8 +1,8 @@
-import { generateQuestionsForCreativeWork, generateSummary } from '../aiService.js';
+import { generateQuestionsForCreativeWork, generateSummary } from '../services/questionGenerator.js';
 import { generateQuestionImage } from '../services/imageService.js';
 import { getDB, saveDB } from '../utils/dbShim.js';
 import { getUserID } from '../utils/user.js';
-import { logActivity } from '../utils/logger.js';
+import { logActivity } from '../utils/activityLogger.js';
 
 export const generateCreativeQuiz = async (req, res) => {
     try {

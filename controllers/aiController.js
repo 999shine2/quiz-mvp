@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { generateQuestions, generateSummary, generateQuestionsForCreativeWork, generateSimilarQuestions } from '../aiService.js';
+import { generateQuestions, generateSummary, generateQuestionsForCreativeWork, generateSimilarQuestions } from '../services/questionGenerator.js';
 import fetch from 'node-fetch';
 import { log } from '../utils/log.js';
 

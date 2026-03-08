@@ -1,7 +1,7 @@
 import { ActivityLog } from '../models/ActivityLog.js';
 import { getDB } from '../utils/dbShim.js'; // Fallback if using shim for files, otherwise direct model usage
 import { getUserID } from '../utils/user.js';
-import { logActivity as logActivityUtil } from '../utils/logger.js'; // Use util to avoid re-implementation
+import { logActivity as logActivityUtil } from '../utils/activityLogger.js'; // Use util to avoid re-implementation
 
 import { fileActivityLog } from '../utils/fileStore.js'; // Fallback
 

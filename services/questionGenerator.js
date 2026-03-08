@@ -1,34 +1,11 @@
+// Question generation functions
+// Extracted from the monolithic aiService.js
+
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { GoogleGenAI } from "@google/genai";
-import { spawn } from 'child_process';
-
-// Restored Key
-// API Key from environment only
-const defaultApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-
-const VALID_CATEGORIES = [
-    "Business",
-    "Finance / Investing",
-    "Science",
-    "Technology",
-    "Health / Medicine",
-    "Engineering",
-    "Design",
-    "Philosophy / Thinking",
-    "Career / Education",
-    "Politics / Society"
-];
+import { defaultApiKey, VALID_CATEGORIES, sanitizeInput, fixJsonStringNewlines, repairTruncatedJSON, sleep } from './aiUtils.js';
 
 async function generateQuestions(text, apiKey, count = 5, title = "", relatedContext = "", userProfile = null, distribution = "standard", avoidQuestions = []) {
     const key = apiKey || defaultApiKey;
-    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-    // SHARED SANITIZATION FUNCTION (prevents Gemini API pattern errors)
-    const sanitizeInput = (str) => {
-        if (!str) return '';
-        // Remove problematic characters while preserving Unicode (Korean, Chinese, Japanese, etc.)
-        return str.replace(/[^\w\s가-힣一-龯ぁ-んァ-ン\-''.,!?&:()]/g, '').trim();
-    };
 
     // Sanitize all text inputs before sending to Gemini
     const cleanTitle = sanitizeInput(title);
@@ -38,7 +15,7 @@ async function generateQuestions(text, apiKey, count = 5, title = "", relatedCon
     // Basic validation to ensure key isn't a placeholder
     if (!key || key === 'YOUR_API_KEY_HERE' || key.length < 10) {
         console.warn('No valid API key provided, returning mock questions');
-        return getMockQuestions("No Valid API Key Provided (Check logic)");
+        throw new Error('No valid Gemini API key configured. Set GEMINI_API_KEY in your .env file.');
     }
 
     try {
@@ -51,13 +28,11 @@ async function generateQuestions(text, apiKey, count = 5, title = "", relatedCon
         });
 
         // Determine Logic: Adaptive Ratios based on whether context exists
-        // Fix: Safe check for context existence
         const safeContext = cleanContext || "";
         const hasContext = safeContext.trim().length > 50;
         let typeInstructions = '';
 
         if (distribution === 'conceptual') {
-            // CONCEPTUAL MODE (5 Questions - Type 2)
             typeInstructions = `
       **TONE & STYLE GUIDE (CRITICAL):**
       - **FRIENDLY & CONVERSATIONAL:** Do NOT sound like a standardized test.
@@ -69,7 +44,6 @@ async function generateQuestions(text, apiKey, count = 5, title = "", relatedCon
          - Label: End with " - T2".
             `;
         } else if (distribution === 'applicable') {
-            // APPLICABLE MODE (5 Questions - Mix)
             typeInstructions = `
       **TONE & STYLE GUIDE (CRITICAL):**
       - **FRIENDLY & CONVERSATIONAL:** Do NOT sound like a standardized test.
@@ -87,7 +61,6 @@ async function generateQuestions(text, apiKey, count = 5, title = "", relatedCon
          - Label: None needed (type field handles it).
             `;
         } else if (distribution === 'news-hook') {
-            // NEWS HOOK MODE (Curiosity Driver)
             typeInstructions = `
       **GOAL: INDUCE CURIOSITY (CRITICAL - EXTREME CONCISENESS):**
       - The user has **NOT** read this article yet.
@@ -117,7 +90,6 @@ async function generateQuestions(text, apiKey, count = 5, title = "", relatedCon
          - Ensure exactly 5 questions.
             `;
         } else {
-            // STANDARD MODE (Default 10 Questions)
             typeInstructions = `
                 ** TONE & STYLE GUIDE (CRITICAL - CREATIVE STYLE):**
        - **ROLE:** You are an expert coach and curious study buddy.
@@ -340,7 +312,6 @@ async function generateQuestions(text, apiKey, count = 5, title = "", relatedCon
 
         let parsedResponse;
         try {
-            // Double-check if the string is still empty or looks invalid before parsing
             if (!jsonString.startsWith('{') && !jsonString.startsWith('[')) {
                 throw new Error("Response does not contain a JSON object");
             }
@@ -363,7 +334,7 @@ async function generateQuestions(text, apiKey, count = 5, title = "", relatedCon
                 }
 
                 console.warn('AI produced invalid JSON. Falling back to mock data.');
-                return getMockQuestions("JSON Parse Error: " + parseError.message);
+                throw new Error('AI returned invalid JSON that could not be repaired. Please try again.');
             }
         }
 
@@ -386,7 +357,6 @@ async function generateQuestions(text, apiKey, count = 5, title = "", relatedCon
         }
 
         if (Array.isArray(parsed)) {
-            // Handle edge case where AI returns array directly
             return { questions: parsed, subjectEmoji: '📄', suggestedTitle: 'Study Guide', isMock: false };
         }
         return {
@@ -407,87 +377,8 @@ async function generateQuestions(text, apiKey, count = 5, title = "", relatedCon
     }
 }
 
-// Helper: Fix unescaped newlines/tabs inside JSON string values
-function fixJsonStringNewlines(jsonStr) {
-    let fixed = '';
-    let inString = false;
-    let escape = false;
-    for (let i = 0; i < jsonStr.length; i++) {
-        const ch = jsonStr[i];
-        if (escape) { fixed += ch; escape = false; continue; }
-        if (ch === '\\' && inString) { fixed += ch; escape = true; continue; }
-        if (ch === '"') { inString = !inString; fixed += ch; continue; }
-        if (inString) {
-            if (ch === '\n') { fixed += '\\n'; continue; }
-            if (ch === '\r') { continue; }
-            if (ch === '\t') { fixed += ' '; continue; }
-        }
-        fixed += ch;
-    }
-    return fixed;
-}
-
-// Helper: Repair Truncated JSON
-function repairTruncatedJSON(jsonStr) {
-    // 1. Find the "questions" array
-    const qIndex = jsonStr.indexOf('"questions"');
-    if (qIndex === -1) throw new Error("No questions array found");
-
-    // 2. Find the array start '['
-    const arrayStart = jsonStr.indexOf('[', qIndex);
-    if (arrayStart === -1) throw new Error("No array start found");
-
-    // 3. Find the last successfully closed object '}'
-    // We scan backwards from the end
-    let lastClose = -1;
-    let balance = 0;
-
-    // Simple heuristic: search for "}," from the end, or just "}" if it's the very last one (unlikely if truncated)
-    // Actually, if truncated, we might have `... "some prop": "val` or `... "some prop"`
-    // We want to slice up to the last `}` that closes a question object.
-
-    // Robust approach: find the last `}` that is part of the questions array
-    // Let's assume the array content is standard: `[{...}, {...}, ...`
-
-    const lastObjectClose = jsonStr.lastIndexOf('}');
-    if (lastObjectClose <= arrayStart) throw new Error("No completed objects found in array");
-
-    // We need to verify if this `}` is a top-level object close (i.e., question object) or nested.
-    // Given the simple structure, `}` usually closes the question object.
-
-    // Strategy:
-    // 1. Cut the string at `lastObjectClose + 1`.
-    // 2. Append `]}` to close the questions array and the root object.
-    // 3. Hope that `lastObjectClose` was indeed a question closer.
-    // 4. If it was nested (e.g. inside options), this might fail, but it's worth a shot.
-
-    // Refined Strategy:
-    // Look for `},` pattern which separates objects.
-    const lastCommaClose = jsonStr.lastIndexOf('},');
-    let cutPoint = -1;
-
-    if (lastCommaClose > arrayStart) {
-        // We have at least one object followed by a comma. 
-        // We cut AFTER the `}`. 
-        cutPoint = lastCommaClose + 1;
-    } else {
-        // Maybe we have only one object and it was closed? Or truncation happened inside the first one.
-        // If truncation happened inside the first one, we can't save much.
-        // If we have `[{...} ...`, but no comma (maybe partial second object), `lastIndexOf('}')` is the first object.
-        cutPoint = lastObjectClose + 1;
-    }
-
-    // Construct attempted valid JSON
-    // We assume the root started with `{`
-    let candidate = jsonStr.substring(0, cutPoint) + ']}';
-
-    // Verify? No inside here we just throw on the caller if `JSON.parse` fails again.
-    return candidate;
-}
-
 
 async function generateSummary(text, apiKey, title = "") {
-    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
     const key = apiKey || defaultApiKey;
     if (!key || key === 'YOUR_API_KEY_HERE') return "Summary not available (Missing API Key).";
 
@@ -546,15 +437,7 @@ async function generateSummary(text, apiKey, title = "") {
 
 async function generateQuestionsForCreativeWork(title, author, type, apiKey, count = 5) {
     const key = apiKey || defaultApiKey;
-    if (!key || key === 'YOUR_API_KEY_HERE') return getMockQuestions("Missing API Key");
-
-    // Sanitize inputs to prevent Gemini API pattern validation errors
-    const sanitizeInput = (str) => {
-        if (!str) return '';
-        // Remove problematic characters while keeping letters, numbers, spaces, and common punctuation
-        // Supports Unicode (Korean, Chinese, Japanese, etc.)
-        return str.replace(/[^\w\s가-힣一-龯ぁ-んァ-ン\-''.,!?&]/g, '').trim();
-    };
+    if (!key || key === 'YOUR_API_KEY_HERE') throw new Error('No valid Gemini API key configured. Set GEMINI_API_KEY in your .env file.');
 
     const cleanTitle = sanitizeInput(title);
     const cleanAuthor = author ? sanitizeInput(author) : '';
@@ -782,7 +665,6 @@ async function generateQuestionsForCreativeWork(title, author, type, apiKey, cou
     } catch (error) {
         console.error("Error generating creative work questions:", error);
 
-        // Check for specific error types
         if (error.status === 429 || error.message?.includes('429') || error.message?.includes('Resource exhausted')) {
             throw new Error('Rate limit exceeded. Please wait a few minutes and try again.');
         }
@@ -800,126 +682,6 @@ async function generateQuestionsForCreativeWork(title, author, type, apiKey, cou
     }
 }
 
-/**
- * Generates a visual description for image generation based on question content.
- * Pollinations requires English visual descriptions, not raw questions.
- */
-async function generateImagePrompt(questionText, apiKey, explanationText = "") {
-    const key = apiKey || defaultApiKey;
-    if (!key || key === 'YOUR_API_KEY_HERE') {
-        // Fallback: extract visual concepts from question
-        return extractVisualConcepts(questionText);
-    }
-
-    try {
-        const genAI = new GoogleGenerativeAI(key);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-
-        const prompt = `Convert this question into a SHORT, VISUAL description for image generation (max 10 words).
-Focus on the main subject/concept, not the question structure.
-Output ONLY the visual description in English, nothing else.
-
-Question: ${questionText}
-
-Example:
-Question: "What impact do food trends have on society?"
-Output: "diverse food trends influencing modern society"
-
-Question: "How does AI affect daily life?"
-Output: "artificial intelligence transforming everyday activities"
-
-Output:`;
-
-        const result = await model.generateContent(prompt);
-        const description = result.response.text().trim()
-            .replace(/^["']|["']$/g, '') // Remove quotes
-            .substring(0, 200); // Limit length
-
-        console.log(`[Image Prompt] "${questionText.substring(0, 30)}..." → "${description}"`);
-        return description;
-
-    } catch (error) {
-        console.error('Image prompt generation error:', error.message);
-        return extractVisualConcepts(questionText);
-    }
-}
-
-// Fallback: Extract key visual concepts from question text
-function extractVisualConcepts(questionText) {
-    // Remove question markers and extract nouns
-    let visual = questionText
-        .replace(/\?|-\s*T\d+/g, '') // Remove ? and T1/T2 markers
-        .replace(/What|How|Why|When|Where|Which|Is|Does|Do|Can|Will|Should|Could|Would/gi, '')
-        .trim();
-
-    // Take first 100 chars of meaningful content
-    visual = visual.substring(0, 100).trim();
-
-    return visual || "abstract concept illustration";
-}
-
-
-// Gemini 2.5 Flash Image Generaiton (Nano Banana)
-// Gemini 2.5 Flash Image Generaiton (Nano Banana)
-async function generateImageWithGeminiFlash(prompt, apiKey) {
-    // DIRECT POLLINATIONS.AI INTEGRATION
-    // We delegate to the robust curl-based function defined below to ensure proper Header Auth
-    try {
-        // Use the POLLINATIONS_API_KEY from env, not the Gemini key passed in
-        const pKey = process.env.POLLINATIONS_API_KEY || "";
-        return await generateImageWithPollinations(prompt, pKey);
-
-    } catch (error) {
-        console.error("Pollinations (via Flash) Generation Failed:", error.message);
-        return "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
-    }
-}
-
-/**
- * Native Google Imagen 3 Integration
- * Calls the Imagen 3 API using the user's Gemini API Key.
- */
-async function generateImageWithImagen(prompt, apiKey) {
-    const key = apiKey || defaultApiKey;
-    if (!key || key.length < 10) throw new Error("Missing Gemini API Key");
-
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${key}`;
-
-    const body = {
-        instances: [
-            { prompt: prompt }
-        ],
-        parameters: {
-            sampleCount: 1,
-            aspectRatio: "3:4" // Preferred for mobile-style quiz cards
-        }
-    };
-
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`Imagen API Error ${response.status}:`, errorText);
-            throw new Error(`Imagen API failed with status ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        if (data.predictions && data.predictions.length > 0) {
-            return data.predictions[0].bytesBase64Encoded;
-        } else {
-            throw new Error("No image data in Imagen response");
-        }
-    } catch (error) {
-        console.error("Imagen Request Failed:", error);
-        throw error;
-    }
-}
 
 /**
  * Generates 2 similar questions based on a "seed" question and its context.
@@ -928,7 +690,7 @@ async function generateImageWithImagen(prompt, apiKey) {
 async function generateSimilarQuestions(seedQuestion, context, type, apiKey, existingQuestions = [], sourceTitle = "this material") {
     const key = apiKey || defaultApiKey;
     const genAI = new GoogleGenerativeAI(key);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" }); // Use available model
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     const typeLabel = type === 'SAQ' ? 'Type 4 (Short Answer)' : `Type ${type} (Multiple Choice)`;
 
@@ -1023,7 +785,7 @@ async function generateSimilarQuestions(seedQuestion, context, type, apiKey, exi
         const result = await model.generateContent({
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
             generationConfig: {
-                temperature: 0.7, // Lower temperature for more focused, consistent output
+                temperature: 0.7,
                 topP: 0.9,
                 topK: 40
             }
@@ -1032,7 +794,6 @@ async function generateSimilarQuestions(seedQuestion, context, type, apiKey, exi
         const text = response.text();
 
         // Parse JSON
-        // Create a robust cleanup function
         const cleanText = text
             .replace(/```json/g, '')
             .replace(/```/g, '')
@@ -1048,103 +809,7 @@ async function generateSimilarQuestions(seedQuestion, context, type, apiKey, exi
 
 export {
     generateQuestions,
-    generateSimilarQuestions, // Export new function
-    generateImagePrompt,
-    generateImageWithGeminiFlash,
-    generateImageWithImagen,
+    generateSimilarQuestions,
     generateSummary,
     generateQuestionsForCreativeWork
 };
-
-export async function generateImageWithSiliconFlow(prompt, apiKey) {
-    // USE POLLINATIONS API WITH AUTHENTICATION
-    console.log(`[Pollinations] 🎨 Starting generation with API key...`);
-    console.log(`[Pollinations] 📝 Prompt: "${prompt.substring(0, 60)}..."`);
-
-    // Get API key from environment
-    const pollinationsKey = process.env.POLLINATIONS_API_KEY || apiKey;
-
-    if (!pollinationsKey) {
-        console.error(`[Pollinations] ❌ No API key found!`);
-        throw new Error('POLLINATIONS_API_KEY not set');
-    }
-
-    const maskedKey = `${pollinationsKey.substring(0, 5)}...${pollinationsKey.substring(pollinationsKey.length - 4)}`;
-    console.log(`[Pollinations] 🔑 Using Key: ${maskedKey}`);
-
-    try {
-        // Pollinations pollen-tier endpoint (gen.pollinations.ai for sk_ keys)
-        const encodedPrompt = encodeURIComponent(prompt);
-        const randomSeed = Math.floor(Math.random() * 1000000);
-        const fullUrl = `https://gen.pollinations.ai/image/${encodedPrompt}?width=1024&height=1024&seed=${randomSeed}&nologo=true&model=flux&key=${pollinationsKey}`;
-
-        console.log(`[Pollinations] 🌐 API URL: ${fullUrl.substring(0, 100)}...`);
-
-        // 30-second timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => {
-            console.error(`[Pollinations] ⏱️ Request timeout after 30 seconds`);
-            controller.abort();
-        }, 30000);
-
-        const response = await fetch(fullUrl, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${pollinationsKey}`,
-                'Accept': 'image/*'
-            },
-            signal: controller.signal,
-            redirect: 'follow'
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-            throw new Error(`Pollinations API returned status ${response.status}`);
-        }
-
-        const imageBuffer = await response.arrayBuffer();
-        console.log(`[Pollinations] Downloaded ${imageBuffer.byteLength} bytes`);
-
-        const base64 = Buffer.from(imageBuffer).toString('base64');
-        console.log(`[Pollinations] ✅ Success! (${base64.length} chars base64)`);
-        return base64;
-
-    } catch (error) {
-        console.error(`[Pollinations] ❌ API generation failed: ${error.message}`);
-
-        // FALLBACK 1: Try Picsum (random image service)
-        try {
-            const hash = Math.random().toString(36).substring(7);
-            const picsumUrl = `https://picsum.photos/seed/${hash}/800/600`;
-            console.log(`[Picsum] 🔄 Attempting fallback: ${picsumUrl}`);
-
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-            const res = await fetch(picsumUrl, {
-                signal: controller.signal,
-                redirect: 'follow'
-            });
-            clearTimeout(timeoutId);
-
-            if (!res.ok) {
-                throw new Error(`Picsum returned status ${res.status}`);
-            }
-
-            const buf = await res.arrayBuffer();
-            console.log(`[Picsum] Downloaded ${buf.byteLength} bytes`);
-
-            const base64 = Buffer.from(buf).toString('base64');
-            console.log(`[Picsum] ✅ Fallback success`);
-            return base64;
-
-        } catch (e) {
-            console.error(`[Picsum] ❌ Fallback failed: ${e.message}`);
-
-            // SAFETY NET: Return 1x1 red pixel
-            console.warn("[Safety Net] 🟥 Returning red pixel fallback");
-            return "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKwAEAAAAABJRU5ErkJggg==";
-        }
-    }
-}

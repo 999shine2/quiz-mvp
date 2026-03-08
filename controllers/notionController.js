@@ -1,5 +1,5 @@
 import { linkNotionAccount, fetchNotionPages, fetchPageContent } from '../services/notionService.js';
-import { generateQuestions } from '../aiService.js';
+import { generateQuestions } from '../services/questionGenerator.js';
 import { getDB, saveDB } from '../utils/dbShim.js';
 
 export const loginNotion = (req, res) => {

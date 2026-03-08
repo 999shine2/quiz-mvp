@@ -4,11 +4,11 @@ import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import fetch from 'node-fetch';
 
-import { parseDocument } from '../documentParser.js';
-import { generateQuestions, generateSummary } from '../aiService.js';
+import { parseDocument } from '../services/documentParser.js';
+import { generateQuestions, generateSummary } from '../services/questionGenerator.js';
 import { getDB, saveDB } from '../utils/dbShim.js';
 import { getUserID } from '../utils/user.js';
-import { logActivity } from '../utils/logger.js';
+import { logActivity } from '../utils/activityLogger.js';
 import { log } from '../utils/log.js';
 
 const __filename = fileURLToPath(import.meta.url);

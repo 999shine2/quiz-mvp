@@ -1,10 +1,8 @@
 import path from 'path';
 import { ReelsBuffer } from '../models/ReelsBuffer.js';
 import { generateQuestionImage } from '../services/imageService.js';
-import { generateQuestions } from '../aiService.js';
-import { parseDocument } from '../documentParser.js';
-import { extractVideoId, fetchYouTubeTranscript } from '../services/youtubeService.js';
-import { generateSimilarQuestions } from '../aiService.js';
+import { generateQuestions, generateSimilarQuestions } from '../services/questionGenerator.js';
+import { parseDocument } from '../services/documentParser.js';
 import { getDB, saveDB } from '../utils/dbShim.js';
 import { getUserID } from '../utils/user.js';
 import { log } from '../utils/log.js';

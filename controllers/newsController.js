@@ -1,5 +1,5 @@
 import { fetchNewsForInterest, fetchArticleContent } from '../services/newsService.js';
-import { generateQuestions } from '../aiService.js';
+import { generateQuestions } from '../services/questionGenerator.js';
 import { getDB, saveDB } from '../utils/dbShim.js';
 import { getUserID } from '../utils/user.js';
 

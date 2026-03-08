@@ -6,12 +6,12 @@ import { ActivityLog } from '../models/ActivityLog.js';
 import { Material } from '../models/Material.js';
 import { ReelsBuffer } from '../models/ReelsBuffer.js';
 import { generateQuestionImage } from '../services/imageService.js';
-import { generateSummary, generateQuestions } from '../aiService.js';
-import { parseDocument } from '../documentParser.js';
+import { generateSummary, generateQuestions } from '../services/questionGenerator.js';
+import { parseDocument } from '../services/documentParser.js';
 import { extractVideoId, fetchYouTubeTranscript } from '../services/youtubeService.js';
 import { getDB, saveDB } from '../utils/dbShim.js';
 import { getUserID } from '../utils/user.js';
-import { logActivity } from '../utils/logger.js';
+import { logActivity } from '../utils/activityLogger.js';
 import { log } from '../utils/log.js';
 
 const __filename = fileURLToPath(import.meta.url);

@@ -1,115 +1,63 @@
-import Database from 'better-sqlite3';
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
+// Analytics tracking using MongoDB
+// Migrated from better-sqlite3 to Mongoose for production persistence
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Ensure data directory exists
-const dataDir = path.join(__dirname, '..', 'data');
-if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-}
-
-const dbPath = path.join(dataDir, 'analytics.db');
-const db = new Database(dbPath);
-
-// Enable WAL mode for better performance
-db.pragma('journal_mode = WAL');
-
-// Create events table
-db.exec(`
-    CREATE TABLE IF NOT EXISTS events (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        userId TEXT NOT NULL,
-        event TEXT NOT NULL,
-        detail TEXT DEFAULT '',
-        timestamp TEXT NOT NULL
-    )
-`);
-
-// Create index for faster queries
-db.exec(`CREATE INDEX IF NOT EXISTS idx_events_userId ON events(userId)`);
-db.exec(`CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp)`);
-db.exec(`CREATE INDEX IF NOT EXISTS idx_events_event ON events(event)`);
-
-// Prepared statements
-const insertEvent = db.prepare(
-    `INSERT INTO events (userId, event, detail, timestamp) VALUES (?, ?, ?, ?)`
-);
-
-const countByEvent = db.prepare(
-    `SELECT COUNT(*) as count FROM events WHERE event = ?`
-);
-
-const countDistinctUsers = db.prepare(
-    `SELECT COUNT(DISTINCT userId) as count FROM events WHERE event = 'register'`
-);
-
-const todayEvents = db.prepare(
-    `SELECT COUNT(*) as count FROM events WHERE event = ? AND timestamp >= ?`
-);
-
-const recentEvents = db.prepare(
-    `SELECT * FROM events ORDER BY id DESC LIMIT ?`
-);
+import { AnalyticsEvent } from '../models/AnalyticsEvent.js';
 
 // Track an event
 export function trackEvent(userId, event, detail = '') {
-    const timestamp = new Date().toISOString();
-    insertEvent.run(userId, event, detail, timestamp);
+    // Fire-and-forget: don't await to avoid blocking the request
+    AnalyticsEvent.create({
+        userId,
+        event,
+        detail,
+        timestamp: new Date()
+    }).catch(err => {
+        console.error('[Analytics] Failed to track event:', err.message);
+    });
 }
 
 // Overview stats
-export function getStats() {
+export async function getStats() {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
-    const todayStr = todayStart.toISOString();
 
-    // Yesterday
-    const yesterdayStart = new Date(todayStart);
-    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
-    const yesterdayStr = yesterdayStart.toISOString();
-
-    // 7 days ago
     const weekAgo = new Date(todayStart);
     weekAgo.setDate(weekAgo.getDate() - 7);
-    const weekAgoStr = weekAgo.toISOString();
 
-    const totalUsers = countDistinctUsers.get().count;
-    const totalUploads = countByEvent.get('upload').count;
-    const totalSolves = countByEvent.get('solve').count;
-    const totalLogins = countByEvent.get('login').count;
+    const [
+        totalUsers,
+        totalUploads,
+        totalSolves,
+        totalLogins,
+        todaySolves,
+        todayUploads,
+        todayLogins,
+        activeToday,
+        newUsersToday,
+        activeWeek,
+        weekSolves,
+        returningUsers
+    ] = await Promise.all([
+        AnalyticsEvent.distinct('userId', { event: 'register' }).then(ids => ids.length),
+        AnalyticsEvent.countDocuments({ event: 'upload' }),
+        AnalyticsEvent.countDocuments({ event: 'solve' }),
+        AnalyticsEvent.countDocuments({ event: 'login' }),
+        AnalyticsEvent.countDocuments({ event: 'solve', timestamp: { $gte: todayStart } }),
+        AnalyticsEvent.countDocuments({ event: 'upload', timestamp: { $gte: todayStart } }),
+        AnalyticsEvent.countDocuments({ event: 'login', timestamp: { $gte: todayStart } }),
+        AnalyticsEvent.distinct('userId', { timestamp: { $gte: todayStart } }).then(ids => ids.length),
+        AnalyticsEvent.countDocuments({ event: 'register', timestamp: { $gte: todayStart } }),
+        AnalyticsEvent.distinct('userId', { timestamp: { $gte: weekAgo } }).then(ids => ids.length),
+        AnalyticsEvent.countDocuments({ event: 'solve', timestamp: { $gte: weekAgo } }),
+        AnalyticsEvent.aggregate([
+            { $match: { event: 'login' } },
+            { $group: { _id: '$userId', count: { $sum: 1 } } },
+            { $match: { count: { $gt: 1 } } },
+            { $count: 'total' }
+        ]).then(result => result[0]?.total || 0)
+    ]);
 
-    const todaySolves = todayEvents.get('solve', todayStr).count;
-    const todayUploads = todayEvents.get('upload', todayStr).count;
-    const todayLogins = todayEvents.get('login', todayStr).count;
-
-    const activeToday = db.prepare(
-        `SELECT COUNT(DISTINCT userId) as count FROM events WHERE timestamp >= ?`
-    ).get(todayStr).count;
-
-    // New users today
-    const newUsersToday = db.prepare(
-        `SELECT COUNT(*) as count FROM events WHERE event = 'register' AND timestamp >= ?`
-    ).get(todayStr).count;
-
-    // Active users in the last 7 days
-    const activeWeek = db.prepare(
-        `SELECT COUNT(DISTINCT userId) as count FROM events WHERE timestamp >= ?`
-    ).get(weekAgoStr).count;
-
-    // Average solves per active user (last 7 days)
-    const weekSolves = db.prepare(
-        `SELECT COUNT(*) as count FROM events WHERE event = 'solve' AND timestamp >= ?`
-    ).get(weekAgoStr).count;
     const avgSolvesPerUser = activeWeek > 0 ? Math.round((weekSolves / activeWeek) * 10) / 10 : 0;
-
-    // Returning users (logged in more than once)
-    const returningUsers = db.prepare(
-        `SELECT COUNT(*) as count FROM (SELECT userId FROM events WHERE event = 'login' GROUP BY userId HAVING COUNT(*) > 1)`
-    ).get().count;
 
     return {
         totalUsers, totalUploads, totalSolves, totalLogins,
@@ -119,34 +67,50 @@ export function getStats() {
 }
 
 // Per-user breakdown
-export function getUsers() {
-    return db.prepare(`
-        SELECT
-            userId,
-            MIN(CASE WHEN event = 'register' THEN timestamp END) as signupDate,
-            MAX(timestamp) as lastActive,
-            SUM(CASE WHEN event = 'upload' THEN 1 ELSE 0 END) as uploads,
-            SUM(CASE WHEN event = 'solve' THEN 1 ELSE 0 END) as solveEvents,
-            SUM(CASE WHEN event = 'login' THEN 1 ELSE 0 END) as logins,
-            COUNT(*) as totalEvents
-        FROM events
-        GROUP BY userId
-        ORDER BY lastActive DESC
-    `).all();
+export async function getUsers() {
+    return AnalyticsEvent.aggregate([
+        {
+            $group: {
+                _id: '$userId',
+                signupDate: { $min: { $cond: [{ $eq: ['$event', 'register'] }, '$timestamp', null] } },
+                lastActive: { $max: '$timestamp' },
+                uploads: { $sum: { $cond: [{ $eq: ['$event', 'upload'] }, 1, 0] } },
+                solveEvents: { $sum: { $cond: [{ $eq: ['$event', 'solve'] }, 1, 0] } },
+                logins: { $sum: { $cond: [{ $eq: ['$event', 'login'] }, 1, 0] } },
+                totalEvents: { $sum: 1 }
+            }
+        },
+        { $sort: { lastActive: -1 } },
+        {
+            $project: {
+                userId: '$_id',
+                _id: 0,
+                signupDate: 1,
+                lastActive: 1,
+                uploads: 1,
+                solveEvents: 1,
+                logins: 1,
+                totalEvents: 1
+            }
+        }
+    ]);
 }
 
 // Recent events
-export function getRecentEvents(limit = 50) {
-    return recentEvents.all(limit);
+export async function getRecentEvents(limit = 50) {
+    return AnalyticsEvent.find()
+        .sort({ timestamp: -1 })
+        .limit(limit)
+        .lean();
 }
 
 // Today's activity timeline
-export function getTodayTimeline() {
+export async function getTodayTimeline() {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
-    return db.prepare(
-        `SELECT * FROM events WHERE timestamp >= ? ORDER BY id DESC`
-    ).all(todayStart.toISOString());
+    return AnalyticsEvent.find({ timestamp: { $gte: todayStart } })
+        .sort({ timestamp: -1 })
+        .lean();
 }
 
 export default { trackEvent, getStats, getUsers, getRecentEvents, getTodayTimeline };

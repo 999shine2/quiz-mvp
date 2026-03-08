@@ -2,9 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
 import { fileURLToPath } from 'url';
 import { authMiddleware, requireAuth } from './middleware/auth.js';
+import { globalLimiter, authLimiter, aiLimiter, uploadLimiter } from './middleware/rateLimiters.js';
 
 // Routes
 import authRoutes from './routes/authRoutes.js';
@@ -21,7 +21,6 @@ import aiRoutes from './routes/aiRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 
 import connectDB from './config/db.js';
-import { syncNotion } from './controllers/notionController.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -48,38 +47,6 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // 5. Rate Limiters
-const globalLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 300, // 300 requests per 15 min per IP
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Too many requests. Please try again later.' },
-});
-
-const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 20, // 20 login/register attempts per 15 min
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Too many authentication attempts. Please try again later.' },
-});
-
-const aiLimiter = rateLimit({
-    windowMs: 60 * 1000, // 1 minute
-    max: 5, // 5 AI generation requests per minute
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'AI generation rate limit reached. Please wait a moment before trying again.' },
-});
-
-const uploadLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 5, // 5 uploads per minute
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Upload rate limit reached. Please wait a moment.' },
-});
-
 app.use('/api/', globalLimiter);
 
 // 6. Static Files
@@ -113,11 +80,6 @@ app.use('/api', requireAuth, userRoutes);
 app.use('/api/reels', requireAuth, reelsRoutes);
 app.use('/api/notion', requireAuth, notionRoutes);
 
-// Compatibility Route
-const compatRouter = express.Router();
-compatRouter.post('/sync-notion', requireAuth, syncNotion);
-app.use('/api', compatRouter);
-
 // Share Target — receives YouTube URLs from OS share sheet
 app.get('/share', (req, res) => {
     const sharedUrl = req.query.url || req.query.text || '';
@@ -126,6 +88,14 @@ app.get('/share', (req, res) => {
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+    console.error('[Error]', err.message);
+    res.status(err.status || 500).json({
+        error: err.message || 'Internal server error'
+    });
 });
 
 export default app;

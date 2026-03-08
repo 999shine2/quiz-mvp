@@ -1,0 +1,229 @@
+.container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #1a1a2e;
+    overflow: hidden;
+}
+
+.loading,
+.empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 0.8rem;
+    color: rgba(255, 255, 255, 0.7);
+    font-family: var(--font-body);
+    text-align: center;
+    padding: 2rem;
+}
+
+.empty h2 {
+    color: white;
+    font-family: var(--font-heading);
+}
+
+.spinner {
+    font-size: 2rem;
+    animation: spin 2s linear infinite;
+}
+
+/* Background Image */
+.bgImage {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    filter: brightness(0.4) blur(1px);
+    z-index: 0;
+}
+
+/* Overlay */
+.overlay {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    height: 100%;
+    padding: 2rem 1.5rem 120px;
+}
+
+/* Source */
+.source {
+    font-family: var(--font-heading);
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.5);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+}
+
+/* Question Area */
+.questionArea {
+    animation: fadeUp 0.4s ease;
+}
+
+.questionText {
+    font-family: var(--font-body);
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: white;
+    line-height: 1.5;
+    margin: 0 0 1rem;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+/* Options */
+.options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.option {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    border: 1.5px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    border-radius: 14px;
+    padding: 12px 16px;
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+}
+
+.option:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+.selected {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: white;
+}
+
+.correct {
+    background: rgba(16, 185, 129, 0.7) !important;
+    border-color: #10B981 !important;
+    font-weight: 700;
+}
+
+.incorrect {
+    background: rgba(239, 68, 68, 0.7) !important;
+    border-color: #EF4444 !important;
+    font-weight: 700;
+}
+
+/* Tap Reveal */
+.tapReveal {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    border: 1.5px dashed rgba(255, 255, 255, 0.4);
+    color: rgba(255, 255, 255, 0.8);
+    border-radius: 14px;
+    padding: 14px;
+    width: 100%;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tapReveal:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+/* Explanation */
+.explanation {
+    margin-top: 12px;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 14px;
+    border-left: 3px solid rgba(107, 140, 66, 0.8);
+    animation: fadeUp 0.3s ease;
+}
+
+.answerText {
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #10B981;
+    margin: 0 0 6px;
+}
+
+.explText {
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.8);
+    line-height: 1.4;
+    margin: 0;
+}
+
+/* Counter */
+.counter {
+    position: absolute;
+    top: 60px;
+    right: 1.5rem;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Swipe Hint */
+.swipeHint {
+    text-align: center;
+    margin-top: 16px;
+    font-family: var(--font-body);
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.3);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes fadeUp {
+    from {
+        opacity: 0;
+        transform: translateY(15px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 0.3;
+    }
+
+    50% {
+        opacity: 0.6;
+    }
+}

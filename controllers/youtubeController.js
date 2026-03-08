@@ -1,9 +1,9 @@
 import { extractVideoId, fetchVideoMetadata, fetchYouTubeTranscript } from '../services/youtubeService.js';
-import { generateQuestions, generateSummary } from '../aiService.js';
+import { generateQuestions, generateSummary } from '../services/questionGenerator.js';
 import { generateQuestionImage } from '../services/imageService.js';
 import { getDB, saveDB } from '../utils/dbShim.js';
 import { getUserID } from '../utils/user.js';
-import { logActivity } from '../utils/logger.js';
+import { logActivity } from '../utils/activityLogger.js';
 import { log } from '../utils/log.js';
 
 export const generateYouTubeQuiz = async (req, res) => {
